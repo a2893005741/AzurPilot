@@ -225,6 +225,9 @@ class AzurStats:
         Returns:
             bool: If success
         """
+        if genre not in ['opsi_hazard1_leveling', 'opsi_meowfficer_farming']:
+            return False
+        
         output = io.BytesIO()
         Image.fromarray(image, mode='RGB').save(output, format='png')
         output.seek(0)

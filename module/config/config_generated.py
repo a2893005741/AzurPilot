@@ -804,6 +804,7 @@ class GeneratedConfig:
     OpsiSimulatorParameters_Cl1Time = 0
     OpsiSimulatorParameters_Meow3Time = 0
     OpsiSimulatorParameters_Meow5Time = 0
+    OpsiSimulatorParameters_Deterministic = False
 
     # Group `Storage`
     Storage_Storage = {}

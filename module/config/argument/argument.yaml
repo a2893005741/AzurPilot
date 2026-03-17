@@ -1308,3 +1308,4 @@ OpsiSimulatorParameters:
   Cl1Time: 0
   Meow3Time: 0
   Meow5Time: 0
+  Deterministic: false

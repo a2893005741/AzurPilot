@@ -13705,6 +13705,10 @@
       "Meow5Time": {
         "type": "input",
         "value": 0
+      },
+      "Deterministic": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {

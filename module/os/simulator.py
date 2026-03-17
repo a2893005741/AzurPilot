@@ -53,7 +53,36 @@ class OSSimulator:
     STATUS_CRASHED = 2
     STATUS_DONE = 3
     
-    AKASHI = np.array([20, 40, 50, 100, 100, 200] + [0] * 22)
+    AKASHI = np.array([20, 40, 50, 100, 100, 200] + [0] * 18)
+    '''
+    明石可能卖的24种物品 (纯臆测)
+    6种行动力箱子:
+    能源补给箱（小）*1
+    能源补给箱（小）*2
+    能源补给箱（中）*1
+    能源补给箱（中）*2
+    能源补给箱（大）*1
+    能源补给箱（大）*2
+    18种垃圾:
+    特别兑换凭证*5
+    特别兑换凭证*5
+    特别兑换凭证*10
+    特别兑换凭证*10
+    应急维修箱*1
+    应急维修箱*5
+    豪华维修箱*1
+    豪华维修箱*5
+    应急维修箱（组件）*1
+    应急维修箱（组件）*3
+    豪华应急维修箱（组件）*1
+    豪华应急维修箱（组件）*3
+    效能样本-攻击*1
+    效能样本-攻击*1
+    效能样本-耐久*1
+    效能样本-耐久*1
+    效能样本-恢复*1
+    效能样本-恢复*1
+    '''
     
     AP_RECOVER = 1 / 600
     AP_COSTS = {
@@ -316,8 +345,8 @@ class OSSimulator:
         if n_akashi == 0:
             return
         
-        # 不放回采样28个里选6个 （我们numpy真是太厉害了）
-        rand_mat = np.random.rand(28, n_akashi)
+        # 不放回采样24个里选6个 （我们numpy真是太厉害了）
+        rand_mat = np.random.rand(len(self.AKASHI), n_akashi)
         indices = np.argpartition(rand_mat, 6, axis=0)[:6, :]
         sampled_values = self.AKASHI[indices]
         result = sampled_values.sum(axis=0)

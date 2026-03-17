@@ -4941,6 +4941,10 @@
     "Meow5Time": {
       "name": "OpsiSimulatorParameters.Meow5Time.name",
       "help": "OpsiSimulatorParameters.Meow5Time.help"
+    },
+    "Deterministic": {
+      "name": "OpsiSimulatorParameters.Deterministic.name",
+      "help": "OpsiSimulatorParameters.Deterministic.help"
     }
   },
   "Storage": {

@@ -414,11 +414,8 @@ class OSSimulator:
 
         # 绘制折线图
         try:
-            import numpy as np
-            import os
             import sys
             import subprocess
-            from datetime import datetime
             
             if not self.deterministic:
                 self.logger.info("非确定性模式，跳过绘制折线图（平均值在概率模拟下无意义）")

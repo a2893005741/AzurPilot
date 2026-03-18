@@ -1,8 +1,7 @@
-# Image processing
 numpy
 scipy
 pillow
-opencv-python
+opencv-python<4.5.5 # pip19
 imageio
 
 # Device connection
@@ -11,33 +10,23 @@ uiautomator2==2.16.17
 uiautomator2cache==0.3.0.1
 wrapt
 retrying
-lz4
-psutil
-
-# Utils
-rich
-tqdm
 jellyfish
 pyyaml
 inflection
-pydantic
-aiofiles
-prettytable
-anyio
-
-# Pushing
-onepush
-pycryptodome
-pypresence
-
-# Ocr
-cnocr
-# mxnet
-
-# Webui
-pywebio
+pywebio==1.7.1
 starlette
+anyio
 uvicorn[standard]
-alas-webapp
+aiofiles
+wrapt
+pypresence==4.2.1
+alas-webapp==0.3.7
+rich==11.2.0 # https://github.com/LmeSzinc/AzurLaneAutoScript/issues/1463
 zerorpc
 pyzmq
+onepush
+pydantic
+psutil<5.9.4 # pip19
+av
+mxnet-alas
+watchfiles<0.15 # pip19, from uvicorn

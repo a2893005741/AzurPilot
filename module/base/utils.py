@@ -743,7 +743,7 @@ def rgb2hsv(image):
         np.ndarray: Hue (0~360), Saturation (0~100), Value (0~100).
     """
     image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV).astype(float)
-    cv2.multiply(image, (360 / 180, 100 / 255, 100 / 255, 0), dst=image)
+    image *= (360 / 180, 100 / 255, 100 / 255)
     return image
 
 

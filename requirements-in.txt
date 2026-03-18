@@ -21,12 +21,12 @@ aiofiles
 wrapt
 pypresence==4.2.1
 alas-webapp==0.3.7
-rich==11.2.0 # https://github.com/LmeSzinc/AzurLaneAutoScript/issues/1463
+rich==11.2.0
 zerorpc
 pyzmq
 onepush
 pydantic
-psutil<5.9.4 # pip19
+psutil
 av
+chardet
 mxnet-alas
-watchfiles<0.15 # pip19, from uvicorn

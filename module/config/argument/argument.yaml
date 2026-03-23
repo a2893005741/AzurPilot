@@ -1287,7 +1287,7 @@ EmulatorManagement:
     value: 4
     validate: [1, 24]
 OpsiSimulatorParameters:
-  Samples: 1000
+  Samples: 100000
   Draw:
     value: do_not
     option: [do_not, single_sample, multi_sample]

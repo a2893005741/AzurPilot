@@ -385,6 +385,8 @@ class GlobeOperation(ActionPointHandler):
                     logger.warning(f'Unable to enter zone {zone}, neighbouring zones may not have been explored')
                     raise OSExploreError
                 if click_timer.reached():
+                    # 点太快会进不去 浪费时间
+                    time.sleep(0.2)
                     self.device.click(ZONE_ENTRANCE)
                     click_count += 1
                     click_timer.reset()

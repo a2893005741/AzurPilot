@@ -791,7 +791,7 @@ class GeneratedConfig:
     EmulatorManagement_RestartIntervalHours = 4
 
     # Group `OpsiSimulatorParameters`
-    OpsiSimulatorParameters_Samples = 1000
+    OpsiSimulatorParameters_Samples = 100000
     OpsiSimulatorParameters_Draw = 'do_not'  # do_not, single_sample, multi_sample
     OpsiSimulatorParameters_TotalTime = 0
     OpsiSimulatorParameters_TimeUseRatio = 0.8

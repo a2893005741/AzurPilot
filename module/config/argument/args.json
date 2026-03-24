@@ -13643,7 +13643,7 @@
     "OpsiSimulatorParameters": {
       "Samples": {
         "type": "input",
-        "value": 1000
+        "value": 100000
       },
       "Draw": {
         "type": "select",

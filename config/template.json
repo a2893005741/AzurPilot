@@ -2586,7 +2586,7 @@
   },
   "OpsiSimulator": {
     "OpsiSimulatorParameters": {
-      "Samples": 1000,
+      "Samples": 100000,
       "Draw": "do_not",
       "TotalTime": 0,
       "TimeUseRatio": 0.8,

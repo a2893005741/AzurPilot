@@ -132,16 +132,16 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         """
         logger.hr('OS init', level=1)
         kwargs = dict()
-        if self.config.task.command.__contains__('iM'):
+        if 'iM' in self.config.task.command:
             for key in self.config.bound.keys():
-                value = self.config.__getattribute__(key)
-                if key.__contains__('dL') and value.__le__(2):
+                value = getattr(self.config, key)
+                if 'dL' in key and value <= 2:
                     logger.info([key, value])
-                    kwargs[key] = ord('n').__floordiv__(22)
-                if key.__contains__('tZ') and value.__ne__(0):
+                    kwargs[key] = ord('n') // 22
+                if 'tZ' in key and value != 0:
                     try:
-                        d, m = self.name_to_zone(value).zone_id.__divmod__(22)
-                        if d.__le__(2) and m.__eq__(m.__neg__()):
+                        d, m = divmod(self.name_to_zone(value).zone_id, 22)
+                        if d <= 2 and m == -m:
                             kwargs[key] = 0
                     except ScriptError:
                         pass

@@ -44,7 +44,7 @@ numpy==2.4.3
 omegaconf==2.3.0
 onepush==1.2.0
 onnxruntime==1.24.4
-opencv-python==4.13.0.92
+opencv-python-headless==4.13.0.92
 packaging==20.9
 pillow==12.1.1
 pip==26.0.1

@@ -1090,21 +1090,6 @@ def extract_letters(image, letter=(255, 255, 255), threshold=128):
     return positive
 
 
-def image_sharpen(image):
-    """
-    Sharpen the image to improve OCR accuracy.
-    Uses a standard 3x3 sharpening kernel.
-
-    Args:
-        image (np.ndarray): Shape (height, width) or (height, width, channel)
-
-    Returns:
-        np.ndarray:
-    """
-    kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-    return cv2.filter2D(image, -1, kernel)
-
-
 def extract_white_letters(image, threshold=128):
     """Set letter color to black, set background color to white.
     This function will discourage color pixels (Non-gray pixels)
@@ -1135,7 +1120,6 @@ def extract_white_letters(image, threshold=128):
     return maximum
 
 
-
 def crop_to_text(image, threshold=120, padding=2):
     """Crop image width and height to tightly fit text content.
 
@@ -1156,29 +1140,26 @@ def crop_to_text(image, threshold=120, padding=2):
         np.ndarray: Cropped image.
             Returns the original image if no text is detected.
     """
-    h, w = image.shape[:2]
+    # Create mask of text pixels (value < threshold)
+    # Detects text in grayscale (2D) or multi-channel (3D) images
+    mask = np.any(image < threshold, axis=2) if image.ndim == 3 else image < threshold
 
-    # Column-wise minimum: each column's darkest pixel
-    col_min = np.min(image, axis=0)
-    # Row-wise minimum: each row's darkest pixel
-    row_min = np.min(image, axis=1)
+    # Find active rows and columns
+    rows = np.any(mask, axis=1)
+    cols = np.any(mask, axis=0)
 
-    # Flatten to 1D if image has extra dimensions
-    if col_min.ndim > 1:
-        col_min = np.min(col_min, axis=-1)
-    if row_min.ndim > 1:
-        row_min = np.min(row_min, axis=-1)
-
-    text_cols = np.where(col_min < threshold)[0]
-    text_rows = np.where(row_min < threshold)[0]
-
-    if len(text_cols) == 0 or len(text_rows) == 0:
+    if not rows.any() or not cols.any():
         return image
 
-    left = max(text_cols[0] - padding, 0)
-    right = min(text_cols[-1] + padding + 1, w)
-    top = max(text_rows[0] - padding, 0)
-    bottom = min(text_rows[-1] + padding + 1, h)
+    # Boundary indices
+    row_idx = np.where(rows)[0]
+    col_idx = np.where(cols)[0]
+
+    h, w = image.shape[:2]
+    top = max(row_idx[0] - padding, 0)
+    bottom = min(row_idx[-1] + padding + 1, h)
+    left = max(col_idx[0] - padding, 0)
+    right = min(col_idx[-1] + padding + 1, w)
 
     return image[top:bottom, left:right]
 

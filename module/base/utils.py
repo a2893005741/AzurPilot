@@ -1024,6 +1024,8 @@ def color_similarity_2d(image, color):
     # r, g, b = cv2.split(cv2.subtract((*color, 0), image))
     # negative = cv2.max(cv2.max(r, g), b)
     # return cv2.subtract(255, cv2.add(positive, negative))
+    if isinstance(color, tuple) and len(color) == 3:
+        color = (*color, 0)
     diff = cv2.subtract(image, color)
     r, g, b = cv2.split(diff)
     cv2.max(r, g, dst=r)

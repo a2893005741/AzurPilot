@@ -54,8 +54,14 @@ class OcrBenchmark(DaemonBase):
         if avg_ms < 300.0:  return 'Very Slow', 'red'
         return 'Ultra Slow', 'bold red'
 
-    def _run_single(self, model_name, dataset_prefix, subfolder):
+    def _run_single(self, model_name, dataset_prefix, subfolder, use_gpu=None):
         logger.hr(f'Benchmark: {model_name.upper()} model  |  dataset: {dataset_prefix}', level=2)
+
+        # --- Dynamic GPU config ---
+        if use_gpu is not None:
+            self.config.override(Optimization_OcrDevice='gpu' if use_gpu else 'cpu')
+            from module.ocr.al_ocr import reset_ocr_model
+            reset_ocr_model()
 
         # --- Init model ---
         ocr = AlOcr(name=model_name)
@@ -197,6 +203,25 @@ class OcrBenchmark(DaemonBase):
         logger.print(table, justify='center')
         logger.info('如果您的 Status 显示 Error 或 Warning，请使用 CPU 运行 OCR')
 
+
+
+    def run_simple_ocr_benchmark(self):
+        """
+        Returns:
+            str: 'gpu' if accuracy is 100% on a simple test set, else 'cpu'.
+        """
+        logger.hr('Simple OCR Benchmark', level=1)
+        # Use English model and sets_num dataset for a quick test
+        # Try GPU first
+        logger.info('Testing OCR with GPU...')
+        res = self._run_single('en', 'sets_num', 'sets_num', use_gpu=True)
+        
+        if res and res['accuracy'] >= 100.0:
+            logger.info('OCR accuracy is 100% with GPU, use GPU.')
+            return 'gpu'
+        else:
+            logger.info('OCR accuracy is not 100% with GPU or test failed, fallback to CPU.')
+            return 'cpu'
 
 
 def run_ocr_benchmark(config):

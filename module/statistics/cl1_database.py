@@ -628,6 +628,8 @@ class Cl1Database:
 
         entries = data.get('commission_income_entries', [])
         entries.append(entry)
+        if len(entries) > 5000:
+            entries = entries[-5000:]
         data['commission_income_entries'] = entries
         self.save_stats(instance, month, data)
 

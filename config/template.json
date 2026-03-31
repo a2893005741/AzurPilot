@@ -826,7 +826,7 @@
       "ServerUpdate": "00:00"
     },
     "Campaign": {
-      "Name": "12-4",
+      "Name": "D3",
       "Event": "campaign_main",
       "Mode": "normal",
       "UseClearMode": true,

@@ -4269,7 +4269,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "campaign_main"
+          "event_20220728_cn",
+          "event_20260326_cn"
+        ],
+        "option_cn": [
+          "event_20260326_cn"
+        ],
+        "option_en": [
+          "event_20260326_cn"
+        ],
+        "option_jp": [
+          "event_20260326_cn"
+        ],
+        "option_tw": [
+          "event_20220728_cn"
+        ],
+        "option_bold": [
+          "event_20220728_cn",
+          "event_20260326_cn"
         ]
       },
       "Mode": {

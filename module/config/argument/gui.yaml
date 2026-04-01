@@ -266,6 +266,7 @@ Stat:
   CommissionIncomeHeaderCount:
   CommissionIncomeHeaderAvg:
   CommissionIncomeTotalCommissions:
+  CommissionIncomeRecentTitle:
 
 OpsiScheduling:
   UseSmartSchedulingOperationCoinsPreserve:

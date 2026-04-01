@@ -5288,7 +5288,8 @@
       "CommissionIncomeHeaderTotal": "Total",
       "CommissionIncomeHeaderCount": "Commissions",
       "CommissionIncomeHeaderAvg": "Avg/Run",
-      "CommissionIncomeTotalCommissions": "Total commissions: {value}"
+      "CommissionIncomeTotalCommissions": "Total commissions: {value}",
+      "CommissionIncomeRecentTitle": "Recent Commissions"
     },
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "Gui.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve",

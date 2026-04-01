@@ -501,10 +501,7 @@ class RewardCommission(UI, InfoHandler):
             from module.statistics.cl1_database import db as cl1_db
             from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_ITEMS_3
             from module.handler.assets import INFO_BAR_1
-            from module.statistics.assets import GET_ITEMS_ODD
-            from module.base.utils import crop, rgb2gray
             import os
-            import numpy as np
 
             template_folder = os.path.join('.', 'assets', 'stats_commission_items')
             if not os.path.exists(template_folder):

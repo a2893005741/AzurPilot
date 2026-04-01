@@ -5288,7 +5288,8 @@
       "CommissionIncomeHeaderTotal": "Gui.Stat.CommissionIncomeHeaderTotal",
       "CommissionIncomeHeaderCount": "Gui.Stat.CommissionIncomeHeaderCount",
       "CommissionIncomeHeaderAvg": "Gui.Stat.CommissionIncomeHeaderAvg",
-      "CommissionIncomeTotalCommissions": "Gui.Stat.CommissionIncomeTotalCommissions"
+      "CommissionIncomeTotalCommissions": "Gui.Stat.CommissionIncomeTotalCommissions",
+      "CommissionIncomeRecentTitle": "Gui.Stat.CommissionIncomeRecentTitle"
     },
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "🧠 天才智能切换开关",

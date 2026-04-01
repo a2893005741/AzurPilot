@@ -146,3 +146,32 @@ def get_commission_income_summary(
         'items': items_summary,
         'detail_rows': detail_rows,
     }
+
+
+def get_recent_commission_entries(
+    instance: str,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """获取最近 N 条委托收益记录（按时间降序）。
+
+    Args:
+        instance: 实例名称
+        limit: 返回条数上限，默认 10
+
+    Returns:
+        最近 N 条委托记录，每条包含 ts, items, commission_count
+    """
+    now = datetime.now()
+    all_entries = []
+    for offset in range(3):
+        dt = now - timedelta(days=offset * 32)
+        entries = cl1_db.get_commission_income(instance, dt.year, dt.month)
+        for entry in entries:
+            ts = _parse_ts(entry.get('ts', ''))
+            if ts is not None:
+                all_entries.append(entry)
+        if len(all_entries) >= limit:
+            break
+
+    all_entries.sort(key=lambda e: e.get('ts', ''), reverse=True)
+    return all_entries[:limit]

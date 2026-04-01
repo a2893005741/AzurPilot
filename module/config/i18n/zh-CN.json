@@ -5288,7 +5288,8 @@
       "CommissionIncomeHeaderTotal": "数量",
       "CommissionIncomeHeaderCount": "委托次数",
       "CommissionIncomeHeaderAvg": "平均/次",
-      "CommissionIncomeTotalCommissions": "委托总次数: {value}"
+      "CommissionIncomeTotalCommissions": "委托总次数: {value}",
+      "CommissionIncomeRecentTitle": "最近委托记录"
     },
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "Gui.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve",

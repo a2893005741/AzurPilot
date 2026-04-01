@@ -1127,8 +1127,10 @@ class AlasGUI(Frame):
 
         def _render_commission_income():
             try:
+                from datetime import datetime
                 from module.statistics.commission_income_stats import (
                     get_commission_income_summary,
+                    get_recent_commission_entries,
                     COMMISSION_ITEM_META,
                 )
                 instance_name = self.alas_name if hasattr(self, 'alas_name') and self.alas_name else None
@@ -1141,17 +1143,26 @@ class AlasGUI(Frame):
                         put_text(t("Gui.Stat.CommissionIncomeNoData"))
                     return
 
+                item_name_map = {
+                    'Gem': t("Gui.Stat.CommissionIncomeItemGem"),
+                    'Cube': t("Gui.Stat.CommissionIncomeItemCube"),
+                    'Chip': t("Gui.Stat.CommissionIncomeItemChip"),
+                    'Oil': t("Gui.Stat.CommissionIncomeItemOil"),
+                    'Coin': t("Gui.Stat.CommissionIncomeItemCoin"),
+                }
+
                 period = self._commission_income_period
                 summary = get_commission_income_summary(instance_name, period=period)
+                recent = get_recent_commission_entries(instance_name, limit=10)
 
                 with use_scope("commission_income", clear=True):
                     put_html(f'<h3 style="margin: 8px 0 4px 0; color: #333;">{t("Gui.Stat.CommissionIncomeTitle")}</h3>')
 
                     current_view = period
                     put_row([
-                        put_button(t("Gui.Stat.CommissionIncomeMonth"), onclick=lambda: _switch_ci_period('month'), color="off" if current_view != 'month' else "primary"),
-                        put_button(t("Gui.Stat.CommissionIncomeWeek"), onclick=lambda: _switch_ci_period('week'), color="off" if current_view != 'week' else "primary"),
                         put_button(t("Gui.Stat.CommissionIncomeDay"), onclick=lambda: _switch_ci_period('day'), color="off" if current_view != 'day' else "primary"),
+                        put_button(t("Gui.Stat.CommissionIncomeWeek"), onclick=lambda: _switch_ci_period('week'), color="off" if current_view != 'week' else "primary"),
+                        put_button(t("Gui.Stat.CommissionIncomeMonth"), onclick=lambda: _switch_ci_period('month'), color="off" if current_view != 'month' else "primary"),
                         put_button(t("Gui.Stat.Refresh"), onclick=_render_commission_income, color="off"),
                     ], size="auto")
 
@@ -1160,39 +1171,62 @@ class AlasGUI(Frame):
                     rows = summary.get('detail_rows', [])
                     if not rows or all(r['total'] == 0 for r in rows):
                         put_html(f'<p style="margin: 12px 0; color: #999; font-size: 13px;">{t("Gui.Stat.CommissionIncomeNoData")}</p>')
-                        return
+                    else:
+                        table_html = '<table style="width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px;">'
+                        table_html += '<thead><tr style="background: #f5f5f5; border-bottom: 2px solid #e0e0e0;">'
+                        table_html += f'<th style="padding: 8px; text-align: left;">{t("Gui.Stat.CommissionIncomeHeaderItem")}</th>'
+                        table_html += f'<th style="padding: 8px; text-align: right;">{t("Gui.Stat.CommissionIncomeHeaderTotal")}</th>'
+                        table_html += f'<th style="padding: 8px; text-align: right;">{t("Gui.Stat.CommissionIncomeHeaderCount")}</th>'
+                        table_html += f'<th style="padding: 8px; text-align: right;">{t("Gui.Stat.CommissionIncomeHeaderAvg")}</th>'
+                        table_html += '</tr></thead><tbody>'
 
-                    item_name_map = {
-                        'Gem': t("Gui.Stat.CommissionIncomeItemGem"),
-                        'Cube': t("Gui.Stat.CommissionIncomeItemCube"),
-                        'Chip': t("Gui.Stat.CommissionIncomeItemChip"),
-                        'Oil': t("Gui.Stat.CommissionIncomeItemOil"),
-                        'Coin': t("Gui.Stat.CommissionIncomeItemCoin"),
-                    }
+                        for row in rows:
+                            if row['total'] == 0:
+                                continue
+                            display_name = item_name_map.get(row['name'], row['name'])
+                            table_html += '<tr style="border-bottom: 1px solid #eee;">'
+                            table_html += f'<td style="padding: 6px 8px;">'
+                            table_html += f'<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: {row["color"]}; margin-right: 8px; vertical-align: middle;"></span>'
+                            table_html += f'{display_name}</td>'
+                            table_html += f'<td style="padding: 6px 8px; text-align: right; font-weight: 500;">{row["total"]}</td>'
+                            table_html += f'<td style="padding: 6px 8px; text-align: right; color: #666;">{row["count"]}</td>'
+                            table_html += f'<td style="padding: 6px 8px; text-align: right; color: #666;">{row["avg"]}</td>'
+                            table_html += '</tr>'
 
-                    table_html = '<table style="width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px;">'
-                    table_html += '<thead><tr style="background: #f5f5f5; border-bottom: 2px solid #e0e0e0;">'
-                    table_html += f'<th style="padding: 8px; text-align: left;">{t("Gui.Stat.CommissionIncomeHeaderItem")}</th>'
-                    table_html += f'<th style="padding: 8px; text-align: right;">{t("Gui.Stat.CommissionIncomeHeaderTotal")}</th>'
-                    table_html += f'<th style="padding: 8px; text-align: right;">{t("Gui.Stat.CommissionIncomeHeaderCount")}</th>'
-                    table_html += f'<th style="padding: 8px; text-align: right;">{t("Gui.Stat.CommissionIncomeHeaderAvg")}</th>'
-                    table_html += '</tr></thead><tbody>'
+                        table_html += '</tbody></table>'
+                        put_html(table_html)
 
-                    for row in rows:
-                        if row['total'] == 0:
-                            continue
-                        display_name = item_name_map.get(row['name'], row['name'])
-                        table_html += '<tr style="border-bottom: 1px solid #eee;">'
-                        table_html += f'<td style="padding: 6px 8px;">'
-                        table_html += f'<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: {row["color"]}; margin-right: 8px; vertical-align: middle;"></span>'
-                        table_html += f'{display_name}</td>'
-                        table_html += f'<td style="padding: 6px 8px; text-align: right; font-weight: 500;">{row["total"]}</td>'
-                        table_html += f'<td style="padding: 6px 8px; text-align: right; color: #666;">{row["count"]}</td>'
-                        table_html += f'<td style="padding: 6px 8px; text-align: right; color: #666;">{row["avg"]}</td>'
-                        table_html += '</tr>'
-
-                    table_html += '</tbody></table>'
-                    put_html(table_html)
+                    if recent:
+                        put_html(f'<h4 style="margin: 16px 0 6px 0; color: #555; font-size: 14px; border-top: 1px solid #e0e0e0; padding-top: 10px;">{t("Gui.Stat.CommissionIncomeRecentTitle")}</h4>')
+                        recent_html = '<div style="font-size: 13px;">'
+                        for entry in recent:
+                            ts = entry.get('ts', '')
+                            try:
+                                dt = datetime.fromisoformat(ts)
+                                time_str = dt.strftime('%m-%d %H:%M')
+                            except Exception:
+                                time_str = ts[:16] if ts else '--'
+                            items = entry.get('items', {})
+                            item_parts = []
+                            for item_name in ['Gem', 'Cube', 'Chip', 'Oil', 'Coin']:
+                                amount = items.get(item_name)
+                                if amount and int(amount) > 0:
+                                    meta = COMMISSION_ITEM_META.get(item_name, {'color': '#888'})
+                                    display = item_name_map.get(item_name, item_name)
+                                    item_parts.append(
+                                        f'<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {meta["color"]}; margin-right: 4px; vertical-align: middle;"></span>'
+                                        f'<span style="color: #444;">{display}</span>'
+                                        f'<span style="color: #888; margin-left: 2px;">x{int(amount)}</span>'
+                                    )
+                            items_str = ' '.join(item_parts) if item_parts else '<span style="color: #999;">--</span>'
+                            recent_html += (
+                                f'<div style="display: flex; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f0f0;">'
+                                f'<span style="color: #888; min-width: 80px; font-size: 12px;">{time_str}</span>'
+                                f'<span style="flex: 1;">{items_str}</span>'
+                                f'</div>'
+                            )
+                        recent_html += '</div>'
+                        put_html(recent_html)
 
             except Exception as e:
                 with use_scope("commission_income", clear=True):

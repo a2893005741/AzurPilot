@@ -1198,7 +1198,7 @@ class AlasGUI(Frame):
                         
                         icon_html = (
                             f'<div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: {row["color"]}1a; border-radius: 8px; flex-shrink: 0;">'
-                            f'<img src="{icon_path}" style="width: 24px; height: 24px; object-fit: contain;">'
+                            f'<img src="{icon_path}" style="width: 24px; height: 24px; object-fit: contain; background: transparent;">'
                             f'</div>'
                         ) if icon_path else f'<div style="width: 12px; height: 12px; border-radius: 50%; background: {row["color"]}; flex-shrink: 0;"></div>'
                         
@@ -1245,7 +1245,7 @@ class AlasGUI(Frame):
                             
                             icon_html = (
                                 f'<div style="width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; background: {row["color"]}1a; border-radius: 4px; flex-shrink: 0;">'
-                                f'<img src="{icon_path}" style="width: 18px; height: 18px; object-fit: contain;">'
+                                f'<img src="{icon_path}" style="width: 18px; height: 18px; object-fit: contain; background: transparent;">'
                                 f'</div>'
                             ) if icon_path else f'<div style="width: 8px; height: 8px; border-radius: 50%; background: {row["color"]}; flex-shrink: 0;"></div>'
                             
@@ -1288,7 +1288,7 @@ class AlasGUI(Frame):
                                 
                                 icon_html = (
                                     f'<div style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; background: {meta["color"]}1a; border-radius: 4px; margin-right: 6px; vertical-align: middle;">'
-                                    f'<img src="{icon_path}" style="width: 16px; height: 16px; object-fit: contain;">'
+                                    f'<img src="{icon_path}" style="width: 16px; height: 16px; object-fit: contain; background: transparent;">'
                                     f'</div>'
                                 ) if icon_path else f'<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: {meta["color"]}; margin-right: 4px;"></span>'
                                 

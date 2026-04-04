@@ -13,6 +13,9 @@ jobs:
       gitcode_key: ${{ secrets.GITCODE_PRIVATE_KEY }}
       gitcode_token: ${{ secrets.GITCODE_TOKEN }}
       gitcode_user: ${{ secrets.GITCODE_USER }}
+      gitcode_key_2: ${{ secrets.GITCODE_PRIVATE_KEY_1 }}
+      gitcode_token_2: ${{ secrets.GITCODE_TOKEN_2 }}
+      gitcode_user_2: ${{ secrets.GITCODE_USER_2 }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -51,7 +54,7 @@ jobs:
         with:
           src: 'github/${{ github.repository_owner }}'
           dst: 'gitcode/${{ secrets.GITCODE_USER_2 }}'
-          dst_key: ${{ secrets.GITCODE_PRIVATE_KEY_2 }}
+          dst_key: ${{ secrets.GITCODE_PRIVATE_KEY_1 }}
           dst_token: ${{ secrets.GITCODE_TOKEN_2 }}
           account_type: user
           static_list: ${{ github.event.repository.name }}

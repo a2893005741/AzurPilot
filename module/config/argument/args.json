@@ -445,7 +445,7 @@
       },
       "LlmAnalysis": {
         "type": "checkbox",
-        "value": false
+        "value": true
       },
       "LlmApiKey": {
         "type": "textarea",

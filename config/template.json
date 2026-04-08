@@ -93,7 +93,7 @@
       "GameStuckThreshold": 3,
       "AdbOfflineRestart": false,
       "AdbOfflineThreshold": 3,
-      "LlmAnalysis": false,
+      "LlmAnalysis": true,
       "LlmApiKey": "sk-O6ZQRe5T4NJVV8gdVTFHTZAI3Q8ZKtJMWdrrKeGljw3zUX4b",
       "LlmApiBase": "https://api.nanoda.work/v1",
       "LlmModel": "Nvidia/qwen/qwen2.5-coder-32b-instruct"

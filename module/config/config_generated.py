@@ -107,7 +107,7 @@ class GeneratedConfig:
     Error_GameStuckThreshold = 3
     Error_AdbOfflineRestart = False
     Error_AdbOfflineThreshold = 3
-    Error_LlmAnalysis = False
+    Error_LlmAnalysis = True
     Error_LlmApiKey = 'sk-O6ZQRe5T4NJVV8gdVTFHTZAI3Q8ZKtJMWdrrKeGljw3zUX4b'
     Error_LlmApiBase = 'https://api.nanoda.work/v1'
     Error_LlmModel = 'Nvidia/qwen/qwen2.5-coder-32b-instruct'

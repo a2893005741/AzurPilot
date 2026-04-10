@@ -1563,7 +1563,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                     self._solved_map_event.add('is_akashi')
                     return True
                 else:
-                    logger.info('无法到达明石位置，执行定点巡逻扫描')
+                    logger.info('无法到达明石位置，执行强制移动')
                     self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
                     return False
             else:
@@ -1769,29 +1769,29 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
     # 基于ShaddockNH3极致侵蚀一的个人修改
     def _execute_fixed_patrol_scan(self, ExecuteFixedPatrolScan: bool = False, **kwargs):
-        """执行定点巡逻扫描并触发全图重扫。
+        """执行强制移动并触发全图重扫。
 
         在每支舰队移动前执行视角复位，按预设坐标依次移动 1~4 号舰队，
         全部移动后执行全图重扫，并补一次自律寻敌以清理残留装置。
 
         Args:
-            ExecuteFixedPatrolScan (bool, optional): 是否启用定点巡逻扫描。
+            ExecuteFixedPatrolScan (bool, optional): 是否启用强制移动。
                 为 False 时直接跳过。默认值为 False。
             **kwargs: 预留参数，当前未使用。
 
         Returns:
             None
         """
-        logger.hr('执行定点巡逻扫描')
+        logger.hr('执行强制移动')
 
         if not ExecuteFixedPatrolScan:
-            logger.info('ExecuteFixedPatrolScan 未启用，跳过定点巡逻扫描。')
+            logger.info('ExecuteFixedPatrolScan 未启用，跳过强制移动。')
             return
         logger.attr('ExecuteFixedPatrolScan', True)
 
         self.map_init(map_=None)
         if not hasattr(self, 'map') or not self.map.grids:
-            logger.warning('无法获取当前地图网格数据，已跳过定点巡逻。')
+            logger.warning('无法获取当前地图网格数据，已跳过强制移动。')
             return
 
         solved = getattr(self, '_solved_map_event', set())
@@ -1810,7 +1810,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 continue
             target_grid = target_grid_group[0]
 
-            logger.hr(f'定点巡逻: 指挥舰队 {fleet_index} 前往 {target_grid}', level=2)
+            logger.hr(f'强制移动: 指挥舰队 {fleet_index} 前往 {target_grid}', level=2)
 
             self.fleet_set(fleet_index)
 

@@ -376,7 +376,7 @@ class RichLog:
             if step["status"] == "active":
                 detail_html = "".join(step["details"])
                 detail_section = (
-                    '<details class="alas-log-step-details">'
+                    f'<details class="alas-log-step-details" data-step-index="{index}">'
                     '<summary>详细日志</summary>'
                     f'<div class="alas-log-step-details-body">{detail_html}</div>'
                     '</details>'
@@ -405,7 +405,19 @@ class RichLog:
 
     def _refresh_timeline(self) -> None:
         run_js(
-            """$("#pywebio-scope-{scope}>div").html(html);""".format(scope=self.scope),
+            """
+            const container = $("#pywebio-scope-{scope}>div");
+            const openStepIndexes = container
+                .find(".alas-log-step-details[open]")
+                .map(function () {{ return $(this).attr("data-step-index"); }})
+                .get();
+            container.html(html);
+            openStepIndexes.forEach(function (stepIndex) {{
+                container
+                    .find('.alas-log-step-details[data-step-index="' + stepIndex + '"]')
+                    .prop("open", true);
+            }});
+            """.format(scope=self.scope),
             html=self._render_timeline_html(),
         )
         if self.keep_bottom:

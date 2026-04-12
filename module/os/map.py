@@ -2391,6 +2391,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         """处理单个塞壬研究装置交互。
 
         点击目标格后等待行走与事件触发，依据是否确认处理成功返回结果。
+        根据 SirenBug_Mode 配置选择探测策略：
+        - 'enemy': 探测隐藏的敌人（两次第1选项）
+        - 'resource': 探测隐藏的资源（两次第2选项，默认）
 
         Args:
             grid: 目标装置所在的可点击网格对象。
@@ -2407,7 +2410,17 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         # 移动舰队至塞壬研究装置，触发剧情
         self.device.click(grid)
 
-        with self.config.temporary(STORY_ALLOW_SKIP=False, OS_SIREN_DEVICE_USAGE='use_twice'):
+        # 根据 SirenBug_Mode 配置选择探测策略
+        task, _ = self._get_siren_bug_task_pair()
+        siren_bug_mode = self.config.cross_get(
+            keys=f"{task}.OpsiSirenBug.SirenBug_Mode",
+            default='resource'
+        )
+        # 根据策略选择状态值
+        usage_value = 'use_first_twice' if siren_bug_mode == 'enemy' else 'use_twice'
+        logger.info(f'[塞壬Bug装置] 选择探测策略: {siren_bug_mode} (状态值: {usage_value})')
+
+        with self.config.temporary(STORY_ALLOW_SKIP=False, OS_SIREN_DEVICE_USAGE=usage_value):
             result = self.wait_until_walk_stable(
                 drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4))
             
@@ -2417,7 +2430,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             raise RuntimeError('处理塞壬研究装置未触发事件')
             
         if self.is_siren_device_confirmed:
-            logger.info('已成功到达并处理塞壬研究装置')
+            log_msg = '(策略: 探测敌人)' if siren_bug_mode == 'enemy' else '(策略: 探测资源)'
+            logger.info(f'已成功到达并处理塞壬研究装置 {log_msg}')
             self._solved_map_event.add('is_scanning_device')
             return True
         

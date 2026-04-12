@@ -457,6 +457,11 @@ class RichLog:
         if self.keep_bottom:
             self.scroll()
 
+    def _sync_timeline_from_process(self, pm: ProcessManager) -> None:
+        self.timeline_steps = copy.deepcopy(getattr(pm, "timeline_steps", []))
+        self.processed_renderables_total = getattr(pm, "renderables_total", 0)
+        self._refresh_timeline()
+
     def _rebuild_timeline(self, renderables: List[ConsoleRenderable], pm: ProcessManager) -> None:
         self.timeline_steps = []
         self.processed_renderables_total = 0
@@ -532,9 +537,12 @@ class RichLog:
             last_snapshot = None
             while True:
                 total_renderables = getattr(pm, "renderables_total", len(pm.renderables))
-                snapshot = (total_renderables, pm.alive, pm.state)
+                timeline_version = getattr(pm, "timeline_version", 0)
+                snapshot = (total_renderables, timeline_version, pm.alive, pm.state)
                 if snapshot != last_snapshot:
-                    if self.processed_renderables_total == 0:
+                    if timeline_version:
+                        self._sync_timeline_from_process(pm)
+                    elif self.processed_renderables_total == 0:
                         self._rebuild_timeline(pm.renderables[:], pm)
                     else:
                         new_count = total_renderables - self.processed_renderables_total

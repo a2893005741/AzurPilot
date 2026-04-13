@@ -573,16 +573,19 @@ class OpsiMeowfficerFarming(CoinTaskMixin, OSMap):
                     else:
                         logger.info('探测装置搜索：全图扫描未发现装置')
 
-                # 步骤 5. 装置类型判断与记录
-                is_reconnaissance_destroyed = hasattr(self, '_last_siren_device_type') and self._last_siren_device_type == self.SIREN_DEVICE_TYPE_RECONNAISSANCE
+                # 步骤 5. 装置类型判断
+                # 根据是否有 map_get_items 事件判断装置类型
+                # - 如果有 map_get_items：信息收集装置（交互获得资源）
+                # - 否则：探测装置（无资源）
+                is_reconnaissance_device = 'map_get_items' in self._solved_map_event
                 
                 # 步骤 6. 记录与收尾
-                if not siren_detector_found or is_reconnaissance_destroyed:
+                if not siren_detector_found or is_reconnaissance_device:
                     # 两种情况需要由卡位舰队清理：
                     # 1. 未发现任何装置
-                    # 2. 发现的是信息收集装置（被破坏，不参与统计）
-                    if is_reconnaissance_destroyed:
-                        logger.hr(f'海域 {current_zone_id} 发现信息收集装置已被破坏，不参与统计', level=2)
+                    # 2. 发现的是信息收集装置（已交互获得资源，不参与统计）
+                    if is_reconnaissance_device:
+                        logger.hr(f'海域 {current_zone_id} 发现塞壬信息收集装置，已获得资源，不参与探测装置统计', level=2)
                     else:
                         logger.info(f'海域 {current_zone_id} 未发现任何装置')
                     
@@ -592,13 +595,11 @@ class OpsiMeowfficerFarming(CoinTaskMixin, OSMap):
                     self.os_auto_search_run(drop=None)
                     self.fleet_set(self.config.OpsiFleet_Fleet)
                     
-                    # 清理标志，以免影响下一次迭代
-                    if hasattr(self, '_last_siren_device_type'):
-                        delattr(self, '_last_siren_device_type')
-                    
                     # 此处不恢复状态，继续while循环搜索下一个zone
                     continue
 
+                # 只有探测装置（无 map_get_items 事件）才记录
+                logger.info(f'海域 {current_zone_id} 发现塞壬探测装置，记录为已发现')
                 level, found_count, added = self._record_siren_found_zone(current_zone_id)
                 if not level:
                     _restore_siren_search_state()

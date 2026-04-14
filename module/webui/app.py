@@ -2442,7 +2442,7 @@ class AlasGUI(Frame):
                 )
                 if (
                         State.deploy_config.EnableRemoteAccess
-                        and State.deploy_config.Password
+                        and (State.deploy_config.Password or os.environ.get("DEMO") == "1")
                 ):
                     put_text(t("Gui.Remote.NotRunning"), scope="remote_state")
                 else:
@@ -3130,7 +3130,7 @@ def startup():
         start_ocr_server_process(State.deploy_config.OcrServerPort)
     if (
             State.deploy_config.EnableRemoteAccess
-            and State.deploy_config.Password is not None
+            and (State.deploy_config.Password is not None or os.environ.get("DEMO") == "1")
     ):
         task_handler.add(RemoteAccess.keep_ssh_alive(), 60)
 

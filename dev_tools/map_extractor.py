@@ -773,9 +773,9 @@ Arguments:
     IS_WAR_ARCHIVES: True if retrieved map is to be
                      adapted for war_archives usage
 """
-FILE = './AzurLaneLuaScripts'
+FILE = '../AzurLaneLuaScripts'
 FOLDER = './campaign/test'
-KEYWORD = '2010001'
+KEYWORD = '2020001'
 SELECT = True
 OVERWRITE = True
 IS_WAR_ARCHIVES = False

@@ -322,6 +322,13 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
                 self.campaign_ensure_aside_20241219('sp')
                 self.campaign_ensure_chapter(chapter)
                 return True
+            # Some events name normal lanes as SP1/SP2...
+            # Route them to page_event and keep default aside.
+            if chapter in ['sp']:
+                self.ui_goto_event()
+                self.campaign_ensure_mode_20241219('combat')
+                self.campaign_ensure_chapter(chapter)
+                return True
             if chapter in ['ex_ex']:
                 self.ui_goto_event()
                 self.campaign_ensure_mode_20241219('combat')

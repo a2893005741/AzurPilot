@@ -47,7 +47,22 @@ A8, B8, C8, D8, E8, F8, G8, H8, I8, \
 
 class Config:
     # ===== Start of generated config =====
-    MAP_SIREN_TEMPLATE = ['bulaimodun']
+    DETECTION_BACKEND = 'perspective'
+    INTERNAL_LINES_HOUGHLINES_THRESHOLD = 40
+    EDGE_LINES_HOUGHLINES_THRESHOLD = 40
+    INTERNAL_LINES_FIND_PEAKS_PARAMETERS = {
+        'height': (80, 255 - 24),
+        'width': (1.5, 10),
+        'prominence': 10,
+        'distance': 35,
+    }
+    EDGE_LINES_FIND_PEAKS_PARAMETERS = {
+        'height': (255 - 40, 255),
+        'prominence': 10,
+        'distance': 50,
+        'wlen': 1000
+    }
+    MAP_SIREN_TEMPLATE = []
     MOVABLE_ENEMY_TURN = (2,)
     MAP_HAS_SIREN = True
     MAP_HAS_MOVABLE_ENEMY = True
@@ -57,7 +72,8 @@ class Config:
     MAP_HAS_MYSTERY = False
     MAP_CHAPTER_SWITCH_20241219 = True
     STAGE_ENTRANCE = ['half', '20240725']
-    MAP_HAS_MODE_SWITCH = True
+    MAP_HAS_MODE_SWITCH = False
+    MAP_ENSURE_EDGE_INSIGHT_CORNER = 'bottom'
     STAGE_INCREASE_AB = True
     MAP_WALK_USE_CURRENT_FLEET = True
     # ===== End of generated config =====

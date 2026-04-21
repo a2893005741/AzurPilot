@@ -10,7 +10,7 @@ from module.config.config_generated import GeneratedConfig
 from module.config.config_manual import ManualConfig, OutputConfig
 from module.config.config_updater import ConfigUpdater, ensure_time, get_server_next_update, nearest_future
 from module.config.deep import deep_get, deep_set
-from module.config.utils import DEFAULT_TIME, dict_to_kv, filepath_config, get_os_reset_remain, path_to_arg, is_good_gpu, read_file as read_raw_file
+from module.config.utils import DEFAULT_TIME, dict_to_kv, filepath_config, get_os_reset_remain, path_to_arg, is_good_gpu
 from module.config.watcher import ConfigWatcher
 from module.exception import RequestHumanTakeover, ScriptError
 from module.logger import logger
@@ -124,22 +124,8 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         self.save()
 
     def load(self):
-        # 读取磁盘原始数据，用于检测 config_update 是否补全了新任务
-        raw = read_raw_file(filepath_config(self.config_name))
         self.data = self.read_file(self.config_name)
         self.config_override()
-
-        # 若检测到磁盘文件中没有的新任务，自动启用 Event/Raid/Coalition 类并触发持久化
-        if isinstance(raw, dict):
-            new_tasks = [t for t in self.data if t not in raw]
-            if new_tasks:
-                logger.info(f'配置补全: 检测到新任务 {new_tasks}，将写入磁盘')
-                for task in new_tasks:
-                    if (task.startswith('Event') or task.startswith('Raid')
-                            or task.startswith('Coalition')):
-                        deep_set(self.data, keys=f'{task}.Scheduler.Enable', value=True)
-                        logger.info(f'配置补全: 自动启用新任务 "{task}"')
-                self.modified['_config_needs_save'] = True
 
         for path, value in self.modified.items():
             deep_set(self.data, keys=path, value=value)
@@ -288,9 +274,6 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             return False
 
         for path, value in self.modified.items():
-            # 忽略内部标记，不写入文件
-            if path in ('_config_filled', '_config_needs_save'):
-                continue
             deep_set(self.data, keys=path, value=value)
 
         logger.info(

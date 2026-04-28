@@ -2583,23 +2583,28 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20201126_cn",
           "event_20220915_cn",
           "event_20260417_cn"
         ],
         "display": "hide",
         "option_cn": [
+          "event_20201126_cn",
           "event_20260417_cn"
         ],
         "option_en": [
+          "event_20201126_cn",
           "event_20260417_cn"
         ],
         "option_jp": [
+          "event_20201126_cn",
           "event_20260417_cn"
         ],
         "option_tw": [
           "event_20220915_cn"
         ],
         "option_bold": [
+          "event_20201126_cn",
           "event_20220915_cn",
           "event_20260417_cn"
         ]
@@ -4284,22 +4289,27 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20201126_cn",
           "event_20220915_cn",
           "event_20260417_cn"
         ],
         "option_cn": [
+          "event_20201126_cn",
           "event_20260417_cn"
         ],
         "option_en": [
+          "event_20201126_cn",
           "event_20260417_cn"
         ],
         "option_jp": [
+          "event_20201126_cn",
           "event_20260417_cn"
         ],
         "option_tw": [
           "event_20220915_cn"
         ],
         "option_bold": [
+          "event_20201126_cn",
           "event_20220915_cn",
           "event_20260417_cn"
         ]
@@ -4827,13 +4837,14 @@
       },
       "Fleet1Control": {
         "type": "select",
-        "value": "prevent_green_face",
+        "value": "prevent_yellow_face",
         "option": [
           "keep_exp_bonus",
           "prevent_green_face",
           "prevent_yellow_face",
           "prevent_red_face"
-        ]
+        ],
+        "display": "hide"
       },
       "Fleet1Recover": {
         "type": "select",
@@ -5005,28 +5016,23 @@
       },
       "UseClearMode": {
         "type": "checkbox",
-        "value": true,
-        "display": "hide"
+        "value": true
       },
       "UseFleetLock": {
         "type": "checkbox",
-        "value": true,
-        "display": "hide"
+        "value": true
       },
       "UseAutoSearch": {
         "type": "checkbox",
-        "value": false,
-        "display": "hide"
+        "value": true
       },
       "Use2xBook": {
         "type": "checkbox",
-        "value": false,
-        "display": "hide"
+        "value": false
       },
       "AmbushEvade": {
         "type": "checkbox",
-        "value": true,
-        "display": "hide"
+        "value": true
       },
       "UseRecommendFleet": {
         "type": "checkbox",
@@ -5052,23 +5058,19 @@
           "map_3_stars",
           "threat_safe",
           "threat_safe_without_3_stars"
-        ],
-        "display": "hide"
+        ]
       },
       "StageIncrease": {
         "type": "checkbox",
-        "value": false,
-        "display": "hide"
+        "value": false
       },
       "GetNewShip": {
         "type": "checkbox",
-        "value": false,
-        "display": "hide"
+        "value": false
       },
       "ReachLevel": {
         "type": "input",
-        "value": 0,
-        "display": "hide"
+        "value": 0
       }
     },
     "Fleet": {
@@ -5082,8 +5084,7 @@
           4,
           5,
           6
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet1Formation": {
         "type": "select",
@@ -5092,8 +5093,7 @@
           "line_ahead",
           "double_line",
           "diamond"
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet1Mode": {
         "type": "select",
@@ -5114,8 +5114,7 @@
           3,
           4,
           5
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet2": {
         "type": "select",
@@ -5128,8 +5127,7 @@
           4,
           5,
           6
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet2Formation": {
         "type": "select",
@@ -5138,8 +5136,7 @@
           "line_ahead",
           "double_line",
           "diamond"
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet2Mode": {
         "type": "select",
@@ -5150,30 +5147,27 @@
           "stand_still_in_the_middle",
           "hide_in_bottom_left",
           "hide_in_upper_left"
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet2Step": {
         "type": "select",
-        "value": 3,
+        "value": 2,
         "option": [
           2,
           3,
           4,
           5
-        ],
-        "display": "hide"
+        ]
       },
       "FleetOrder": {
         "type": "select",
-        "value": "fleet1_all_fleet2_standby",
+        "value": "fleet1_mob_fleet2_boss",
         "option": [
           "fleet1_mob_fleet2_boss",
           "fleet1_boss_fleet2_mob",
           "fleet1_all_fleet2_standby",
           "fleet1_standby_fleet2_all"
-        ],
-        "display": "hide"
+        ]
       }
     },
     "Submarine": {
@@ -5213,8 +5207,7 @@
           "1_grid_to_boss",
           "2_grid_to_boss",
           "use_open_ocean_support"
-        ],
-        "display": "hide"
+        ]
       }
     },
     "Emotion": {
@@ -5239,14 +5232,13 @@
       },
       "Fleet1Control": {
         "type": "select",
-        "value": "prevent_yellow_face",
+        "value": "prevent_green_face",
         "option": [
           "keep_exp_bonus",
           "prevent_green_face",
           "prevent_yellow_face",
           "prevent_red_face"
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet1Recover": {
         "type": "select",
@@ -5267,25 +5259,23 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "display": "hide"
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
+        "display": "disabled"
       },
       "Fleet2Control": {
         "type": "select",
-        "value": "prevent_yellow_face",
+        "value": "prevent_green_face",
         "option": [
           "keep_exp_bonus",
           "prevent_green_face",
           "prevent_yellow_face",
           "prevent_red_face"
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet2Recover": {
         "type": "select",
@@ -5294,13 +5284,11 @@
           "not_in_dormitory",
           "dormitory_floor_1",
           "dormitory_floor_2"
-        ],
-        "display": "hide"
+        ]
       },
       "Fleet2Oath": {
         "type": "checkbox",
-        "value": false,
-        "display": "hide"
+        "value": false
       },
       "Fleet2Onsen": {
         "type": "checkbox",
@@ -5543,7 +5531,7 @@
         "display": "hide"
       },
       "Event": {
-        "type": "select",
+        "type": "state",
         "value": "campaign_main",
         "option": [
           "coalition_20260122"
@@ -5747,8 +5735,7 @@
       },
       "Fleet2Onsen": {
         "type": "checkbox",
-        "value": false,
-        "display": "hide"
+        "value": false
       }
     },
     "Storage": {

@@ -1419,6 +1419,13 @@ class AlasGUI(Frame):
                             "log-bar-btns",
                             [
                                 put_scope("log_scroll_btn"),
+                                put_button(
+                                    label="截图预览",
+                                    onclick=lambda: run_js(
+                                        f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
+                                    ),
+                                    color="off",
+                                ),
                             ],
                         ),
                     ],
@@ -1757,6 +1764,13 @@ class AlasGUI(Frame):
                             "log-bar-btns",
                             [
                                 put_scope("log_scroll_btn"),
+                                put_button(
+                                    label="截图预览",
+                                    onclick=lambda: run_js(
+                                        f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
+                                    ),
+                                    color="off",
+                                ),
                                 put_scope("dashboard_btn"),
                             ],
                         ),
@@ -2168,6 +2182,13 @@ class AlasGUI(Frame):
                 "log-bar-btns",
                 [
                     put_scope("log_scroll_btn"),
+                    put_button(
+                        label="截图预览",
+                        onclick=lambda: run_js(
+                            f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
+                        ),
+                        color="off",
+                    ),
                 ],
             )
 

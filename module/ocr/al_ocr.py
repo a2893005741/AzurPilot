@@ -66,6 +66,9 @@ config_name = None
 config = None
 USE_GPU = False
 OCR_IDLE_TIMEOUT = float(os.environ.get("ALAS_OCR_IDLE_TIMEOUT", "60"))
+OCR_IDLE_TIMEOUTS = {
+    "cn": float(os.environ.get("ALAS_OCR_CN_IDLE_TIMEOUT", "20")),
+}
 
 
 def get_config():
@@ -152,6 +155,9 @@ class OcrModelManager:
     def _normalize_name(self, name):
         return self.NAME_ALIASES.get(name, name)
 
+    def _idle_timeout(self, name):
+        return max(0, OCR_IDLE_TIMEOUTS.get(name, self.idle_timeout))
+
     def _load_locked(self, name):
         if name in self._models:
             return self._models[name]
@@ -197,9 +203,10 @@ class OcrModelManager:
                 name = self._normalize_name(name)
                 if name in self._models:
                     if delay is not None:
+                        idle_timeout = self._idle_timeout(name)
                         self._last_used[name] = (
                             time.monotonic()
-                            - max(0, self.idle_timeout - max(0, delay))
+                            - max(0, idle_timeout - max(0, delay))
                         )
                     self._schedule_unload_locked(name, delay=delay)
 
@@ -224,7 +231,7 @@ class OcrModelManager:
         if timer is not None:
             timer.cancel()
 
-        delay = self.idle_timeout if delay is None else max(0, delay)
+        delay = self._idle_timeout(name) if delay is None else max(0, delay)
         timer = threading.Timer(delay, self._unload_if_idle, args=(name,))
         timer.daemon = True
         self._timers[name] = timer
@@ -240,9 +247,10 @@ class OcrModelManager:
                 self._schedule_unload_locked(name)
                 return
 
+            idle_timeout = self._idle_timeout(name)
             idle_time = time.monotonic() - self._last_used.get(name, 0)
-            if idle_time < self.idle_timeout:
-                self._schedule_unload_locked(name, delay=self.idle_timeout - idle_time)
+            if idle_time < idle_timeout:
+                self._schedule_unload_locked(name, delay=idle_timeout - idle_time)
                 return
 
             logger.info(f"Unloading idle OCR model: {name}")

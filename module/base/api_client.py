@@ -24,8 +24,7 @@ class ApiClient:
     BUG_LOG_PATH = '/api/post/bug'
     CL1_DATA_PATH = '/api/telemetry'
     ANNOUNCEMENT_PATH = '/api/get/announcement'
-    STAMINA_REPORT_PATH = '/api/stamina/report'
-    
+
     # 公告检查间隔（秒），1.5分钟 = 90秒
     ANNOUNCEMENT_CHECK_INTERVAL = 90
     
@@ -206,49 +205,7 @@ class ApiClient:
         """
         from module.base.async_executor import async_executor
         async_executor.submit(cls._submit_cl1_data, data, timeout)
-    
-    @staticmethod
-    def _report_stamina(stamina: float, timeout: int):
-        """
-        内部方法：上报体力到大盘
-        
-        Args:
-            stamina: 当前体力值
-            timeout: 超时时间（秒）
-        """
-        try:
-            device_id = get_device_id()
-            data = {
-                'device_id': device_id,
-                'stamina': int(stamina),
-            }
-            
-            success, status_code, response_text = ApiClient._post_with_fallback(
-                ApiClient.STAMINA_REPORT_PATH,
-                data,
-                timeout=timeout
-            )
-            
-            if success:
-                logger.info(f'CL1Data Updata Pass: {stamina}')
-            else:
-                logger.warning(f'CL1Data Updata Failed: {response_text}')
-        
-        except Exception as e:
-            logger.exception(f'Unexpected error during stamina report: {e}')
-    
-    @classmethod
-    def report_stamina(cls, stamina: float, timeout: int = 5):
-        """
-        上报当前体力到大盘（异步）
-        
-        Args:
-            stamina: 当前体力值
-            timeout: 请求超时时间（秒），默认5秒
-        """
-        from module.base.async_executor import async_executor
-        async_executor.submit(cls._report_stamina, stamina, timeout)
-    
+
     @classmethod
     def get_announcement(cls, timeout: int = 1, current_id: int = None) -> Optional[Dict[str, Any]]:
         """

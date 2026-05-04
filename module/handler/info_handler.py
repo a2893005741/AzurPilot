@@ -6,7 +6,7 @@ from module.base.base import ModuleBase
 from module.base.button import Button
 from module.base.timer import Timer
 from module.base.utils import *
-from module.exception import GameNotRunningError
+from module.exception import GameNotRunningError, ScriptEnd
 from module.handler.assets import *
 from module.logger import logger
 from module.os_handler.assets import CLICK_SAFE_AREA as OS_CLICK_SAFE_AREA
@@ -186,14 +186,25 @@ class InfoHandler(ModuleBase):
         return appear
 
     def handle_combat_low_emotion(self):
-        if not self.emotion.is_ignore:
-            return False
+        if self.emotion.is_ignore:
+            result = self.handle_popup_confirm('IGNORE_LOW_EMOTION')
+            if result:
+                self.interval_reset(AUTO_SEARCH_MAP_OPTION_OFF)
+            return result
 
-        result = self.handle_popup_confirm('IGNORE_LOW_EMOTION')
-        if result:
-            # Avoid clicking AUTO_SEARCH_MAP_OPTION_OFF
-            self.interval_reset(AUTO_SEARCH_MAP_OPTION_OFF)
-        return result
+        if self.emotion.is_calculate:
+            if self.appear(POPUP_CANCEL, offset=self._popup_offset) \
+                    and self.appear(POPUP_CONFIRM, offset=self._popup_offset, interval=2):
+                logger.hr('Emotion exhausted in calculate mode')
+                logger.warning('Emotion exhausted, stopping current task and delay to wait for recovery')
+                self.emotion.update()
+                for fleet in self.emotion.fleets:
+                    logger.info(f'Fleet {fleet.fleet} emotion: {fleet.current}')
+                if hasattr(self.config, 'task_delay'):
+                    self.config.task_delay(minute=30)
+                raise ScriptEnd('Emotion control')
+
+        return False
 
     def handle_use_data_key(self):
         if not self.config.USE_DATA_KEY:

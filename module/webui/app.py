@@ -3049,7 +3049,9 @@ class AlasGUI(Frame):
                 f"""background-color:{deep_get(group, "Color").replace("^", "#")}"""
             )
             color = f'<div class="status-point" style={_color}>'
-            with use_scope(group_name, clear=True):
+            # 修复：使用完整的 scope 路径，避免重复创建
+            scope_id = f"dashboard_{group_name}"
+            with use_scope(scope_id, clear=True):
                 (
                     put_row(
                         [

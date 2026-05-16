@@ -1740,8 +1740,20 @@
       "slot_4": "4番目で使用"
     },
     "SkillAutoSwitch": {
-      "name": "自動スキル切替",
-      "help": "次の未学習スキルに自動的に切り替えて学習します",
+      "name": "自動スイッチスキル",
+      "help": "未学習のスキルに自動的に切り替えて学習する",
+      "True": "オン",
+      "False": "オフ"
+    },
+    "RedToBlue": {
+      "name": "赤本を青本に置き換え",
+      "help": "戦術学院フィルターの赤本(Red)をすべて青本(Blue)に置き換える",
+      "True": "オン",
+      "False": "オフ"
+    },
+    "NoT4": {
+      "name": "T4教材を使用しない",
+      "help": "T4虹色教材を選択から除外する",
       "True": "オン",
       "False": "オフ"
     }
@@ -4281,7 +4293,9 @@
       "CommissionIncomeRecentTitle": "Gui.Stat.CommissionIncomeRecentTitle"
     },
     "Tactical": {
-      "SkillAutoSwitch": "Gui.Tactical.SkillAutoSwitch"
+      "SkillAutoSwitch": "Gui.Tactical.SkillAutoSwitch",
+      "RedToBlue": "Gui.Tactical.RedToBlue",
+      "NoT4": "Gui.Tactical.NoT4"
     },
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "Gui.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve",

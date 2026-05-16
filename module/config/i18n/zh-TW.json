@@ -1744,6 +1744,18 @@
       "help": "自動切換到下一個尚未學習的技能進行學習",
       "True": "開啟",
       "False": "關閉"
+    },
+    "RedToBlue": {
+      "name": "藍書代替紅書使用",
+      "help": "開啟後將戰術學院過濾器中的藍書代替紅書使用",
+      "True": "開啟",
+      "False": "關閉"
+    },
+    "NoT4": {
+      "name": "不使用T4教材",
+      "help": "從選擇中排除T4彩色教材",
+      "True": "開啟",
+      "False": "關閉"
     }
   },
   "ControlExpOverflow": {
@@ -4281,7 +4293,9 @@
       "CommissionIncomeRecentTitle": "Gui.Stat.CommissionIncomeRecentTitle"
     },
     "Tactical": {
-      "SkillAutoSwitch": "Gui.Tactical.SkillAutoSwitch"
+      "SkillAutoSwitch": "Gui.Tactical.SkillAutoSwitch",
+      "RedToBlue": "Gui.Tactical.RedToBlue",
+      "NoT4": "Gui.Tactical.NoT4"
     },
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "Gui.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve",

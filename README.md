@@ -53,6 +53,10 @@ AzurPilot 是基于 AzurLaneAutoScript 修改而来的碧蓝航线自动化辅�
   </a>
 </div>
 
+## GUI
+<div align="center">
+  <img src="doc/GUI.png" alt="GUI Preview" width="800">
+</div>
 
 ## 重要说明
 

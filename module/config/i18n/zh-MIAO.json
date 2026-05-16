@@ -1740,10 +1740,22 @@
       "slot_4": "使用于4号位喵"
     },
     "SkillAutoSwitch": {
-      "name": "自动换技能喵",
-      "help": "自动换到下一个还没学完的技能继续学喵",
-      "True": "开启喵",
-      "False": "关闭喵"
+      "name": "自动切换技能",
+      "help": "自动切换到下一个尚未学习的技能进行学习",
+      "True": "开启",
+      "False": "关闭"
+    },
+    "RedToBlue": {
+      "name": "蓝书代替红书使用",
+      "help": "开启后将战术学院过滤器中的蓝书代替红书使用",
+      "True": "开启",
+      "False": "关闭"
+    },
+    "NoT4": {
+      "name": "不使用T4教材",
+      "help": "从选择中排除T4彩色教材",
+      "True": "开启",
+      "False": "关闭"
     }
   },
   "ControlExpOverflow": {
@@ -4281,7 +4293,9 @@
       "CommissionIncomeRecentTitle": "最近委托记录喵"
     },
     "Tactical": {
-      "SkillAutoSwitch": "Gui.Tactical.SkillAutoSwitch"
+      "SkillAutoSwitch": "Gui.Tactical.SkillAutoSwitch",
+      "RedToBlue": "Gui.Tactical.RedToBlue",
+      "NoT4": "Gui.Tactical.NoT4"
     },
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "获取X个凭证喵",

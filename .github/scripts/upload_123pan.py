@@ -28,6 +28,19 @@ def log(msg):
     print(mask(msg))
 
 
+def info(msg):
+    """Show progress info — numbers only, no paths/IDs."""
+    print(msg)
+
+
+def fmt_size(n):
+    for unit in ("B", "KB", "MB", "GB"):
+        if n < 1024:
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} TB"
+
+
 def request_with_retry(session, method, url, attempts=RETRY_MAX, timeout=(30, 600), **kwargs):
     last_error = None
     for attempt in range(1, attempts + 1):
@@ -196,6 +209,7 @@ def single_upload(session, token, parent_file_id, remote_path, path):
         "etag": hashlib.md5(file_bytes).hexdigest(),
         "size": str(len(file_bytes)),
         "containDir": "true",
+        "duplicate": "2",
     }
     result = api_json(
         session,

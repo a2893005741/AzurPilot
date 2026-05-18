@@ -495,7 +495,7 @@ class AlasGUI(Frame):
                 raw_points.append(
                     {
                         "dt": dt,
-                        "ap": int(pt.get("ap", 0)),
+                        "ap": int(pt.get("ap_total", pt.get("ap", 0))),
                         "source": pt.get("source", "-"),
                     }
                 )
@@ -669,7 +669,7 @@ class AlasGUI(Frame):
                         {
                             "dt": dt,
                             "yellow_coins": int(pt.get("yellow_coins", 0)),
-                            "purple_coins": int(pt.get("purple_coins", 0)),
+                            "purple_coins": int(pt["purple_coins"]) if "purple_coins" in pt else None,
                             "source": pt.get("source", "-"),
                         }
                     )
@@ -699,7 +699,7 @@ class AlasGUI(Frame):
                         coins_sources_list.append(coins_point.get("source", "-"))
 
                     valid_yellow_coins = [v for v in yellow_coins_list if v is not None]
-                    valid_purple_coins = [v for v in purple_coins_list if v is not None]
+                    valid_purple_coins = [v for v in purple_coins_list if v is not None and v > 0]
                     show_coins = bool(
                         valid_yellow_coins or valid_purple_coins or virtual_asset_list
                     )

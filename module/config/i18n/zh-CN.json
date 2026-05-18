@@ -3602,6 +3602,12 @@
     "PreserveVirtualAsset": {
       "name": "保留 X 点虚拟资产",
       "help": "虚拟资产 = 体力 × 1700/30 + 黄币 + (到月底时间/10分钟) × 1700/30\n虚拟资产低于 X 时运行黄币补充任务，0 为不限制"
+    },
+    "RecordSeaMiles": {
+      "name": "海里数记录",
+      "help": "每次侵蚀1练级循环后记录海里数到统计",
+      "True": "开启",
+      "False": "关闭"
     }
   },
   "OpsiSirenBug": {

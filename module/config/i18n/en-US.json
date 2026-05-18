@@ -3602,6 +3602,12 @@
     "PreserveVirtualAsset": {
       "name": "Preserve X Virtual Asset",
       "help": "Virtual Asset = AP × 1700/30 + Yellow Coins + (Time to Month End / 10 minutes) × 1700/30\nWhen virtual asset drops below X, yellow coin replenishment task will run. 0 means no limit."
+    },
+    "RecordSeaMiles": {
+      "name": "Sea Miles Recording",
+      "help": "Record sea miles to statistics after each hazard 1 leveling cycle",
+      "True": "Enabled",
+      "False": "Disabled"
     }
   },
   "OpsiSirenBug": {

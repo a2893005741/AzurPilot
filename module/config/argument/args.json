@@ -12896,6 +12896,14 @@
       "PreserveVirtualAsset": {
         "type": "input",
         "value": 0
+      },
+      "RecordSeaMiles": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
       }
     },
     "OpsiSirenBug": {

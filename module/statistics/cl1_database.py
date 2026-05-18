@@ -557,7 +557,7 @@ class Cl1Database:
         data["akashi_ap"] = data.get("akashi_ap", 0) + amount
         self.save_stats(instance, month, data)
 
-    def add_ap_snapshot(self, instance: str, ap_current: int, source: str = "cl1", distance: int = None):
+    def add_ap_snapshot(self, instance: str, ap_current: int, source: str = "cl1", distance: int = None, ap_total: int = None):
         """记录行动力快照（真实剩余体力），并计算虚拟资产
 
         Args:
@@ -565,6 +565,7 @@ class Cl1Database:
             ap_current: 当前行动力剩余
             source: 数据来源标记 (cl1 / meow 等)
             distance: 海里数（可选）
+            ap_total: 总体力（含行动力箱子）
         """
         month = datetime.now().strftime("%Y-%m")
         data = self.get_stats(instance, month)
@@ -607,6 +608,8 @@ class Cl1Database:
         }
         if distance is not None:
             snapshot["distance"] = int(distance)
+        if ap_total is not None:
+            snapshot["ap_total"] = int(ap_total)
 
         snapshots = data.get("ap_snapshots", [])
         snapshots.append(snapshot)
@@ -676,7 +679,7 @@ class Cl1Database:
         self,
         instance: str,
         yellow_coins: int,
-        purple_coins: int = 0,
+        purple_coins: int = None,
         source: str = "cl1",
     ):
         """记录凭证快照（作战补给凭证/特别兑换凭证）
@@ -684,7 +687,7 @@ class Cl1Database:
         Args:
             instance: 实例名称
             yellow_coins: 当前作战补给凭证（黄币）数量
-            purple_coins: 当前特别兑换凭证（紫币）数量
+            purple_coins: 当前特别兑换凭证（紫币）数量，None 表示不记录（如 hazard 循环不知道真实值）
             source: 数据来源标记 (cl1 / meow 等)
         """
         month = datetime.now().strftime("%Y-%m")
@@ -693,18 +696,22 @@ class Cl1Database:
         snapshot = {
             "ts": datetime.now().isoformat(),
             "yellow_coins": int(yellow_coins),
-            "purple_coins": int(purple_coins),
             "source": source,
         }
+        if purple_coins is not None:
+            snapshot["purple_coins"] = int(purple_coins)
 
         snapshots = data.get("coins_snapshots", [])
         if snapshots:
             try:
                 last = snapshots[-1]
-                if int(last.get("yellow_coins", -1)) == int(yellow_coins) and int(
-                    last.get("purple_coins", -1)
-                ) == int(purple_coins):
-                    return
+                if int(last.get("yellow_coins", -1)) == int(yellow_coins):
+                    if purple_coins is not None and int(
+                        last.get("purple_coins", -1)
+                    ) == int(purple_coins):
+                        return
+                    if purple_coins is None and "purple_coins" not in last:
+                        return
             except Exception:
                 pass
         snapshots.append(snapshot)
@@ -718,10 +725,12 @@ class Cl1Database:
         self,
         instance: str,
         yellow_coins: int,
-        purple_coins: int = 0,
+        purple_coins: int = None,
         source: str = "cl1",
     ):
         """异步记录凭证快照"""
+        from module.base.async_executor import async_executor
+
         return async_executor.submit(
             self.add_coins_snapshot, instance, yellow_coins, purple_coins, source
         )
@@ -1125,11 +1134,11 @@ class Cl1Database:
         )
 
     def async_add_ap_snapshot(
-        self, instance: str, ap_current: int, source: str = "cl1", distance: int = None
+        self, instance: str, ap_current: int, source: str = "cl1", distance: int = None, ap_total: int = None
     ):
         from module.base.async_executor import async_executor
 
-        return async_executor.submit(self.add_ap_snapshot, instance, ap_current, source, distance)
+        return async_executor.submit(self.add_ap_snapshot, instance, ap_current, source, distance, ap_total)
 
     def async_set_last_ap_notification(self, instance: str, ap_current: int):
         from module.base.async_executor import async_executor

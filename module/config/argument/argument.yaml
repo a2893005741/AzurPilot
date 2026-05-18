@@ -1195,11 +1195,6 @@ OpsiCheckLeveling:
   CustomCheckPositions:
     value: ''
   DelayAfterFull: false
-OpsiSeaMiles:
-  Enable:
-    type: checkbox
-    value: false
-    option: [true, false]
 OpsiFleetAutoChange:
   Enable:
     type: checkbox

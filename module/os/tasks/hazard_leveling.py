@@ -507,16 +507,15 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             content=f"<{self.config.config_name}>\n\n{report}",
         )
 
-        if hasattr(self.config, 'OpsiSeaMiles_Enable') and self.config.OpsiSeaMiles_Enable:
-            logger.info("启用海里数检测")
-            try:
-                sea_miles = self.detect_and_record_sea_miles()
-                if sea_miles is not None:
-                    logger.info(f"海里数检测完成: {sea_miles}")
-                else:
-                    logger.warning("海里数检测失败，但不影响后续流程")
-            except Exception as e:
-                logger.error(f"海里数检测异常: {e}，但不影响后续流程")
+        logger.info("开始海里数检测")
+        try:
+            sea_miles = self.detect_and_record_sea_miles()
+            if sea_miles is not None:
+                logger.info(f"海里数检测完成: {sea_miles}")
+            else:
+                logger.warning("海里数检测失败，但不影响后续流程")
+        except Exception as e:
+            logger.error(f"海里数检测异常: {e}，但不影响后续流程")
 
         if enable_custom_check and custom_positions:
             self._check_custom_positions_full_exp(

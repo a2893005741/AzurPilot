@@ -301,7 +301,6 @@
             }
         }
 
-        // ---- 绘制系列线（紫币独立 Y 轴，黄币/虚拟资产/资产共用组合 Y 轴） ----
         function drawSeriesLine(xOf, start, end) {
             for (var ci = 0; ci < SERIES_DRAW.length; ci++) {
                 var sd = SERIES_DRAW[ci];
@@ -315,11 +314,43 @@
                 ctx.beginPath();
                 var started = false;
 
-                for (var i = start; i < end && i < sd.data.length; i++) {
-                    if (sd.data[i] === null || sd.data[i] === undefined) { started = false; continue; }
-                    var x = xOf(i), y = sd.yFn(sd.data[i]);
-                    if (!started) { ctx.moveTo(x, y); started = true; }
-                    else { ctx.lineTo(x, y); }
+                if (sd.ts && sd.ts.length > 0) {
+                    var tsMap = {};
+                    for (var k = start; k < end && k < apTs.length; k++) {
+                        tsMap[apTs[k]] = k;
+                    }
+                    
+                    for (var j = 0; j < sd.data.length; j++) {
+                        if (sd.data[j] === null || sd.data[j] === undefined) { started = false; continue; }
+                        
+                        var dataTs = sd.ts[j];
+                        var closestIdx = -1;
+                        var minDiff = Infinity;
+                        
+                        for (var k = start; k < end && k < apTs.length; k++) {
+                            var diff = Math.abs(apTs[k] - dataTs);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestIdx = k;
+                            }
+                            if (diff === 0) break;
+                        }
+                        
+                        if (closestIdx !== -1 && minDiff < 600000) {
+                            var x = xOf(closestIdx), y = sd.yFn(sd.data[j]);
+                            if (!started) { ctx.moveTo(x, y); started = true; }
+                            else { ctx.lineTo(x, y); }
+                        } else {
+                            started = false;
+                        }
+                    }
+                } else {
+                    for (var i = start; i < end && i < sd.data.length; i++) {
+                        if (sd.data[i] === null || sd.data[i] === undefined) { started = false; continue; }
+                        var x = xOf(i), y = sd.yFn(sd.data[i]);
+                        if (!started) { ctx.moveTo(x, y); started = true; }
+                        else { ctx.lineTo(x, y); }
+                    }
                 }
                 ctx.stroke();
             }
@@ -530,22 +561,24 @@
                 if (hasYellowCoins && idx < yellowCoinsLen && yellowCoins[idx] !== null && yellowCoins[idx] !== undefined && seriesVisible[2])
                     drawBead(yellowCoins[idx], "#ffd54f", yOfCombined);
 
-                if (seriesVisible[3] && hasVirtualAssetSeries) {
-                    var closestIdx_va = -1, closestDist_va = 600000;
+                if (seriesVisible[3] && hasVirtualAssetSeries && idx < apTs.length) {
+                    var currentTs = apTs[idx];
+                    var closestIdx_va = -1, closestDist_va = Infinity;
                     for (var j = 0; j < lineVirtualAssetTs.length; j++) {
-                        var dist = Math.abs(idx - j);
+                        var dist = Math.abs(currentTs - lineVirtualAssetTs[j]);
                         if (dist < closestDist_va) { closestDist_va = dist; closestIdx_va = j; }
                     }
-                    if (closestIdx_va !== -1 && closestDist_va < 5)
+                    if (closestIdx_va !== -1 && closestDist_va < 600000)
                         drawBead(lineVirtualAsset[closestIdx_va], "#4fc3f7", yOfVirtualAsset);
                 }
-                if (seriesVisible[4] && hasAssetSeries) {
-                    var closestIdx_a = -1, closestDist_a = 600000;
+                if (seriesVisible[4] && hasAssetSeries && idx < apTs.length) {
+                    var currentTs = apTs[idx];
+                    var closestIdx_a = -1, closestDist_a = Infinity;
                     for (var j = 0; j < lineAssetTs.length; j++) {
-                        var dist = Math.abs(idx - j);
+                        var dist = Math.abs(currentTs - lineAssetTs[j]);
                         if (dist < closestDist_a) { closestDist_a = dist; closestIdx_a = j; }
                     }
-                    if (closestIdx_a !== -1 && closestDist_a < 5)
+                    if (closestIdx_a !== -1 && closestDist_a < 600000)
                         drawBead(lineAsset[closestIdx_a], "#81c784", yOfAsset);
                 }
 
@@ -592,25 +625,27 @@
                 }
 
                 // 虚拟资产 tooltip
-                if (seriesVisible[3] && hasVirtualAssetSeries) {
+                if (seriesVisible[3] && hasVirtualAssetSeries && idx < apTs.length) {
+                    var currentTs = apTs[idx];
                     var closestIdx = -1, closestDist = 600000;
                     for (var j = 0; j < lineVirtualAssetTs.length; j++) {
-                        var dist = Math.abs(idx - j);
+                        var dist = Math.abs(currentTs - lineVirtualAssetTs[j]);
                         if (dist < closestDist) { closestDist = dist; closestIdx = j; }
                     }
-                    if (closestIdx !== -1 && closestDist < 5) {
+                    if (closestIdx !== -1 && closestDist < 600000) {
                         tooltipRows.push({ parts: [{ type: 'text', value: "虚拟资产: " }, { type: 'bold', value: lineVirtualAsset[closestIdx].toFixed(1), style: { color: "#4fc3f7" } }] });
                     }
                 }
 
                 // 资产 tooltip
-                if (seriesVisible[4] && hasAssetSeries) {
+                if (seriesVisible[4] && hasAssetSeries && idx < apTs.length) {
+                    var currentTs = apTs[idx];
                     var closestIdx = -1, closestDist = 600000;
                     for (var j = 0; j < lineAssetTs.length; j++) {
-                        var dist = Math.abs(idx - j);
+                        var dist = Math.abs(currentTs - lineAssetTs[j]);
                         if (dist < closestDist) { closestDist = dist; closestIdx = j; }
                     }
-                    if (closestIdx !== -1 && closestDist < 5) {
+                    if (closestIdx !== -1 && closestDist < 600000) {
                         tooltipRows.push({ parts: [{ type: 'text', value: "资产: " }, { type: 'bold', value: lineAsset[closestIdx].toFixed(1), style: { color: "#81c784" } }] });
                     }
                 }

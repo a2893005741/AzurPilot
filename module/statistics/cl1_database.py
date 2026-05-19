@@ -1002,15 +1002,15 @@ class Cl1Database:
         hazard_sample_total = 0
         hazard_round_samples: Dict[int, List[float]] = {3: [], 5: []}
         for entry in normalized_round_times:
-            hazard_level = entry.get("hazard_level")
-            if hazard_level in [2, 3, 4, 5, 6]:
+            entry_hazard_level = entry.get("hazard_level")
+            if entry_hazard_level in [2, 3, 4, 5, 6]:
                 hazard_sample_total += 1
-            if hazard_level in [3, 5]:
-                hazard_round_samples[hazard_level].append(entry["duration"])
+            if entry_hazard_level in [3, 5]:
+                hazard_round_samples[entry_hazard_level].append(entry["duration"])
 
         by_hazard: Dict[str, Dict[str, Any]] = {}
-        for hazard_level in [3, 5]:
-            key_name = str(hazard_level)
+        for target_hazard_level in [3, 5]:
+            key_name = str(target_hazard_level)
             bucket = hazard_stats.get(key_name, {})
 
             try:
@@ -1049,14 +1049,14 @@ class Cl1Database:
                     round(
                         battle_count
                         * (
-                            len(hazard_round_samples[hazard_level])
+                            len(hazard_round_samples[target_hazard_level])
                             / hazard_sample_total
                         )
                     )
                 )
                 estimated = True
 
-            battles_per_round = self._get_meow_battles_per_round(hazard_level) or 1
+            battles_per_round = self._get_meow_battles_per_round(target_hazard_level) or 1
             if hz_effective_rounds <= 0 and hz_battle_count > 0:
                 hz_effective_rounds = hz_battle_count / battles_per_round
                 estimated = True
@@ -1084,7 +1084,7 @@ class Cl1Database:
                 source = "none"
 
             by_hazard[key_name] = {
-                "hazard_level": hazard_level,
+                "hazard_level": target_hazard_level,
                 "battle_count": hz_battle_count,
                 "effective_rounds": round(hz_effective_rounds, 2),
                 "avg_round_time": hz_avg_round_time,

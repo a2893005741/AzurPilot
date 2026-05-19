@@ -315,11 +315,6 @@
                 var started = false;
 
                 if (sd.ts && sd.ts.length > 0) {
-                    var tsMap = {};
-                    for (var k = start; k < end && k < apTs.length; k++) {
-                        tsMap[apTs[k]] = k;
-                    }
-                    
                     for (var j = 0; j < sd.data.length; j++) {
                         if (sd.data[j] === null || sd.data[j] === undefined) { started = false; continue; }
                         

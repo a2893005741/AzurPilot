@@ -1032,7 +1032,7 @@ class Cl1Database:
                 float(v) for v in hz_round_times if isinstance(v, (int, float))
             ]
             if not hz_round_times:
-                hz_round_times = hazard_round_samples[hazard_level]
+                hz_round_times = hazard_round_samples[target_hazard_level]
 
             hz_battle_times = (
                 bucket.get("battle_times", [])

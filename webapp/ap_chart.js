@@ -186,15 +186,42 @@
         }
         
         // ---- 海里数独立范围 ----
-        var distanceMin = 0, distanceMax = -Infinity;
+        var distanceMin = Infinity, distanceMax = -Infinity;
         if (hasDistanceAxis) {
             for (var i = 0; i < lineDistance.length; i++) {
                 if (lineDistance[i] === null || lineDistance[i] === undefined) continue;
+                if (lineDistance[i] < distanceMin) distanceMin = lineDistance[i];
                 if (lineDistance[i] > distanceMax) distanceMax = lineDistance[i];
             }
+            if (distanceMin === Infinity) distanceMin = 0;
             if (distanceMax === -Infinity) distanceMax = 1000;
             var distanceRng = distanceMax - distanceMin || 1;
+            distanceMin -= distanceRng * 0.08;
             distanceMax += distanceRng * 0.08;
+        }
+        
+        // ---- 虚拟资产独立范围（用于左侧刻度） ----
+        var virtualAssetMin = 0, virtualAssetMax = -Infinity;
+        if (hasVirtualAssetSeries) {
+            for (var i = 0; i < lineVirtualAsset.length; i++) {
+                if (lineVirtualAsset[i] === null || lineVirtualAsset[i] === undefined) continue;
+                if (lineVirtualAsset[i] > virtualAssetMax) virtualAssetMax = lineVirtualAsset[i];
+            }
+            if (virtualAssetMax === -Infinity) virtualAssetMax = 1000;
+            var virtualAssetRng = virtualAssetMax - virtualAssetMin || 1;
+            virtualAssetMax += virtualAssetRng * 0.08;
+        }
+        
+        // ---- 资产独立范围（用于左侧刻度） ----
+        var assetMin = 0, assetMax = -Infinity;
+        if (hasAssetSeries) {
+            for (var i = 0; i < lineAsset.length; i++) {
+                if (lineAsset[i] === null || lineAsset[i] === undefined) continue;
+                if (lineAsset[i] > assetMax) assetMax = lineAsset[i];
+            }
+            if (assetMax === -Infinity) assetMax = 1000;
+            var assetRng = assetMax - assetMin || 1;
+            assetMax += assetRng * 0.08;
         }
 
         // 刻度配置（右侧标签）：第1行紫币独立，第2行黄币代表合并轴，第3行海里数独立
@@ -248,38 +275,31 @@
             }
         }
 
-        // 绘制左侧资产刻度标签（虚拟资产和资产）
-        function drawLeftAssetTicks(ctx, yFn, dataMin, dataMax) {
+        // 绘制左侧资产刻度标签（虚拟资产和资产都在行动力刻度下方垂直紧贴排列）
+        function drawLeftAssetTicks(ctx, yOfMain, mainMin, mainMax) {
             if (!hasLeftAssets) return;
             ctx.font = "10px -apple-system, sans-serif";
             ctx.textAlign = "right";
-            var leftAssetConfigs = [];
-            var leftOffset = 0;
             
-            // 虚拟资产配置
-            if (hasVirtualAssetSeries) {
-                leftAssetConfigs.push({
-                    color: "#06b6d4",
-                    offsetY: leftOffset
-                });
-                leftOffset += LEFT_ASSET_TICK_STACK_GAP;
-            }
-            
-            // 资产配置
-            if (hasAssetSeries) {
-                leftAssetConfigs.push({
-                    color: "#22d3ee",
-                    offsetY: leftOffset
-                });
-            }
-            
+            // 使用体力轴的Y坐标，与体力刻度对齐
             for (var i = 0; i <= 5; i++) {
-                var val = dataMin + (dataMax - dataMin) * (i / 5);
-                var y = yFn(val);
-                for (var ci = 0; ci < leftAssetConfigs.length; ci++) {
-                    var cfg = leftAssetConfigs[ci];
-                    ctx.fillStyle = cfg.color;
-                    ctx.fillText(Math.round(val), pad.l - LEFT_ASSET_TICK_X, y + LEFT_ASSET_TICK_BASELINE + cfg.offsetY);
+                // 使用体力轴计算统一的Y坐标
+                var mainVal = mainMin + (mainMax - mainMin) * (i / 5);
+                var y = yOfMain(mainVal);
+                
+                // 绘制虚拟资产刻度（在体力刻度下方第一行）
+                if (hasVirtualAssetSeries) {
+                    var vaVal = virtualAssetMin + (virtualAssetMax - virtualAssetMin) * (i / 5);
+                    ctx.fillStyle = "#06b6d4";
+                    ctx.fillText(Math.round(vaVal), pad.l - LEFT_ASSET_TICK_X, y + LEFT_ASSET_TICK_BASELINE + LEFT_ASSET_TICK_STACK_GAP);
+                }
+                
+                // 绘制资产刻度（在体力刻度下方第二行，虚拟资产下方）
+                if (hasAssetSeries) {
+                    var aVal = assetMin + (assetMax - assetMin) * (i / 5);
+                    ctx.fillStyle = "#81c784";
+                    var offsetY = hasVirtualAssetSeries ? LEFT_ASSET_TICK_STACK_GAP * 2 : LEFT_ASSET_TICK_STACK_GAP;
+                    ctx.fillText(Math.round(aVal), pad.l - LEFT_ASSET_TICK_X, y + LEFT_ASSET_TICK_BASELINE + offsetY);
                 }
             }
         }
@@ -331,7 +351,7 @@
         }
 
         drawAssetTicks(ctx, yOf, allMin, allMax);
-        drawLeftAssetTicks(ctx, yOfCombined, combinedMin, combinedMax);
+        drawLeftAssetTicks(ctx, yOf, allMin, allMax);
 
         var avgY = yOf(avg);
         ctx.save();
@@ -764,10 +784,8 @@
 
                 drawAssetTicks(ctx, dyOf, dMin, dMax);
                 
-                // 绘制左侧资产刻度（使用组合轴的范围）
-                if (hasLeftAssets && hasCombined) {
-                    drawLeftAssetTicks(ctx, yOfCombined, combinedMin, combinedMax);
-                }
+                // 绘制左侧资产刻度
+                drawLeftAssetTicks(ctx, dyOf, dMin, dMax);
 
                 // Ap 线
                 if (seriesVisible[0]) {

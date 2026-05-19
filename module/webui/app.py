@@ -1617,7 +1617,7 @@ class AlasGUI(Frame):
 
                         ap_timeline = get_ap_timeline(instance_name=instance_name_stat)
                         current_ap = (
-                            int(ap_timeline[-1].get("ap", 0)) if ap_timeline else 0
+                            int(ap_timeline[-1].get("ap_total", ap_timeline[-1].get("ap", 0))) if ap_timeline else 0
                         )
 
                         meow_round_ap = 30

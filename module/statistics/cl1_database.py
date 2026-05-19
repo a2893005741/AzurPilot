@@ -594,7 +594,9 @@ class Cl1Database:
                 pass
 
         # 资产 = AP × 效率 + 黄币
-        asset = ap_current * cl5_efficiency + yellow_coin
+        # 优先使用 ap_total（含箱子），不存在时回退到 ap_current
+        ap_for_calc = ap_total if ap_total is not None and ap_total > 0 else ap_current
+        asset = ap_for_calc * cl5_efficiency + yellow_coin
         # 虚拟资产 = 资产 + 时间加成
         virtual_asset = asset + virtual_asset_added
 

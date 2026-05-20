@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 import module.config.server as server
@@ -201,13 +202,15 @@ class RewardTacticalClass(Dock):
     tactical_finish = []
     dock_select_index = 0
     _rapid_training_slot_triggered = None
+    _skill_exp_ocr = None
 
     def _read_skill_exp(self, image, retry=True):
         from module.base.utils import crop
+        if self._skill_exp_ocr is None:
+            self._skill_exp_ocr = AlOcr(name='zhcn' if self.config.SERVER == 'cn' else 'en')
         area = OCR_SKILL_EXP.button
         cropped = crop(image, area, copy=False)
-        ocr = AlOcr(name='zhcn' if server.server == 'cn' else 'en')
-        text = ocr.ocr(cropped)
+        text = self._skill_exp_ocr.ocr(cropped)
 
         match = re.search(r'(\d+)\s*/\s*(\d+)', text)
         if match:
@@ -415,7 +418,7 @@ class RewardTacticalClass(Dock):
         logger.hr('Tactical books choose', level=2)
         _skip_slots_raw = self.config.Tactical_RapidTrainingSkipFilter or ''
         _skip_slots = [f'slot_{s.strip()}' for s in _skip_slots_raw.split(',') if s.strip().isdigit()]
-        _skip_filter = bool(_skip_slots) and (self._rapid_training_slot_triggered is None or self._rapid_training_slot_triggered in _skip_slots)
+        _skip_filter = self._rapid_training_slot_triggered in _skip_slots
         self._rapid_training_slot_triggered = None
         MAX_SWITCH_RETRIES = 3
         for retry in range(MAX_SWITCH_RETRIES + 1):
@@ -553,6 +556,12 @@ class RewardTacticalClass(Dock):
         book_empty = False
         # tactical cards can't be loaded that fast, confirm if it's empty.
         empty_confirm = Timer(0.6, count=2).start()
+        _add_grid = ButtonGrid(
+            origin=(417, 375), delta=(223, 0),
+            button_shape=(21, 23), grid_shape=(4, 1), name='ADD_NEW_STUDENT'
+        )
+        for _btn in _add_grid.buttons:
+            _btn.color = ADD_NEW_STUDENT.color
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
@@ -566,14 +575,8 @@ class RewardTacticalClass(Dock):
             # Learn new skills
             if not study_finished and self.appear(TACTICAL_CHECK, offset=(20, 20)):
                 # Tactical page, has empty position — check each slot individually
-                _add_grid = ButtonGrid(
-                    origin=(417, 375), delta=(223, 0),
-                    button_shape=(21, 23), grid_shape=(4, 1), name='ADD_NEW_STUDENT'
-                )
                 _handled = False
                 for _slot_idx, _btn in enumerate(_add_grid.buttons):
-                    # ButtonGrid buttons have color=() — copy from ADD_NEW_STUDENT
-                    _btn.__dict__['color'] = ADD_NEW_STUDENT.color
                     if self.appear_then_click(_btn, interval=1):
                         self._rapid_training_slot_triggered = f'slot_{_slot_idx + 1}'
                         self.interval_reset([TACTICAL_CHECK, RAPID_TRAINING])

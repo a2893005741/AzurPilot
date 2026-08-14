@@ -1,7 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 # 本地旧虚拟环境的 RapidOCR 仍未提供源码要求的 PPOCRV6 枚举。
 # 仅为加载待测战役模块补齐别名，不影响生产运行时的依赖版本。
@@ -75,6 +75,7 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         campaign.withdraw.assert_called_once_with(skip_first_screenshot=False)
         emotion.update.assert_called_once_with()
         emotion.record.assert_called_once_with()
+        emotion.show.assert_called_once_with()
         self.assertEqual(fleet.current, 0)
         emotion.get_recovered_for_battle.assert_called_once_with(5)
         runner.config.task_delay.assert_called_once_with(target=recovered)
@@ -235,6 +236,25 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         self.assertEqual(emotion.get_recovered_for_battle(5), recovered)
 
         public_fleet.get_recovered.assert_called_once_with(10)
+        emotion.update.assert_not_called()
+        emotion.record.assert_not_called()
+        emotion.show.assert_not_called()
+
+    def test_check_reduce_updates_and_records_emotion_once(self):
+        recovered = datetime(2026, 8, 14, 12, 0, 0)
+        emotion = Emotion.__new__(Emotion)
+        emotion.update = Mock()
+        emotion.record = Mock()
+        emotion.show = Mock()
+        emotion.get_recovered_for_battle = Mock(return_value=recovered)
+
+        with patch('module.combat.emotion.current_time', return_value=datetime(2026, 8, 14, 13, 0, 0)):
+            self.assertEqual(emotion._check_reduce(5), (recovered, False))
+
+        emotion.update.assert_called_once_with()
+        emotion.record.assert_called_once_with()
+        emotion.show.assert_called_once_with()
+        emotion.get_recovered_for_battle.assert_called_once_with(5)
 
     def test_withdraw_processes_battle_result_before_waiting_for_stage(self):
         operation = MapOperation.__new__(MapOperation)

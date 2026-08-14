@@ -464,6 +464,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
         for fleet in fleets:
             fleet.current = 0
         emotion.record()
+        emotion.show()
         recovered = emotion.get_recovered_for_battle(self.campaign._map_battle)
 
         fleet_names = ', '.join(str(fleet.fleet) for fleet in fleets)

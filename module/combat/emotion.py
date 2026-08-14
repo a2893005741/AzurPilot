@@ -345,10 +345,6 @@ class Emotion:
         if self.using_public:
             reduce = battle * self.reduce_per_battle_before_entering
             logger.info(f'[情绪-检查] 预期情绪扣减: {reduce}')
-
-            self.update()
-            self.record()
-            self.show()
             return self.public_fleet.get_recovered(reduce)
 
         method = self.config.Fleet_FleetOrder
@@ -366,14 +362,13 @@ class Emotion:
 
         battle = tuple(np.array(battle) * self.reduce_per_battle_before_entering)
         logger.info(f'[情绪-检查] 预期情绪扣减: {battle}')
-
-        self.update()
-        self.record()
-        self.show()
         return max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
 
     def _check_reduce(self, battle):
         """检查战斗带来的情绪减少。"""
+        self.update()
+        self.record()
+        self.show()
         recovered = self.get_recovered_for_battle(battle)
         return recovered, recovered > current_time()
 

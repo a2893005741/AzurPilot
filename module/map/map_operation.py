@@ -45,6 +45,12 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
     map_cat_attack_timer = Timer(2)
     map_clear_percentage_prev = -1
     map_clear_percentage_timer = Timer(0.3, count=1)
+    WITHDRAW_RESULT_HANDLERS = (
+        'handle_battle_status',
+        'handle_exp_info',
+        'handle_get_ship',
+        'handle_get_items',
+    )
 
     # 屏幕上显示的舰队编号。
     fleet_show_index = 1
@@ -494,13 +500,10 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
 
     def handle_withdraw_result(self):
         """推进撤退过程中可能出现的战斗结算页面。"""
-        for handler in (
-                self.handle_battle_status,
-                self.handle_exp_info,
-                self.handle_get_ship,
-                self.handle_get_items,
-        ):
-            if handler():
+        # MapOperation 也由不混入 Combat 的任务复用，结算处理器在该场景下是可选的。
+        for name in self.WITHDRAW_RESULT_HANDLERS:
+            handler = getattr(self, name, None)
+            if handler and handler():
                 return True
         return self.handle_popup_confirm('COMBAT_STATUS')
 

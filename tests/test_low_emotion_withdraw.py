@@ -13,6 +13,7 @@ if not hasattr(OCRVersion, 'PPOCRV6'):
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.run import CampaignRun
 from module.combat.emotion import Emotion
+from module.event.maritime_escort import MaritimeEscort
 from module.exception import CampaignEnd, RequestHumanTakeover
 from module.map.assets import FLEET_PREPARATION, MAP_PREPARATION, MAP_PREPARATION_CANCEL
 from module.map.map_operation import MapOperation
@@ -285,6 +286,14 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         self.assertTrue(operation.handle_withdraw_result())
 
         operation.handle_popup_confirm.assert_called_once_with('COMBAT_STATUS')
+
+    def test_withdraw_result_supports_non_combat_maritime_escort(self):
+        escort = MaritimeEscort.__new__(MaritimeEscort)
+        escort.handle_popup_confirm = Mock(return_value=True)
+
+        self.assertTrue(escort.handle_withdraw_result())
+
+        escort.handle_popup_confirm.assert_called_once_with('COMBAT_STATUS')
 
 
 if __name__ == '__main__':

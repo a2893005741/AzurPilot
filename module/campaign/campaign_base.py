@@ -38,6 +38,22 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
     FUNCTION_NAME_BASE = 'battle_'
     MAP: CampaignMap
 
+    def handle_combat_low_emotion(self):
+        """处理战役中的低心情强制出击提示。
+
+        仅在“计算心情消耗”模式下取消提示并撤退；其他心情设置维持原行为。
+        """
+        if self.config.Emotion_Mode != 'calculate':
+            return super().handle_combat_low_emotion()
+
+        if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
+            logger.hr('低心情撤退')
+            logger.info('[低心情] 已取消强制出击，撤退当前地图')
+            self.low_emotion_withdrawn = True
+            self.withdraw()
+
+        return False
+
     def battle_default(self):
         """默认战斗策略：清除所有敌人。
 

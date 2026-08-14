@@ -451,6 +451,17 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             else:
                 self.device.screenshot()
 
+            # 撤退过程中也可能先落在战斗结算页，必须推进结算后才能回到关卡页。
+            if hasattr(self, 'handle_battle_status') and self.handle_battle_status():
+                continue
+            if hasattr(self, 'handle_exp_info') and self.handle_exp_info():
+                continue
+            if hasattr(self, 'handle_get_ship') and self.handle_get_ship():
+                continue
+            if hasattr(self, 'handle_get_items') and self.handle_get_items():
+                continue
+            if self.handle_popup_confirm('COMBAT_STATUS'):
+                continue
             if self.appear_then_click(FLEET_SWITCH_CONFIRM, offset=(30, 30)):
                 continue
             if self.handle_popup_confirm('WITHDRAW'):

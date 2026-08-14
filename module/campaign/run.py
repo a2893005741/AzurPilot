@@ -418,6 +418,38 @@ class CampaignRun(CampaignEvent, ShopStatus):
         """单次战役完成后的扩展钩子。"""
         pass
 
+    def handle_low_emotion_withdrawal(self):
+        """延后因低心情撤退的当前任务，并切换到后续活动图。"""
+        if not getattr(self.campaign, 'low_emotion_withdrawn', False):
+            return False
+
+        task = self.config.task.command
+        emotion = self.campaign.emotion
+        emotion.update()
+        if emotion.using_public:
+            fleet = emotion.public_fleet
+        else:
+            fleet = emotion.fleets[self.campaign.fleet_current_index - 1]
+
+        # 游戏已显示低心情强制出击弹窗，说明本地记录的心情值已经失真。
+        # 不能继续用过高的旧值（例如 75）计算，否则会把当前任务排回现在。
+        fleet.current = 0
+        emotion.record()
+        recovered = fleet.get_recovered()
+
+        logger.info(f'[低心情] 游戏端低心情，{task} 的 {fleet.fleet} 队按 0 心情恢复至 {recovered}')
+        self.config.task_delay(target=recovered)
+
+        # 前两张活动图低心情撤退时，明确切到下一张活动图。
+        # Event3 不再指定后继任务，交由调度器按任务列表选择下一项。
+        next_event = {'Event': 'Event2', 'Event2': 'Event3'}.get(task)
+        if next_event and self.config.task_call(next_event, force_call=False):
+            logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_event}')
+            self.config.update()
+
+        self.campaign.low_emotion_withdrawn = False
+        return True
+
     def handle_commission_notice(self):
         """
         检查委托通知。如果发现委托完成，停止当前任务并调用委托处理。
@@ -518,6 +550,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
                 if str(e) == 'DefeatWithdraw=withdraw_stop':
                     self.config.Scheduler_Enable = False
                 break
+
+            if self.handle_low_emotion_withdrawal():
+                self.config.task_stop('[低心情] 已撤退并延后当前任务')
 
             # 更新配置
             if len(self.campaign.config.modified):

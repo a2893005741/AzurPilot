@@ -17,6 +17,7 @@
 import cv2
 
 from module.base.timer import Timer
+from module.combat.assets import BATTLE_PREPARATION
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
@@ -451,16 +452,9 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             else:
                 self.device.screenshot()
 
-            # 撤退过程中也可能先落在战斗结算页，必须推进结算后才能回到关卡页。
-            if hasattr(self, 'handle_battle_status') and self.handle_battle_status():
+            if self.handle_withdraw_battle_preparation():
                 continue
-            if hasattr(self, 'handle_exp_info') and self.handle_exp_info():
-                continue
-            if hasattr(self, 'handle_get_ship') and self.handle_get_ship():
-                continue
-            if hasattr(self, 'handle_get_items') and self.handle_get_items():
-                continue
-            if self.handle_popup_confirm('COMBAT_STATUS'):
+            if self.handle_withdraw_result():
                 continue
             if self.appear_then_click(FLEET_SWITCH_CONFIRM, offset=(30, 30)):
                 continue
@@ -479,6 +473,22 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             # 结束判断
             if self.handle_in_stage():
                 raise CampaignEnd('Withdraw')
+
+    def handle_withdraw_battle_preparation(self):
+        """退出撤退前仍残留的战斗准备页。"""
+        if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):
+            logger.info(f'{BATTLE_PREPARATION} -> {BACK_ARROW}')
+            self.device.click(BACK_ARROW)
+            return True
+        return False
+
+    def handle_withdraw_result(self):
+        """推进撤退过程中可能出现的战斗结算页面。"""
+        for name in ('handle_battle_status', 'handle_exp_info', 'handle_get_ship', 'handle_get_items'):
+            handler = getattr(self, name, None)
+            if handler and handler():
+                return True
+        return self.handle_popup_confirm('COMBAT_STATUS')
 
     def handle_map_cat_attack(self):
         """

@@ -48,9 +48,10 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
 
         if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
             logger.hr('低心情撤退')
-            logger.info('[低心情] 已取消强制出击，撤退当前地图')
+            logger.info('[低心情] 已取消强制出击，退出战斗准备后撤退当前地图')
             self.low_emotion_withdrawn = True
-            self.withdraw()
+            # 不能在战斗准备页内嵌撤退循环；由 CampaignRun 退出此页面后统一撤退。
+            raise CampaignEnd('LowEmotionWithdraw')
 
         return False
 

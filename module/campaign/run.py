@@ -53,6 +53,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
     name: str
     stage: str
     module = None
+    LOW_EMOTION_NEXT_EVENT = {'Event': 'Event2', 'Event2': 'Event3'}
     config: AzurLaneConfig
     campaign: CampaignBase
     run_count: int
@@ -424,25 +425,35 @@ class CampaignRun(CampaignEvent, ShopStatus):
             return False
 
         task = self.config.task.command
+        try:
+            # 低心情弹窗可能出现在战斗准备页。先退出该页面，回到地图后再撤退。
+            self.campaign.withdraw(skip_first_screenshot=False)
+        except CampaignEnd:
+            pass
+
         emotion = self.campaign.emotion
         emotion.update()
         if emotion.using_public:
-            fleet = emotion.public_fleet
+            fleets = [emotion.public_fleet]
         else:
-            fleet = emotion.fleets[self.campaign.fleet_current_index - 1]
+            # 初次出击时地图还未初始化，无法可靠判断是哪一队触发弹窗。
+            # 双舰队配置下保守地延后两队，避免按错误舰队提前重试。
+            fleets = emotion.fleets if self.config.FLEET_2 else [emotion.fleets[0]]
 
         # 游戏已显示低心情强制出击弹窗，说明本地记录的心情值已经失真。
         # 不能继续用过高的旧值（例如 75）计算，否则会把当前任务排回现在。
-        fleet.current = 0
+        for fleet in fleets:
+            fleet.current = 0
         emotion.record()
-        recovered = fleet.get_recovered()
+        recovered = max(fleet.get_recovered() for fleet in fleets)
 
-        logger.info(f'[低心情] 游戏端低心情，{task} 的 {fleet.fleet} 队按 0 心情恢复至 {recovered}')
+        fleet_names = ', '.join(str(fleet.fleet) for fleet in fleets)
+        logger.info(f'[低心情] 游戏端低心情，{task} 的 {fleet_names} 队按 0 心情恢复至 {recovered}')
         self.config.task_delay(target=recovered)
 
         # 前两张活动图低心情撤退时，明确切到下一张活动图。
         # Event3 不再指定后继任务，交由调度器按任务列表选择下一项。
-        next_event = {'Event': 'Event2', 'Event2': 'Event3'}.get(task)
+        next_event = self.LOW_EMOTION_NEXT_EVENT.get(task)
         if next_event and self.config.task_call(next_event, force_call=False):
             logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_event}')
             self.config.update()
@@ -543,6 +554,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
             self.device.click_record_clear()
             try:
                 self.campaign.run()
+            except CampaignEnd:
+                if not getattr(self.campaign, 'low_emotion_withdrawn', False):
+                    raise
             except ScriptEnd as e:
                 logger.hr('脚本结束')
                 logger.info(str(e))

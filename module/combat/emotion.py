@@ -336,12 +336,11 @@ class Emotion:
     def reduce_shipwreck(self):
         return 10
 
-    def _check_reduce(self, battle):
-        """检查战斗带来的情绪减少。
+    def get_recovered_for_battle(self, battle):
+        """计算完成下一次战役所需的情绪恢复时间。
 
         Returns:
-            recovered (datetime): 预期恢复时间。
-            delay (bool): 是否需要延迟。
+            datetime: 扣除下一次战役的预计情绪后达到控制阈值的时间。
         """
         if self.using_public:
             reduce = battle * self.reduce_per_battle_before_entering
@@ -350,9 +349,7 @@ class Emotion:
             self.update()
             self.record()
             self.show()
-            recovered = self.public_fleet.get_recovered(reduce)
-            delay = recovered > current_time()
-            return recovered, delay
+            return self.public_fleet.get_recovered(reduce)
 
         method = self.config.Fleet_FleetOrder
 
@@ -373,9 +370,12 @@ class Emotion:
         self.update()
         self.record()
         self.show()
-        recovered = max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
-        delay = recovered > current_time()
-        return recovered, delay
+        return max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
+
+    def _check_reduce(self, battle):
+        """检查战斗带来的情绪减少。"""
+        recovered = self.get_recovered_for_battle(battle)
+        return recovered, recovered > current_time()
 
     def check_reduce(self, battle):
         """进入战役前检查情绪。

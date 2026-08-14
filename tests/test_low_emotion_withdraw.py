@@ -12,6 +12,7 @@ if not hasattr(OCRVersion, 'PPOCRV6'):
 
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.run import CampaignRun
+from module.combat.emotion import Emotion
 from module.exception import CampaignEnd, RequestHumanTakeover
 from module.map.assets import FLEET_PREPARATION, MAP_PREPARATION, MAP_PREPARATION_CANCEL
 from module.map.map_operation import MapOperation
@@ -54,10 +55,12 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         fleet.get_recovered.return_value = recovered
         emotion = Mock(using_public=False)
         emotion.fleets = [fleet, Mock()]
+        emotion.get_recovered_for_battle.return_value = recovered
         campaign = SimpleNamespace(
             low_emotion_withdrawn=True,
             emotion=emotion,
             withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+            _map_battle=5,
         )
         runner = CampaignRun.__new__(CampaignRun)
         runner.__dict__['campaign'] = campaign
@@ -72,21 +75,23 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         emotion.update.assert_called_once_with()
         emotion.record.assert_called_once_with()
         self.assertEqual(fleet.current, 0)
-        fleet.get_recovered.assert_called_once_with()
+        emotion.get_recovered_for_battle.assert_called_once_with(5)
         runner.config.task_delay.assert_called_once_with(target=recovered)
         runner.config.task_call.assert_called_once_with('Event2', force_call=False)
         runner.config.update.assert_called_once_with()
         self.assertFalse(campaign.low_emotion_withdrawn)
 
     def test_withdrawal_from_second_event_runs_third_event(self):
+        recovered = datetime(2026, 8, 14, 12, 0, 0)
         fleet = Mock()
-        fleet.get_recovered.return_value = datetime(2026, 8, 14, 12, 0, 0)
         emotion = Mock(using_public=False)
         emotion.fleets = [fleet]
+        emotion.get_recovered_for_battle.return_value = recovered
         campaign = SimpleNamespace(
             low_emotion_withdrawn=True,
             emotion=emotion,
             withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+            _map_battle=4,
         )
         runner = CampaignRun.__new__(CampaignRun)
         runner.__dict__['campaign'] = campaign
@@ -99,6 +104,7 @@ class TestLowEmotionWithdraw(unittest.TestCase):
 
         runner.config.task_call.assert_called_once_with('Event3', force_call=False)
         runner.config.update.assert_called_once_with()
+        emotion.get_recovered_for_battle.assert_called_once_with(4)
 
     def test_withdrawal_uses_public_fleet_emotion(self):
         recovered = datetime(2026, 8, 14, 12, 0, 0)
@@ -108,10 +114,12 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         fleet_2 = Mock(fleet=2, current=90)
         emotion = Mock(using_public=True, public_fleet=public_fleet)
         emotion.fleets = [fleet_1, fleet_2]
+        emotion.get_recovered_for_battle.return_value = recovered
         campaign = SimpleNamespace(
             low_emotion_withdrawn=True,
             emotion=emotion,
             withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+            _map_battle=3,
         )
         runner = CampaignRun.__new__(CampaignRun)
         runner.__dict__['campaign'] = campaign
@@ -124,7 +132,7 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         self.assertEqual(public_fleet.current, 0)
         self.assertEqual(fleet_1.current, 80)
         self.assertEqual(fleet_2.current, 90)
-        public_fleet.get_recovered.assert_called_once_with()
+        emotion.get_recovered_for_battle.assert_called_once_with(3)
         runner.config.task_delay.assert_called_once_with(target=recovered)
 
     def test_withdrawal_without_fleet_record_requires_human_takeover(self):
@@ -147,14 +155,16 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         runner.config.task_delay.assert_not_called()
 
     def test_withdrawal_from_third_event_returns_to_scheduler_queue(self):
+        recovered = datetime(2026, 8, 14, 12, 0, 0)
         fleet = Mock()
-        fleet.get_recovered.return_value = datetime(2026, 8, 14, 12, 0, 0)
         emotion = Mock(using_public=False)
         emotion.fleets = [fleet]
+        emotion.get_recovered_for_battle.return_value = recovered
         campaign = SimpleNamespace(
             low_emotion_withdrawn=True,
             emotion=emotion,
             withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+            _map_battle=2,
         )
         runner = CampaignRun.__new__(CampaignRun)
         runner.__dict__['campaign'] = campaign
@@ -164,7 +174,8 @@ class TestLowEmotionWithdraw(unittest.TestCase):
 
         self.assertTrue(runner.handle_low_emotion_withdrawal())
 
-        runner.config.task_delay.assert_called_once_with(target=fleet.get_recovered.return_value)
+        emotion.get_recovered_for_battle.assert_called_once_with(2)
+        runner.config.task_delay.assert_called_once_with(target=recovered)
         runner.config.task_call.assert_not_called()
         runner.config.update.assert_not_called()
 
@@ -177,10 +188,12 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         fleet_2.get_recovered.return_value = second_recovered
         emotion = Mock(using_public=False)
         emotion.fleets = [fleet_1, fleet_2]
+        emotion.get_recovered_for_battle.return_value = second_recovered
         campaign = SimpleNamespace(
             low_emotion_withdrawn=True,
             emotion=emotion,
             withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+            _map_battle=6,
         )
         runner = CampaignRun.__new__(CampaignRun)
         runner.__dict__['campaign'] = campaign
@@ -193,6 +206,7 @@ class TestLowEmotionWithdraw(unittest.TestCase):
 
         self.assertEqual(fleet_1.current, 0)
         self.assertEqual(fleet_2.current, 0)
+        emotion.get_recovered_for_battle.assert_called_once_with(6)
         runner.config.task_delay.assert_called_once_with(target=second_recovered)
 
     def test_next_event_task_follows_scheduler_priority_configuration(self):
@@ -203,6 +217,23 @@ class TestLowEmotionWithdraw(unittest.TestCase):
 
         self.assertEqual(runner.get_low_emotion_next_event_task('Event'), 'Event2')
         self.assertIsNone(runner.get_low_emotion_next_event_task('Event2'))
+
+    def test_recovery_for_battle_includes_next_sortie_emotion_cost(self):
+        recovered = datetime(2026, 8, 14, 12, 0, 0)
+        public_fleet = Mock()
+        public_fleet.get_recovered.return_value = recovered
+        emotion = Emotion.__new__(Emotion)
+        emotion.config = SimpleNamespace(Campaign_Use2xBook=False)
+        emotion.using_public = True
+        emotion.public_fleet = public_fleet
+        emotion.map_is_2x_book = False
+        emotion.update = Mock()
+        emotion.record = Mock()
+        emotion.show = Mock()
+
+        self.assertEqual(emotion.get_recovered_for_battle(5), recovered)
+
+        public_fleet.get_recovered.assert_called_once_with(10)
 
     def test_withdraw_processes_battle_result_before_waiting_for_stage(self):
         operation = MapOperation.__new__(MapOperation)

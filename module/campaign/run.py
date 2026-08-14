@@ -464,10 +464,12 @@ class CampaignRun(CampaignEvent, ShopStatus):
         for fleet in fleets:
             fleet.current = 0
         emotion.record()
-        recovered = max(fleet.get_recovered() for fleet in fleets)
+        recovered = emotion.get_recovered_for_battle(self.campaign._map_battle)
 
         fleet_names = ', '.join(str(fleet.fleet) for fleet in fleets)
-        logger.info(f'[低心情] 游戏端低心情，{task} 的 {fleet_names} 队按 0 心情恢复至 {recovered}')
+        logger.info(
+            f'[低心情] 游戏端低心情，{task} 的 {fleet_names} 队按 0 心情恢复至 {recovered}'
+        )
         self.config.task_delay(target=recovered)
 
         # 后继活动图由用户的任务优先级配置决定；最后一张活动图交由调度器处理。

@@ -434,11 +434,18 @@ class CampaignRun(CampaignEvent, ShopStatus):
         emotion = self.campaign.emotion
         emotion.update()
         if emotion.using_public:
-            fleets = [emotion.public_fleet]
+            public_fleet = getattr(emotion, 'public_fleet', None)
+            fleets = [public_fleet] if public_fleet is not None else []
         else:
             # 初次出击时地图还未初始化，无法可靠判断是哪一队触发弹窗。
             # 双舰队配置下保守地延后两队，避免按错误舰队提前重试。
-            fleets = emotion.fleets if self.config.FLEET_2 else [emotion.fleets[0]]
+            fleets = list(getattr(emotion, 'fleets', []))
+            if not self.config.FLEET_2:
+                fleets = fleets[:1]
+
+        if not fleets:
+            logger.critical('[低心情] 未找到舰队心情记录，无法安全延后当前任务')
+            raise RequestHumanTakeover
 
         # 游戏已显示低心情强制出击弹窗，说明本地记录的心情值已经失真。
         # 不能继续用过高的旧值（例如 75）计算，否则会把当前任务排回现在。

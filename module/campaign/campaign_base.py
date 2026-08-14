@@ -37,6 +37,7 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
     """
     FUNCTION_NAME_BASE = 'battle_'
     MAP: CampaignMap
+    low_emotion_withdrawn = False
 
     def handle_combat_low_emotion(self):
         """处理战役中的低心情强制出击提示。

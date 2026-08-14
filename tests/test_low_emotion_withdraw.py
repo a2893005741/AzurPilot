@@ -12,7 +12,8 @@ if not hasattr(OCRVersion, 'PPOCRV6'):
 
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.run import CampaignRun
-from module.exception import CampaignEnd
+from module.exception import CampaignEnd, RequestHumanTakeover
+from module.map.assets import FLEET_PREPARATION, MAP_PREPARATION, MAP_PREPARATION_CANCEL
 from module.map.map_operation import MapOperation
 
 
@@ -95,6 +96,52 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         runner.config.task_call.assert_called_once_with('Event3', force_call=False)
         runner.config.update.assert_called_once_with()
 
+    def test_withdrawal_uses_public_fleet_emotion(self):
+        recovered = datetime(2026, 8, 14, 12, 0, 0)
+        public_fleet = Mock(fleet='Public', current=75)
+        public_fleet.get_recovered.return_value = recovered
+        fleet_1 = Mock(fleet=1, current=80)
+        fleet_2 = Mock(fleet=2, current=90)
+        emotion = Mock(using_public=True, public_fleet=public_fleet)
+        emotion.fleets = [fleet_1, fleet_2]
+        campaign = SimpleNamespace(
+            low_emotion_withdrawn=True,
+            emotion=emotion,
+            withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+        )
+        runner = CampaignRun.__new__(CampaignRun)
+        runner.__dict__['campaign'] = campaign
+        runner.__dict__['config'] = Mock()
+        runner.config.task.command = 'Event3'
+        runner.config.FLEET_2 = 2
+
+        self.assertTrue(runner.handle_low_emotion_withdrawal())
+
+        self.assertEqual(public_fleet.current, 0)
+        self.assertEqual(fleet_1.current, 80)
+        self.assertEqual(fleet_2.current, 90)
+        public_fleet.get_recovered.assert_called_once_with()
+        runner.config.task_delay.assert_called_once_with(target=recovered)
+
+    def test_withdrawal_without_fleet_record_requires_human_takeover(self):
+        emotion = Mock(using_public=False)
+        emotion.fleets = []
+        campaign = SimpleNamespace(
+            low_emotion_withdrawn=True,
+            emotion=emotion,
+            withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+        )
+        runner = CampaignRun.__new__(CampaignRun)
+        runner.__dict__['campaign'] = campaign
+        runner.__dict__['config'] = Mock()
+        runner.config.task.command = 'Event'
+        runner.config.FLEET_2 = 0
+
+        with self.assertRaises(RequestHumanTakeover):
+            runner.handle_low_emotion_withdrawal()
+
+        runner.config.task_delay.assert_not_called()
+
     def test_withdrawal_from_third_event_returns_to_scheduler_queue(self):
         fleet = Mock()
         fleet.get_recovered.return_value = datetime(2026, 8, 14, 12, 0, 0)
@@ -170,6 +217,29 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         self.assertTrue(operation.handle_withdraw_battle_preparation())
 
         operation.device.click.assert_called_once()
+
+    def test_withdraw_exits_initial_preparation_pages(self):
+        for preparation_page in (MAP_PREPARATION, FLEET_PREPARATION):
+            with self.subTest(preparation_page=preparation_page):
+                operation = MapOperation.__new__(MapOperation)
+                operation.device = SimpleNamespace(click=Mock())
+                operation.appear = Mock(side_effect=lambda button, **_: button is preparation_page)
+
+                self.assertTrue(operation.handle_enter_map_preparation_cancel())
+
+                operation.device.click.assert_called_once_with(MAP_PREPARATION_CANCEL)
+
+    def test_handle_withdraw_result_falls_back_to_combat_status_popup(self):
+        operation = MapOperation.__new__(MapOperation)
+        operation.handle_battle_status = Mock(return_value=False)
+        operation.handle_exp_info = Mock(return_value=False)
+        operation.handle_get_ship = Mock(return_value=False)
+        operation.handle_get_items = Mock(return_value=False)
+        operation.handle_popup_confirm = Mock(return_value=True)
+
+        self.assertTrue(operation.handle_withdraw_result())
+
+        operation.handle_popup_confirm.assert_called_once_with('COMBAT_STATUS')
 
 
 if __name__ == '__main__':

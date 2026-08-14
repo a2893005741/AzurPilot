@@ -302,11 +302,7 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             if self.is_in_stage():
                 break
 
-            if self.appear(MAP_PREPARATION, offset=(20, 20), interval=2):
-                self.device.click(MAP_PREPARATION_CANCEL)
-                continue
-            if self.appear(FLEET_PREPARATION, offset=(20, 50), interval=2):
-                self.device.click(MAP_PREPARATION_CANCEL)
+            if self.handle_enter_map_preparation_cancel():
                 continue
 
         return True
@@ -454,6 +450,8 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
 
             if self.handle_withdraw_battle_preparation():
                 continue
+            if self.handle_enter_map_preparation_cancel():
+                continue
             if self.handle_withdraw_result():
                 continue
             if self.appear_then_click(FLEET_SWITCH_CONFIRM, offset=(30, 30)):
@@ -479,6 +477,18 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):
             logger.info(f'{BATTLE_PREPARATION} -> {BACK_ARROW}')
             self.device.click(BACK_ARROW)
+            return True
+        return False
+
+    def handle_enter_map_preparation_cancel(self):
+        """从舰队准备或地图准备页退回关卡选择页。"""
+        if self.appear(MAP_PREPARATION, offset=(20, 20), interval=2):
+            logger.info(f'{MAP_PREPARATION} -> {MAP_PREPARATION_CANCEL}')
+            self.device.click(MAP_PREPARATION_CANCEL)
+            return True
+        if self.appear(FLEET_PREPARATION, offset=(20, 50), interval=2):
+            logger.info(f'{FLEET_PREPARATION} -> {MAP_PREPARATION_CANCEL}')
+            self.device.click(MAP_PREPARATION_CANCEL)
             return True
         return False
 

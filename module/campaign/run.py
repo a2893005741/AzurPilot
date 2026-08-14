@@ -21,6 +21,7 @@ from module.campaign.campaign_event import CampaignEvent
 from module.shop.shop_status import ShopStatus
 from module.campaign.campaign_ui import MODE_SWITCH_1
 from module.config.config import AzurLaneConfig
+from module.config.task_priority import parse_task_priority
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import map_files, to_map_file_name
 from module.logger import logger
@@ -53,7 +54,6 @@ class CampaignRun(CampaignEvent, ShopStatus):
     name: str
     stage: str
     module = None
-    LOW_EMOTION_NEXT_EVENT = {'Event': 'Event2', 'Event2': 'Event3'}
     config: AzurLaneConfig
     campaign: CampaignBase
     run_count: int
@@ -419,6 +419,18 @@ class CampaignRun(CampaignEvent, ShopStatus):
         """单次战役完成后的扩展钩子。"""
         pass
 
+    def get_low_emotion_next_event_task(self, task):
+        """从任务优先级配置中获取当前活动图的后继活动图任务。"""
+        event_tasks = [
+            candidate
+            for candidate in parse_task_priority(self.config.SCHEDULER_PRIORITY)
+            if candidate == 'Event' or (candidate.startswith('Event') and candidate[5:].isdigit())
+        ]
+        try:
+            return event_tasks[event_tasks.index(task) + 1]
+        except (IndexError, ValueError):
+            return None
+
     def handle_low_emotion_withdrawal(self):
         """延后因低心情撤退的当前任务，并切换到后续活动图。"""
         if not getattr(self.campaign, 'low_emotion_withdrawn', False):
@@ -458,9 +470,8 @@ class CampaignRun(CampaignEvent, ShopStatus):
         logger.info(f'[低心情] 游戏端低心情，{task} 的 {fleet_names} 队按 0 心情恢复至 {recovered}')
         self.config.task_delay(target=recovered)
 
-        # 前两张活动图低心情撤退时，明确切到下一张活动图。
-        # Event3 不再指定后继任务，交由调度器按任务列表选择下一项。
-        next_event = self.LOW_EMOTION_NEXT_EVENT.get(task)
+        # 后继活动图由用户的任务优先级配置决定；最后一张活动图交由调度器处理。
+        next_event = self.get_low_emotion_next_event_task(task)
         if next_event and self.config.task_call(next_event, force_call=False):
             logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_event}')
             self.config.update()

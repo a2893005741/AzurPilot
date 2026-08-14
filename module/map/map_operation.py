@@ -494,9 +494,13 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
 
     def handle_withdraw_result(self):
         """推进撤退过程中可能出现的战斗结算页面。"""
-        for name in ('handle_battle_status', 'handle_exp_info', 'handle_get_ship', 'handle_get_items'):
-            handler = getattr(self, name, None)
-            if handler and handler():
+        for handler in (
+                self.handle_battle_status,
+                self.handle_exp_info,
+                self.handle_get_ship,
+                self.handle_get_items,
+        ):
+            if handler():
                 return True
         return self.handle_popup_confirm('COMBAT_STATUS')
 

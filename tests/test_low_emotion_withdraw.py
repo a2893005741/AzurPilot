@@ -18,6 +18,8 @@ from module.map.map_operation import MapOperation
 
 
 class TestLowEmotionWithdraw(unittest.TestCase):
+    EVENT_PRIORITY = 'Event > Event2 > Event3'
+
     def test_calculate_mode_cancels_then_exits_combat_preparation(self):
         campaign = CampaignBase.__new__(CampaignBase)
         campaign.config = SimpleNamespace(Emotion_Mode='calculate')
@@ -62,6 +64,7 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         runner.__dict__['config'] = Mock()
         runner.config.task.command = 'Event'
         runner.config.FLEET_2 = 0
+        runner.config.SCHEDULER_PRIORITY = self.EVENT_PRIORITY
 
         self.assertTrue(runner.handle_low_emotion_withdrawal())
 
@@ -90,6 +93,7 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         runner.__dict__['config'] = Mock()
         runner.config.task.command = 'Event2'
         runner.config.FLEET_2 = 0
+        runner.config.SCHEDULER_PRIORITY = self.EVENT_PRIORITY
 
         self.assertTrue(runner.handle_low_emotion_withdrawal())
 
@@ -183,12 +187,22 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         runner.__dict__['config'] = Mock()
         runner.config.task.command = 'Event'
         runner.config.FLEET_2 = 2
+        runner.config.SCHEDULER_PRIORITY = self.EVENT_PRIORITY
 
         self.assertTrue(runner.handle_low_emotion_withdrawal())
 
         self.assertEqual(fleet_1.current, 0)
         self.assertEqual(fleet_2.current, 0)
         runner.config.task_delay.assert_called_once_with(target=second_recovered)
+
+    def test_next_event_task_follows_scheduler_priority_configuration(self):
+        runner = CampaignRun.__new__(CampaignRun)
+        runner.__dict__['config'] = SimpleNamespace(
+            SCHEDULER_PRIORITY='Event3 > Main > Event > Event2 > Raid'
+        )
+
+        self.assertEqual(runner.get_low_emotion_next_event_task('Event'), 'Event2')
+        self.assertIsNone(runner.get_low_emotion_next_event_task('Event2'))
 
     def test_withdraw_processes_battle_result_before_waiting_for_stage(self):
         operation = MapOperation.__new__(MapOperation)

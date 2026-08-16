@@ -430,7 +430,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
             None,
         )
         if task_prefix is None:
-            return None
+            return []
 
         campaign_tasks = [
             candidate

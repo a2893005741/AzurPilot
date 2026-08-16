@@ -419,20 +419,32 @@ class CampaignRun(CampaignEvent, ShopStatus):
         """单次战役完成后的扩展钩子。"""
         pass
 
-    def get_low_emotion_next_event_task(self, task):
-        """从任务优先级配置中获取当前活动图的后继活动图任务。"""
-        event_tasks = [
+    def get_low_emotion_next_campaign_task(self, task):
+        """从任务优先级配置中获取当前战役系列的后继任务。"""
+        task_prefix = next(
+            (
+                prefix
+                for prefix in ('Event', 'Main')
+                if task == prefix or (task.startswith(prefix) and task[len(prefix):].isdigit())
+            ),
+            None,
+        )
+        if task_prefix is None:
+            return None
+
+        campaign_tasks = [
             candidate
             for candidate in parse_task_priority(self.config.SCHEDULER_PRIORITY)
-            if candidate == 'Event' or (candidate.startswith('Event') and candidate[5:].isdigit())
+            if candidate == task_prefix
+            or (candidate.startswith(task_prefix) and candidate[len(task_prefix):].isdigit())
         ]
         try:
-            return event_tasks[event_tasks.index(task) + 1]
+            return campaign_tasks[campaign_tasks.index(task) + 1]
         except (IndexError, ValueError):
             return None
 
     def handle_low_emotion_withdrawal(self):
-        """延后因低心情撤退的当前任务，并切换到后续活动图。"""
+        """延后因低心情撤退的当前任务，并切换到后续同系列战役图。"""
         if not getattr(self.campaign, 'low_emotion_withdrawn', False):
             return False
 
@@ -473,10 +485,10 @@ class CampaignRun(CampaignEvent, ShopStatus):
         )
         self.config.task_delay(target=recovered)
 
-        # 后继活动图由用户的任务优先级配置决定；最后一张活动图交由调度器处理。
-        next_event = self.get_low_emotion_next_event_task(task)
-        if next_event and self.config.task_call(next_event, force_call=False):
-            logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_event}')
+        # 后继同系列战役图由用户的任务优先级配置决定；最后一张图交由调度器处理。
+        next_task = self.get_low_emotion_next_campaign_task(task)
+        if next_task and self.config.task_call(next_task, force_call=False):
+            logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_task}')
             self.config.update()
 
         self.campaign.low_emotion_withdrawn = False

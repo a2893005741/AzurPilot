@@ -21,6 +21,7 @@ from module.map.map_operation import MapOperation
 
 class TestLowEmotionWithdraw(unittest.TestCase):
     EVENT_PRIORITY = 'Event > Event2 > Event3'
+    MAIN_PRIORITY = 'Main > Main2 > Main3'
 
     def test_calculate_mode_cancels_then_exits_combat_preparation(self):
         campaign = CampaignBase.__new__(CampaignBase)
@@ -107,6 +108,31 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         runner.config.task_call.assert_called_once_with('Event3', force_call=False)
         runner.config.update.assert_called_once_with()
         emotion.get_recovered_for_battle.assert_called_once_with(4)
+
+    def test_withdrawal_from_main_runs_next_main_task(self):
+        recovered = datetime(2026, 8, 14, 12, 0, 0)
+        fleet = Mock()
+        emotion = Mock(using_public=False)
+        emotion.fleets = [fleet]
+        emotion.get_recovered_for_battle.return_value = recovered
+        campaign = SimpleNamespace(
+            low_emotion_withdrawn=True,
+            emotion=emotion,
+            withdraw=Mock(side_effect=CampaignEnd('Withdraw')),
+            _map_battle=4,
+        )
+        runner = CampaignRun.__new__(CampaignRun)
+        runner.__dict__['campaign'] = campaign
+        runner.__dict__['config'] = Mock()
+        runner.config.task.command = 'Main'
+        runner.config.FLEET_2 = 0
+        runner.config.SCHEDULER_PRIORITY = self.MAIN_PRIORITY
+
+        self.assertTrue(runner.handle_low_emotion_withdrawal())
+
+        runner.config.task_delay.assert_called_once_with(target=recovered)
+        runner.config.task_call.assert_called_once_with('Main2', force_call=False)
+        runner.config.update.assert_called_once_with()
 
     def test_withdrawal_uses_public_fleet_emotion(self):
         recovered = datetime(2026, 8, 14, 12, 0, 0)
@@ -211,14 +237,16 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         emotion.get_recovered_for_battle.assert_called_once_with(6)
         runner.config.task_delay.assert_called_once_with(target=second_recovered)
 
-    def test_next_event_task_follows_scheduler_priority_configuration(self):
+    def test_next_campaign_task_follows_scheduler_priority_configuration(self):
         runner = CampaignRun.__new__(CampaignRun)
         runner.__dict__['config'] = SimpleNamespace(
-            SCHEDULER_PRIORITY='Event3 > Main > Event > Event2 > Raid'
+            SCHEDULER_PRIORITY='Event3 > Main > Event > Main2 > Event2 > Raid > Main3'
         )
 
-        self.assertEqual(runner.get_low_emotion_next_event_task('Event'), 'Event2')
-        self.assertIsNone(runner.get_low_emotion_next_event_task('Event2'))
+        self.assertEqual(runner.get_low_emotion_next_campaign_task('Event'), 'Event2')
+        self.assertIsNone(runner.get_low_emotion_next_campaign_task('Event2'))
+        self.assertEqual(runner.get_low_emotion_next_campaign_task('Main'), 'Main2')
+        self.assertEqual(runner.get_low_emotion_next_campaign_task('Main2'), 'Main3')
 
     def test_recovery_for_battle_includes_next_sortie_emotion_cost(self):
         recovered = datetime(2026, 8, 14, 12, 0, 0)

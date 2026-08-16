@@ -501,11 +501,15 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
     def handle_withdraw_result(self):
         """推进撤退过程中可能出现的战斗结算页面。"""
         # MapOperation 也由不混入 Combat 的任务复用，结算处理器在该场景下是可选的。
-        for name in self.WITHDRAW_RESULT_HANDLERS:
-            handler = getattr(self, name, None)
-            if handler and handler():
-                return True
-        return self.handle_popup_confirm('COMBAT_STATUS')
+        self._withdraw_result_processing = True
+        try:
+            for name in self.WITHDRAW_RESULT_HANDLERS:
+                handler = getattr(self, name, None)
+                if handler and handler():
+                    return True
+            return self.handle_popup_confirm('COMBAT_STATUS')
+        finally:
+            self._withdraw_result_processing = False
 
     def handle_map_cat_attack(self):
         """

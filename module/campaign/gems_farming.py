@@ -139,14 +139,18 @@ class GemsCampaignOverride(CampaignBase):
             return False
         if super().handle_exp_info():
             return True
+        wait_for_transition = not getattr(self, '_withdraw_result_processing', False)
         if self.appear_then_click(EXP_INFO_C, threshold=10):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         if self.appear_then_click(EXP_INFO_D):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         if self.appear_then_click(OPTS_INFO_D, offset=True, similarity=0.9):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         return False
 

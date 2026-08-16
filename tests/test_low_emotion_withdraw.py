@@ -11,7 +11,9 @@ if not hasattr(OCRVersion, 'PPOCRV6'):
     OCRVersion.PPOCRV6 = OCRVersion.PPOCRV5
 
 from module.campaign.campaign_base import CampaignBase
+from module.campaign.gems_farming import GemsCampaignOverride
 from module.campaign.run import CampaignRun
+from module.combat.combat import Combat
 from module.combat.emotion import Emotion
 from module.event.maritime_escort import MaritimeEscort
 from module.exception import CampaignEnd, RequestHumanTakeover
@@ -334,6 +336,42 @@ class TestLowEmotionWithdraw(unittest.TestCase):
         self.assertTrue(operation.handle_withdraw_result())
 
         operation.handle_popup_confirm.assert_called_once_with('COMBAT_STATUS')
+
+    def test_withdraw_result_marks_handlers_as_non_blocking(self):
+        operation = MapOperation.__new__(MapOperation)
+        operation.handle_battle_status = Mock(
+            side_effect=lambda: operation._withdraw_result_processing
+        )
+        operation.handle_popup_confirm = Mock()
+
+        self.assertTrue(operation.handle_withdraw_result())
+
+        self.assertFalse(operation._withdraw_result_processing)
+        operation.handle_popup_confirm.assert_not_called()
+
+    def test_combat_result_handlers_skip_sleep_during_withdrawal(self):
+        combat = Combat.__new__(Combat)
+        combat.device = SimpleNamespace(click=Mock(), sleep=Mock())
+        combat.is_combat_executing = Mock(return_value=False)
+        combat.appear = Mock(return_value=True)
+        combat.appear_then_click = Mock(return_value=True)
+        combat._withdraw_result_processing = True
+
+        self.assertTrue(combat.handle_battle_status())
+        self.assertTrue(combat.handle_exp_info())
+
+        combat.device.sleep.assert_not_called()
+
+    def test_gems_exp_result_skips_sleep_during_withdrawal(self):
+        campaign = GemsCampaignOverride.__new__(GemsCampaignOverride)
+        campaign.device = SimpleNamespace(sleep=Mock())
+        campaign.is_combat_executing = Mock(return_value=False)
+        campaign.appear_then_click = Mock(return_value=True)
+        campaign._withdraw_result_processing = True
+
+        self.assertTrue(campaign.handle_exp_info())
+
+        campaign.device.sleep.assert_not_called()
 
     def test_withdraw_result_supports_non_combat_maritime_escort(self):
         escort = MaritimeEscort.__new__(MaritimeEscort)

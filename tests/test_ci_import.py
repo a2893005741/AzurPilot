@@ -22,17 +22,25 @@ import sys
 import unittest
 from pathlib import Path
 
+from dev_tools.import_smoke_test import import_in_subprocess
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
 
 
 def _run_py(code: str, timeout: int = 120) -> subprocess.CompletedProcess:
     """在独立子进程中执行代码，隔离 import 副作用。"""
-    env = {**os.environ, "AZURPILOT_NTP_DISABLE": "1"}
+    env = {
+        **os.environ,
+        "AZURPILOT_NTP_DISABLE": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
     return subprocess.run(
         [PYTHON, "-c", code],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
         env=env,
         cwd=REPO_ROOT,
@@ -61,6 +69,14 @@ class TestEntryPointImports(unittest.TestCase):
     def test_al_ocr_imports_alone(self):
         # 单独导入 al_ocr 必须成功（真实损坏时会在此暴露）。
         self._assert_import_ok("module.ocr.al_ocr")
+
+
+class TestImportSmokeRunner(unittest.TestCase):
+    """冒烟扫描器必须隔离并行子进程的日志文件。"""
+
+    def test_awaken_assets_imports_without_log_collision(self):
+        ok, error = import_in_subprocess("module.awaken.assets", timeout=30)
+        self.assertTrue(ok, error)
 
 
 class TestProcessIsolation(unittest.TestCase):

@@ -104,7 +104,7 @@ class DashboardMixin(WebUIMixinBase):
             self._log.dashboard_arg_group
             if groups_to_display is None
             else groups_to_display
-        )
+        ) or []
         time_now = current_time().replace(microsecond=0)
         for group_name in _arg_group:
             group = LogRes(self.alas_config).group(group_name)

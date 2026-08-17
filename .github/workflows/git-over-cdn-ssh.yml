@@ -7,9 +7,7 @@ on:
         description: "How many old commits to build packs for"
         required: false
         default: "15"
-  push:
-    branches:
-      - master
+  # SSH 发布需要独立服务器和私钥，未配置时不参与日常自动发布。
 
 jobs:
   build-and-upload:

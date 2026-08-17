@@ -4,8 +4,8 @@ Deploy:
     # URL of AzurPilot repository
     # [国内用户] 使用 'git://git.pull/AzurPilot' 获得更快更稳定的下载
     # [CN user] Use 'git://git.pull/AzurPilot' for faster and more stable download
-    # [其他用户] 使用 'https://github.com/wess09/AzurPilot'
-    # [Other] Use 'https://github.com/wess09/AzurPilot'
+    # [其他用户] 使用 'https://github.com/a2893005741/AzurPilot'
+    # [Other] Use 'https://github.com/a2893005741/AzurPilot'
     Repository: git://git.pull/AzurPilot
     # AzurPilot 分支
     # Branch of AzurPilot

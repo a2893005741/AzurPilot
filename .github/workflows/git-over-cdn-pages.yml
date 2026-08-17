@@ -45,7 +45,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-cloudflare-config:
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      configured: ${{ steps.detect.outputs.configured }}
+
+    steps:
+      - name: Detect publish credentials
+        id: detect
+        env:
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          WORKER_NAME: ${{ secrets.CF_WORKER_NAME }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || {
+            [ -n "$ACCOUNT_ID" ] &&
+            [ -n "$API_TOKEN" ] &&
+            [ -n "$WORKER_NAME" ];
+          }; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare Secrets 未配置，跳过本次自动发布。"
+          fi
+
   build-upload-release:
+    needs: check-cloudflare-config
+    if: needs.check-cloudflare-config.outputs.configured == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -93,6 +93,15 @@ class TestRequiredRuntimeAssets(unittest.TestCase):
             self.assertEqual(image.size, (2570, 1694))
             image.verify()
 
+    def test_readme_mac_gui_image_is_packaged(self):
+        asset = REPO_ROOT / "doc" / "macGUI.png"
+        self.assertTrue(asset.is_file(), f"缺少 README 引用的 macOS 界面图片：{asset}")
+
+        with Image.open(asset) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(image.size, (2560, 1728))
+            image.verify()
+
 
 class TestProcessIsolation(unittest.TestCase):
     """WebUI/MCP 进程与 OCR 的进程隔离守卫。"""

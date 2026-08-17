@@ -22,6 +22,8 @@ import sys
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
 from dev_tools.import_smoke_test import import_in_subprocess
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -77,6 +79,19 @@ class TestImportSmokeRunner(unittest.TestCase):
     def test_awaken_assets_imports_without_log_collision(self):
         ok, error = import_in_subprocess("module.awaken.assets", timeout=30)
         self.assertTrue(ok, error)
+
+
+class TestRequiredRuntimeAssets(unittest.TestCase):
+    """运行时代码硬依赖的静态资源必须随仓库分发。"""
+
+    def test_os_globe_map_is_packaged(self):
+        asset = REPO_ROOT / "assets" / "map_detection" / "os_globe_map.png"
+        self.assertTrue(asset.is_file(), f"缺少大世界全球地图资源：{asset}")
+
+        with Image.open(asset) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(image.size, (2570, 1694))
+            image.verify()
 
 
 class TestProcessIsolation(unittest.TestCase):

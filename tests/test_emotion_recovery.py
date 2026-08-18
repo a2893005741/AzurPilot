@@ -122,6 +122,45 @@ class TestEmotionConfigRecovery(unittest.TestCase):
         self.assertEqual(emotion['Fleet1Record'], datetime(2020, 1, 1))
         self.assertNotEqual(emotion['Fleet1Record'], self.now)
 
+    def test_equal_record_time_does_not_recover_emotion(self):
+        old = {
+            'Main': {
+                'Emotion': {
+                    'Fleet1Value': 39,
+                    'Fleet1Record': self.now,
+                    'Fleet1Recover': 'not_in_dormitory',
+                    'Fleet1Oath': False,
+                    'Fleet1Onsen': False,
+                },
+            },
+        }
+
+        new = ConfigUpdater().config_update(old, now=self.now)
+        emotion = new['Main']['Emotion']
+
+        self.assertEqual(emotion['Fleet1Value'], 39)
+        self.assertEqual(emotion['Fleet1Record'], self.now)
+
+    def test_future_record_time_does_not_recover_emotion(self):
+        future_record = self.now + timedelta(minutes=1)
+        old = {
+            'Main': {
+                'Emotion': {
+                    'Fleet1Value': 39,
+                    'Fleet1Record': future_record,
+                    'Fleet1Recover': 'not_in_dormitory',
+                    'Fleet1Oath': False,
+                    'Fleet1Onsen': False,
+                },
+            },
+        }
+
+        new = ConfigUpdater().config_update(old, now=self.now)
+        emotion = new['Main']['Emotion']
+
+        self.assertEqual(emotion['Fleet1Value'], 39)
+        self.assertEqual(emotion['Fleet1Record'], future_record)
+
 
 if __name__ == '__main__':
     unittest.main()

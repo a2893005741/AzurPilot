@@ -17,14 +17,17 @@
 游戏客户端存在已知 bug：长时间运行后情绪计算不准确，需要定期重启。
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time import sleep
 
 import numpy as np
 
 from module.base.decorator import cached_property
 from module.base.utils import random_normal_distribution_int
-from module.config.config import AzurLaneConfig
+from module.config.emotion_recovery import (
+    DIC_RECOVER_MAX,
+    emotion_recovery_speed,
+)
 from module.config.time_source import now as current_time
 from module.exception import ScriptEnd, ScriptError, RequestHumanTakeover
 from module.logger import logger
@@ -36,22 +39,6 @@ DIC_LIMIT = {
     'prevent_yellow_face': 30, # 防止黄脸
     'prevent_red_face': 2,     # 防止红脸
 }
-# 情绪恢复速度：每 6 分钟恢复的点数
-DIC_RECOVER = {
-    'not_in_dormitory': 20,    # 港区休息
-    'dormitory_floor_1': 40,   # 后宅一楼
-    'dormitory_floor_2': 50,   # 后宅二楼
-}
-# 情绪上限
-DIC_RECOVER_MAX = {
-    'not_in_dormitory': 119,
-    'dormitory_floor_1': 150,
-    'dormitory_floor_2': 150,
-}
-OATH_RECOVER = 10    # 誓约额外恢复速度
-ONSEN_RECOVER = 10   # 温泉额外恢复速度
-
-
 class FleetEmotion:
     """单个舰队的情绪追踪器。
 
@@ -142,12 +129,7 @@ class FleetEmotion:
         Returns:
             int: 每 6 分钟的恢复速度。
         """
-        speed = DIC_RECOVER[self.recover]
-        if self.oath:
-            speed += OATH_RECOVER
-        if self.onsen:
-            speed += ONSEN_RECOVER
-        return speed // 10
+        return emotion_recovery_speed(self.recover, self.oath, self.onsen)
 
     @property
     def limit(self):

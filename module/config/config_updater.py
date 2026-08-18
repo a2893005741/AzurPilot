@@ -35,9 +35,11 @@ from cached_property import cached_property
 from deploy.utils import DEPLOY_TEMPLATE, poor_yaml_read, poor_yaml_write
 from module.base.timer import timer
 from module.config.deep import deep_default, deep_get, deep_iter, deep_set
+from module.config.emotion_recovery import recover_emotion_config
 from module.config.env import IS_ON_PHONE_CLOUD
 from module.config.server import VALID_CHANNEL_PACKAGE, VALID_PACKAGE, VALID_SERVER_LIST, to_package, to_server
 from module.config.task_priority import get_scheduler_tasks, merge_task_priority
+from module.config.time_source import now as current_time
 from module.config.utils import *
 from module.config.redirect_utils.utils import *
 
@@ -706,11 +708,12 @@ class ConfigUpdater:
     def args(self):
         return read_file(filepath_args())
 
-    def config_update(self, old, is_template=False):
+    def config_update(self, old, is_template=False, now=None):
         """
         Args:
             old: 旧配置字典。
             is_template: 是否为模板配置。
+            now: 用于刷新心情值的当前时间；测试可传入固定时间。
 
         Returns:
             更新后的配置字典。
@@ -804,6 +807,8 @@ class ConfigUpdater:
                     merge_task_priority(new_priority, template_priority, get_scheduler_tasks(self.args)),
                 )
         new = self._override(new)
+        if not is_template:
+            recover_emotion_config(new, now or current_time())
 
         return new
 

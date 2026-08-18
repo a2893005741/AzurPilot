@@ -26,7 +26,7 @@ def _recover_fleet(group, prefix, now):
     if recover not in DIC_RECOVER:
         return
 
-    elapsed = (now - record).total_seconds()
+    elapsed = now.timestamp() - record.timestamp()
     if elapsed <= 0:
         return
 

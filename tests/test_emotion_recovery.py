@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from module.config.config_updater import ConfigUpdater
 
@@ -160,6 +160,26 @@ class TestEmotionConfigRecovery(unittest.TestCase):
 
         self.assertEqual(emotion['Fleet1Value'], 39)
         self.assertEqual(emotion['Fleet1Record'], future_record)
+
+    def test_offset_aware_record_recovers_from_naive_current_time(self):
+        record = datetime.fromtimestamp(self.now.timestamp() - 6 * 60, timezone.utc)
+        old = {
+            'Main': {
+                'Emotion': {
+                    'Fleet1Value': 39,
+                    'Fleet1Record': record,
+                    'Fleet1Recover': 'not_in_dormitory',
+                    'Fleet1Oath': False,
+                    'Fleet1Onsen': False,
+                },
+            },
+        }
+
+        new = ConfigUpdater().config_update(old, now=self.now)
+        emotion = new['Main']['Emotion']
+
+        self.assertEqual(emotion['Fleet1Value'], 41)
+        self.assertEqual(emotion['Fleet1Record'], self.now)
 
 
 if __name__ == '__main__':

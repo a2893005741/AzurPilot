@@ -2,30 +2,13 @@
 
 from datetime import datetime, timedelta
 
-SECONDS_PER_TICK = 6 * 60
-
-DIC_RECOVER = {
-    'not_in_dormitory': 20,
-    'dormitory_floor_1': 40,
-    'dormitory_floor_2': 50,
-}
-DIC_RECOVER_MAX = {
-    'not_in_dormitory': 119,
-    'dormitory_floor_1': 150,
-    'dormitory_floor_2': 150,
-}
-OATH_RECOVER = 10
-ONSEN_RECOVER = 10
-
-
-def emotion_recovery_speed(recover, oath=False, onsen=False):
-    """返回每 6 分钟恢复的心情点数。"""
-    speed = DIC_RECOVER[recover]
-    if oath:
-        speed += OATH_RECOVER
-    if onsen:
-        speed += ONSEN_RECOVER
-    return speed // 10
+from module.base.emotion import (
+    DIC_RECOVER,
+    DIC_RECOVER_MAX,
+    SECONDS_PER_TICK,
+    calculate_emotion_recovery,
+    emotion_recovery_speed,
+)
 
 
 def _recover_fleet(group, prefix, now):
@@ -47,22 +30,23 @@ def _recover_fleet(group, prefix, now):
     if elapsed <= 0:
         return
 
-    speed = emotion_recovery_speed(
-        recover,
-        oath=bool(group.get(f'{prefix}Oath', False)),
-        onsen=bool(group.get(f'{prefix}Onsen', False)),
-    )
+    oath = bool(group.get(f'{prefix}Oath', False))
+    onsen = bool(group.get(f'{prefix}Onsen', False))
+    speed = emotion_recovery_speed(recover, oath=oath, onsen=onsen)
     maximum = DIC_RECOVER_MAX[recover]
-    recovery = speed * elapsed / SECONDS_PER_TICK
-    recovered_points = int(recovery)
-    new_value = min(max(int(value), 0) + recovered_points, maximum)
+    new_value, fractional = calculate_emotion_recovery(
+        value,
+        recover,
+        elapsed,
+        oath=oath,
+        onsen=onsen,
+    )
 
     group[value_key] = new_value
     if new_value >= maximum:
         group[record_key] = now.replace(microsecond=0)
         return
 
-    fractional = recovery - recovered_points
     record_time = now.replace(microsecond=0)
     if fractional > 0:
         record_time -= timedelta(seconds=fractional * SECONDS_PER_TICK / speed)

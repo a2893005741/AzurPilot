@@ -23,12 +23,13 @@ from time import sleep
 import numpy as np
 
 from module.base.decorator import cached_property
-from module.base.utils import random_normal_distribution_int
-from module.config.emotion_recovery import (
+from module.base.emotion import (
     DIC_RECOVER_MAX,
     SECONDS_PER_TICK,
+    calculate_emotion_recovery,
     emotion_recovery_speed,
 )
+from module.base.utils import random_normal_distribution_int
 from module.config.time_source import now as current_time
 from module.exception import ScriptEnd, ScriptError, RequestHumanTakeover
 from module.logger import logger
@@ -159,12 +160,15 @@ class FleetEmotion:
         符合情绪控制的安全方向（宁可低估也不高估）。
         """
         time_diff = current_time().timestamp() - self.record.timestamp()
-        time_diff = max(time_diff, 0)
-        # speed 为每个恢复周期的恢复量，换算为每秒恢复 speed/SECONDS_PER_TICK 点
-        recovery = self.speed * time_diff / SECONDS_PER_TICK
-        self.current = min(max(self.value, 0) + int(recovery), self.max)
+        self.current, fractional = calculate_emotion_recovery(
+            self.value,
+            self.recover,
+            time_diff,
+            oath=self.oath,
+            onsen=self.onsen,
+        )
         # 保留未满1点的恢复余数对应的秒数，用于 record() 回扣
-        self._fractional_seconds = recovery - int(recovery)
+        self._fractional_seconds = fractional
 
     def get_recovered(self, expected_reduce=0):
         """计算情绪恢复到控制阈值的时间。

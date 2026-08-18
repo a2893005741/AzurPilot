@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta
 
+SECONDS_PER_TICK = 6 * 60
+
 DIC_RECOVER = {
     'not_in_dormitory': 20,
     'dormitory_floor_1': 40,
@@ -51,7 +53,7 @@ def _recover_fleet(group, prefix, now):
         onsen=bool(group.get(f'{prefix}Onsen', False)),
     )
     maximum = DIC_RECOVER_MAX[recover]
-    recovery = speed * elapsed / 360
+    recovery = speed * elapsed / SECONDS_PER_TICK
     recovered_points = int(recovery)
     new_value = min(max(int(value), 0) + recovered_points, maximum)
 
@@ -63,7 +65,7 @@ def _recover_fleet(group, prefix, now):
     fractional = recovery - recovered_points
     record_time = now.replace(microsecond=0)
     if fractional > 0:
-        record_time -= timedelta(seconds=fractional * 360 / speed)
+        record_time -= timedelta(seconds=fractional * SECONDS_PER_TICK / speed)
     group[record_key] = record_time
 
 

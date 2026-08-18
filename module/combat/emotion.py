@@ -26,6 +26,7 @@ from module.base.decorator import cached_property
 from module.base.utils import random_normal_distribution_int
 from module.config.emotion_recovery import (
     DIC_RECOVER_MAX,
+    SECONDS_PER_TICK,
     emotion_recovery_speed,
 )
 from module.config.time_source import now as current_time
@@ -159,8 +160,8 @@ class FleetEmotion:
         """
         time_diff = current_time().timestamp() - self.record.timestamp()
         time_diff = max(time_diff, 0)
-        # speed 为每360秒的恢复量，换算为每秒恢复 speed/360 点
-        recovery = self.speed * time_diff / 360
+        # speed 为每个恢复周期的恢复量，换算为每秒恢复 speed/SECONDS_PER_TICK 点
+        recovery = self.speed * time_diff / SECONDS_PER_TICK
         self.current = min(max(self.value, 0) + int(recovery), self.max)
         # 保留未满1点的恢复余数对应的秒数，用于 record() 回扣
         self._fractional_seconds = recovery - int(recovery)
@@ -187,8 +188,8 @@ class FleetEmotion:
         emotion_needed = self.limit + expected_reduce - self.current
         if emotion_needed <= 0:
             return current_time()
-        # speed 为每360秒的恢复量，换算恢复所需秒数
-        seconds_needed = emotion_needed * 360 / self.speed
+        # speed 为每个恢复周期的恢复量，换算恢复所需秒数
+        seconds_needed = emotion_needed * SECONDS_PER_TICK / self.speed
         return current_time() + timedelta(seconds=seconds_needed)
 
 class Emotion:
@@ -273,7 +274,7 @@ class Emotion:
             fractional = getattr(fleet, '_fractional_seconds', 0)
             if fractional > 0:
                 # 回扣 fractional_seconds 对应的秒数
-                record_time = record_time - timedelta(seconds=fractional * 360 / fleet.speed)
+                record_time = record_time - timedelta(seconds=fractional * SECONDS_PER_TICK / fleet.speed)
             with self.config.multi_set():
                 setattr(self.config, fleet.value_name, new_value)
                 setattr(self.config, fleet.value_name.replace('Value', 'Record'), record_time)
@@ -285,7 +286,7 @@ class Emotion:
                 record_time = current_time().replace(microsecond=0)
                 fractional = getattr(fleet, '_fractional_seconds', 0)
                 if fractional > 0:
-                    record_time = record_time - timedelta(seconds=fractional * 360 / fleet.speed)
+                    record_time = record_time - timedelta(seconds=fractional * SECONDS_PER_TICK / fleet.speed)
                 setattr(self.config, fleet.value_name, new_value)
                 setattr(self.config, fleet.value_name.replace('Value', 'Record'), record_time)
 

@@ -167,12 +167,44 @@ def _merge_worker_records(primary: dict, secondary: dict) -> dict:
         primary_alive = _record_is_alive(primary_record)
         secondary_alive = _record_is_alive(secondary_record)
         if primary_alive and secondary_alive:
+            primary_payload = json.dumps(
+                primary_record, ensure_ascii=True, sort_keys=True
+            )
+            secondary_payload = json.dumps(
+                secondary_record, ensure_ascii=True, sort_keys=True
+            )
             raise WorkerRegistryLockError(
-                f"新旧 worker 登记文件中的 {name} 记录同时存活且不一致"
+                f"新旧 worker 登记文件中的 {name} 记录同时存活且不一致: "
+                f"primary={primary_payload}, secondary={secondary_payload}"
             )
         if secondary_alive:
             merged[name] = deepcopy(secondary_record)
     return merged
+
+
+def _select_authoritative_registry(
+    current_registry: dict,
+    legacy_registry: dict,
+) -> tuple[Path, dict, dict]:
+    """按 owner 存活状态选择权威登记，并返回待合并的另一份登记。
+
+    旧登记 owner 仍存活时继续使用旧路径；否则优先使用缓存路径。
+    两个 owner 都已失效时，若缓存登记没有 owner 才回退到旧登记。
+    """
+    current_owner = _owner_record(current_registry)
+    legacy_owner = _owner_record(legacy_registry)
+    current_alive = _record_is_alive(current_owner)
+    legacy_alive = _record_is_alive(legacy_owner)
+
+    if current_alive and legacy_alive and current_owner != legacy_owner:
+        raise WorkerRegistryLockError("新旧 worker 登记文件中的 owner 同时存活且不一致")
+
+    if legacy_alive:
+        # 旧版本仍可能只更新 config 路径，待该 owner 退出后再迁移。
+        return LEGACY_WORKER_REGISTRY_FILE, legacy_registry, current_registry
+    if current_alive or current_owner is not None or legacy_owner is None:
+        return WORKER_REGISTRY_FILE, current_registry, legacy_registry
+    return LEGACY_WORKER_REGISTRY_FILE, legacy_registry, current_registry
 
 
 def _migrate_legacy_registry() -> Path:
@@ -193,32 +225,16 @@ def _migrate_legacy_registry() -> Path:
         return WORKER_REGISTRY_FILE
 
     current_registry = _read_registry(WORKER_REGISTRY_FILE)
-    current_owner = _owner_record(current_registry)
-    current_alive = _record_is_alive(current_owner)
-    legacy_alive = _record_is_alive(legacy_owner)
-
-    if current_alive and legacy_alive and current_owner != legacy_owner:
-        raise WorkerRegistryLockError("新旧 worker 登记文件中的 owner 同时存活且不一致")
-
-    if legacy_alive:
-        # 旧版本仍可能只更新 config 路径，待该 owner 退出后再迁移。
-        selected_file = LEGACY_WORKER_REGISTRY_FILE
-        selected_registry = legacy_registry
-        other_registry = current_registry
-    elif current_alive or current_owner is not None or legacy_owner is None:
-        selected_file = WORKER_REGISTRY_FILE
-        selected_registry = current_registry
-        other_registry = legacy_registry
-    else:
-        selected_file = LEGACY_WORKER_REGISTRY_FILE
-        selected_registry = legacy_registry
-        other_registry = current_registry
-
-    merged_registry = deepcopy(selected_registry)
-    merged_registry["workers"] = _merge_worker_records(
+    selected_file, selected_registry, other_registry = _select_authoritative_registry(
+        current_registry, legacy_registry
+    )
+    merged_workers = _merge_worker_records(
         selected_registry["workers"], other_registry["workers"]
     )
-    if merged_registry != selected_registry:
+    if merged_workers != selected_registry["workers"]:
+        # _merge_worker_records 已独立复制 workers，顶层只需浅拷贝。
+        merged_registry = selected_registry.copy()
+        merged_registry["workers"] = merged_workers
         _write_registry(merged_registry, selected_file)
 
     other_file = (

@@ -105,6 +105,188 @@ class TestWorkerRegistry(unittest.TestCase):
                 json.loads(current_file.read_text(encoding="utf-8")),
             )
 
+    def test_conflicting_stale_registries_do_not_block_webui_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_file = Path(directory) / "cache" / "webui-workers.json"
+            legacy_file = Path(directory) / "config" / "webui-workers.json"
+            current_file.parent.mkdir(parents=True)
+            legacy_file.parent.mkdir(parents=True)
+            current_file.write_text(
+                json.dumps(
+                    {
+                        "owner_created_at": 10.5,
+                        "owner_pid": 100,
+                        "workers": {"71": {"created_at": 11.5, "pid": 200}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            legacy_file.write_text(
+                json.dumps(
+                    {
+                        "owner_created_at": 20.5,
+                        "owner_pid": 300,
+                        "workers": {"72": {"created_at": 21.5, "pid": 400}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def process_matches(record):
+                return True if record["pid"] in (200, 400) else None
+
+            with (
+                patch.multiple(
+                    worker_registry,
+                    WORKER_REGISTRY_FILE=current_file,
+                    LEGACY_WORKER_REGISTRY_FILE=legacy_file,
+                    DEFAULT_WORKER_REGISTRY_FILE=current_file,
+                ),
+                patch.object(
+                    worker_registry, "process_matches", side_effect=process_matches
+                ),
+                patch("gui._stop_registered_worker", return_value=True) as stop_worker,
+            ):
+                self.assertTrue(_get_gui()._recover_orphaned_workers())
+
+            self.assertFalse(legacy_file.exists())
+            self.assertEqual(
+                {"owner_created_at": None, "owner_pid": None, "workers": {}},
+                json.loads(current_file.read_text(encoding="utf-8")),
+            )
+            self.assertCountEqual(
+                [
+                    ((200, "71", {"created_at": 11.5, "pid": 200}), {}),
+                    ((400, "72", {"created_at": 21.5, "pid": 400}), {}),
+                ],
+                stop_worker.call_args_list,
+            )
+
+    def test_merge_worker_records_prefers_live_secondary_on_conflict(self):
+        primary = {
+            "71": {"created_at": 11.5, "pid": 200, "source": "primary"}
+        }
+        secondary = {
+            "71": {"created_at": 21.5, "pid": 400, "source": "secondary"}
+        }
+
+        with patch.object(
+            worker_registry, "_record_is_alive", side_effect=[False, True]
+        ):
+            merged = worker_registry._merge_worker_records(primary, secondary)
+
+        self.assertEqual(secondary, merged)
+        self.assertEqual("primary", primary["71"]["source"])
+
+    def test_merge_worker_records_discards_unique_dead_secondary(self):
+        primary = {"71": {"created_at": 11.5, "pid": 200}}
+        secondary = {"72": {"created_at": 21.5, "pid": 400}}
+
+        with patch.object(worker_registry, "_record_is_alive", return_value=False):
+            merged = worker_registry._merge_worker_records(primary, secondary)
+
+        self.assertEqual(primary, merged)
+
+    def test_merge_worker_records_keeps_unique_live_secondary(self):
+        primary = {"71": {"created_at": 11.5, "pid": 200}}
+        secondary = {"72": {"created_at": 21.5, "pid": 400}}
+
+        with patch.object(worker_registry, "_record_is_alive", return_value=True):
+            merged = worker_registry._merge_worker_records(primary, secondary)
+
+        self.assertEqual({**primary, **secondary}, merged)
+
+    def test_merge_worker_records_reports_conflicting_live_payloads(self):
+        primary = {"71": {"created_at": 11.5, "pid": 200}}
+        secondary = {"71": {"created_at": 21.5, "pid": 400}}
+
+        with patch.object(worker_registry, "_record_is_alive", return_value=True):
+            with self.assertRaisesRegex(
+                worker_registry.WorkerRegistryLockError,
+                r'primary=\{"created_at": 11.5, "pid": 200\}.*'
+                r'secondary=\{"created_at": 21.5, "pid": 400\}',
+            ):
+                worker_registry._merge_worker_records(primary, secondary)
+
+    def test_identical_live_owners_merge_distinct_workers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_file = Path(directory) / "cache" / "webui-workers.json"
+            legacy_file = Path(directory) / "config" / "webui-workers.json"
+            current_file.parent.mkdir(parents=True)
+            legacy_file.parent.mkdir(parents=True)
+            current_file.write_text(
+                json.dumps(
+                    {
+                        "owner_created_at": 10.5,
+                        "owner_pid": 100,
+                        "workers": {"71": {"created_at": 11.5, "pid": 200}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            legacy_file.write_text(
+                json.dumps(
+                    {
+                        "owner_created_at": 10.5,
+                        "owner_pid": 100,
+                        "workers": {"72": {"created_at": 21.5, "pid": 400}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with (
+                patch.multiple(
+                    worker_registry,
+                    WORKER_REGISTRY_FILE=current_file,
+                    LEGACY_WORKER_REGISTRY_FILE=legacy_file,
+                    DEFAULT_WORKER_REGISTRY_FILE=current_file,
+                ),
+                patch.object(worker_registry, "process_matches", return_value=True),
+            ):
+                self.assertEqual(100, worker_registry.get_owner())
+                self.assertEqual(
+                    {
+                        "71": {"created_at": 11.5, "pid": 200},
+                        "72": {"created_at": 21.5, "pid": 400},
+                    },
+                    worker_registry.get_workers(100),
+                )
+
+            self.assertFalse(current_file.exists())
+            self.assertTrue(legacy_file.exists())
+
+    def test_conflicting_live_owners_are_not_merged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_file = Path(directory) / "cache" / "webui-workers.json"
+            legacy_file = Path(directory) / "config" / "webui-workers.json"
+            current_file.parent.mkdir(parents=True)
+            legacy_file.parent.mkdir(parents=True)
+            current_file.write_text(
+                json.dumps(
+                    {"owner_created_at": 10.5, "owner_pid": 100, "workers": {}}
+                ),
+                encoding="utf-8",
+            )
+            legacy_file.write_text(
+                json.dumps(
+                    {"owner_created_at": 20.5, "owner_pid": 200, "workers": {}}
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.multiple(
+                worker_registry,
+                WORKER_REGISTRY_FILE=current_file,
+                LEGACY_WORKER_REGISTRY_FILE=legacy_file,
+                DEFAULT_WORKER_REGISTRY_FILE=current_file,
+            ), patch.object(worker_registry, "process_matches", return_value=True):
+                with self.assertRaises(worker_registry.WorkerRegistryLockError):
+                    worker_registry.get_owner()
+
+            self.assertTrue(current_file.exists())
+            self.assertTrue(legacy_file.exists())
+
     def test_active_legacy_owner_remains_authoritative_until_it_exits(self):
         with tempfile.TemporaryDirectory() as directory:
             current_file = Path(directory) / "cache" / "webui-workers.json"

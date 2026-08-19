@@ -105,6 +105,94 @@ class TestWorkerRegistry(unittest.TestCase):
                 json.loads(current_file.read_text(encoding="utf-8")),
             )
 
+    def test_conflicting_stale_registries_do_not_block_webui_restart(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_file = Path(directory) / "cache" / "webui-workers.json"
+            legacy_file = Path(directory) / "config" / "webui-workers.json"
+            current_file.parent.mkdir(parents=True)
+            legacy_file.parent.mkdir(parents=True)
+            current_file.write_text(
+                json.dumps(
+                    {
+                        "owner_created_at": 10.5,
+                        "owner_pid": 100,
+                        "workers": {"71": {"created_at": 11.5, "pid": 200}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            legacy_file.write_text(
+                json.dumps(
+                    {
+                        "owner_created_at": 20.5,
+                        "owner_pid": 300,
+                        "workers": {"72": {"created_at": 21.5, "pid": 400}},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def process_matches(record):
+                return True if record["pid"] in (200, 400) else None
+
+            with (
+                patch.multiple(
+                    worker_registry,
+                    WORKER_REGISTRY_FILE=current_file,
+                    LEGACY_WORKER_REGISTRY_FILE=legacy_file,
+                    DEFAULT_WORKER_REGISTRY_FILE=current_file,
+                ),
+                patch.object(
+                    worker_registry, "process_matches", side_effect=process_matches
+                ),
+                patch("gui._stop_registered_worker", return_value=True) as stop_worker,
+            ):
+                self.assertTrue(_get_gui()._recover_orphaned_workers())
+
+            self.assertFalse(legacy_file.exists())
+            self.assertEqual(
+                {"owner_created_at": None, "owner_pid": None, "workers": {}},
+                json.loads(current_file.read_text(encoding="utf-8")),
+            )
+            self.assertCountEqual(
+                [
+                    ((200, "71", {"created_at": 11.5, "pid": 200}), {}),
+                    ((400, "72", {"created_at": 21.5, "pid": 400}), {}),
+                ],
+                stop_worker.call_args_list,
+            )
+
+    def test_conflicting_live_owners_are_not_merged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            current_file = Path(directory) / "cache" / "webui-workers.json"
+            legacy_file = Path(directory) / "config" / "webui-workers.json"
+            current_file.parent.mkdir(parents=True)
+            legacy_file.parent.mkdir(parents=True)
+            current_file.write_text(
+                json.dumps(
+                    {"owner_created_at": 10.5, "owner_pid": 100, "workers": {}}
+                ),
+                encoding="utf-8",
+            )
+            legacy_file.write_text(
+                json.dumps(
+                    {"owner_created_at": 20.5, "owner_pid": 200, "workers": {}}
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.multiple(
+                worker_registry,
+                WORKER_REGISTRY_FILE=current_file,
+                LEGACY_WORKER_REGISTRY_FILE=legacy_file,
+                DEFAULT_WORKER_REGISTRY_FILE=current_file,
+            ), patch.object(worker_registry, "process_matches", return_value=True):
+                with self.assertRaises(worker_registry.WorkerRegistryLockError):
+                    worker_registry.get_owner()
+
+            self.assertTrue(current_file.exists())
+            self.assertTrue(legacy_file.exists())
+
     def test_active_legacy_owner_remains_authoritative_until_it_exits(self):
         with tempfile.TemporaryDirectory() as directory:
             current_file = Path(directory) / "cache" / "webui-workers.json"

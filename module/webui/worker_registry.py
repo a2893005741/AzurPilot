@@ -155,36 +155,82 @@ def _record_is_alive(record: dict | None) -> bool:
         return True
 
 
+def _merge_worker_records(primary: dict, secondary: dict) -> dict:
+    """合并两份登记中的 worker，保留可确认仍存活的记录。"""
+    merged = deepcopy(primary)
+    for name, secondary_record in secondary.items():
+        primary_record = merged.get(name)
+        if primary_record is None or primary_record == secondary_record:
+            merged[name] = deepcopy(secondary_record)
+            continue
+
+        primary_alive = _record_is_alive(primary_record)
+        secondary_alive = _record_is_alive(secondary_record)
+        if primary_alive and secondary_alive:
+            raise WorkerRegistryLockError(
+                f"新旧 worker 登记文件中的 {name} 记录同时存活且不一致"
+            )
+        if secondary_alive:
+            merged[name] = deepcopy(secondary_record)
+    return merged
+
+
 def _migrate_legacy_registry() -> Path:
-    """在旧所有者退出后将登记文件原子迁移到缓存目录。"""
+    """迁移旧登记，并自动修复两个路径同时存在时的陈旧冲突。"""
     if not _legacy_registry_enabled() or not LEGACY_WORKER_REGISTRY_FILE.exists():
         return WORKER_REGISTRY_FILE
 
     legacy_registry = _read_registry(LEGACY_WORKER_REGISTRY_FILE)
     legacy_owner = _owner_record(legacy_registry)
-    if _record_is_alive(legacy_owner):
-        if WORKER_REGISTRY_FILE.exists():
-            current_registry = _read_registry(WORKER_REGISTRY_FILE)
-            if current_registry != legacy_registry:
-                raise WorkerRegistryLockError("新旧 worker 登记文件内容冲突")
-        return LEGACY_WORKER_REGISTRY_FILE
-
-    if WORKER_REGISTRY_FILE.exists():
-        current_registry = _read_registry(WORKER_REGISTRY_FILE)
-        if current_registry != legacy_registry:
-            raise WorkerRegistryLockError("新旧 worker 登记文件内容冲突")
+    if not WORKER_REGISTRY_FILE.exists():
+        if _record_is_alive(legacy_owner):
+            return LEGACY_WORKER_REGISTRY_FILE
         try:
-            atomic_remove(LEGACY_WORKER_REGISTRY_FILE)
+            WORKER_REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            atomic_replace(LEGACY_WORKER_REGISTRY_FILE, WORKER_REGISTRY_FILE)
         except OSError as exc:
-            raise RuntimeError(f"无法清理旧 worker 登记文件: {exc}") from exc
+            raise RuntimeError(f"无法迁移旧 worker 登记文件: {exc}") from exc
         return WORKER_REGISTRY_FILE
 
+    current_registry = _read_registry(WORKER_REGISTRY_FILE)
+    current_owner = _owner_record(current_registry)
+    current_alive = _record_is_alive(current_owner)
+    legacy_alive = _record_is_alive(legacy_owner)
+
+    if current_alive and legacy_alive and current_owner != legacy_owner:
+        raise WorkerRegistryLockError("新旧 worker 登记文件中的 owner 同时存活且不一致")
+
+    if legacy_alive:
+        # 旧版本仍可能只更新 config 路径，待该 owner 退出后再迁移。
+        selected_file = LEGACY_WORKER_REGISTRY_FILE
+        selected_registry = legacy_registry
+        other_registry = current_registry
+    elif current_alive or current_owner is not None or legacy_owner is None:
+        selected_file = WORKER_REGISTRY_FILE
+        selected_registry = current_registry
+        other_registry = legacy_registry
+    else:
+        selected_file = LEGACY_WORKER_REGISTRY_FILE
+        selected_registry = legacy_registry
+        other_registry = current_registry
+
+    merged_registry = deepcopy(selected_registry)
+    merged_registry["workers"] = _merge_worker_records(
+        selected_registry["workers"], other_registry["workers"]
+    )
+    if merged_registry != selected_registry:
+        _write_registry(merged_registry, selected_file)
+
+    other_file = (
+        LEGACY_WORKER_REGISTRY_FILE
+        if selected_file == WORKER_REGISTRY_FILE
+        else WORKER_REGISTRY_FILE
+    )
     try:
-        WORKER_REGISTRY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        atomic_replace(LEGACY_WORKER_REGISTRY_FILE, WORKER_REGISTRY_FILE)
+        atomic_remove(other_file)
     except OSError as exc:
-        raise RuntimeError(f"无法迁移旧 worker 登记文件: {exc}") from exc
-    return WORKER_REGISTRY_FILE
+        raise RuntimeError(f"无法清理重复 worker 登记文件: {exc}") from exc
+    return selected_file
 
 
 @contextmanager

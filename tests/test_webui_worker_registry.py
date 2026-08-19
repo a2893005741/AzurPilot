@@ -178,6 +178,24 @@ class TestWorkerRegistry(unittest.TestCase):
         self.assertEqual(secondary, merged)
         self.assertEqual("primary", primary["71"]["source"])
 
+    def test_merge_worker_records_discards_unique_dead_secondary(self):
+        primary = {"71": {"created_at": 11.5, "pid": 200}}
+        secondary = {"72": {"created_at": 21.5, "pid": 400}}
+
+        with patch.object(worker_registry, "_record_is_alive", return_value=False):
+            merged = worker_registry._merge_worker_records(primary, secondary)
+
+        self.assertEqual(primary, merged)
+
+    def test_merge_worker_records_keeps_unique_live_secondary(self):
+        primary = {"71": {"created_at": 11.5, "pid": 200}}
+        secondary = {"72": {"created_at": 21.5, "pid": 400}}
+
+        with patch.object(worker_registry, "_record_is_alive", return_value=True):
+            merged = worker_registry._merge_worker_records(primary, secondary)
+
+        self.assertEqual({**primary, **secondary}, merged)
+
     def test_merge_worker_records_reports_conflicting_live_payloads(self):
         primary = {"71": {"created_at": 11.5, "pid": 200}}
         secondary = {"71": {"created_at": 21.5, "pid": 400}}

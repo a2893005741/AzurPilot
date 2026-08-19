@@ -160,8 +160,11 @@ def _merge_worker_records(primary: dict, secondary: dict) -> dict:
     merged = deepcopy(primary)
     for name, secondary_record in secondary.items():
         primary_record = merged.get(name)
-        if primary_record is None or primary_record == secondary_record:
-            merged[name] = deepcopy(secondary_record)
+        if primary_record == secondary_record:
+            continue
+        if primary_record is None:
+            if _record_is_alive(secondary_record):
+                merged[name] = deepcopy(secondary_record)
             continue
 
         primary_alive = _record_is_alive(primary_record)

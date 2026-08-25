@@ -6,6 +6,7 @@ import numpy as np
 from module.daily.assets import DAILY_ENTER, DAILY_LOCKED, DAILY_NEXT
 from module.daily.daily import Daily
 from module.exception import GameStuckError
+from module.handler.assets import GUILD_POPUP_CANCEL, GUILD_POPUP_CONFIRM
 
 
 class AccessTimer:
@@ -36,6 +37,8 @@ class TestDailyCardSwitch(unittest.TestCase):
         daily.device = Mock()
         daily.device.image = frames[0]
         remaining = iter(frames[1:])
+        daily.handle_daily_additional = Mock(return_value=False)
+        daily._daily_switch = None
 
         def screenshot():
             daily.device.image = next(remaining)
@@ -43,6 +46,12 @@ class TestDailyCardSwitch(unittest.TestCase):
 
         daily.device.screenshot.side_effect = screenshot
         return daily
+
+    @staticmethod
+    def _drive_switch(daily):
+        while daily._daily_switch is not None:
+            daily.device.screenshot()
+            daily._daily_switch_complete()
 
     def test_next_waits_for_card_to_change_and_stabilize(self):
         old = np.zeros((720, 1280, 3), dtype=np.uint8)
@@ -55,6 +64,7 @@ class TestDailyCardSwitch(unittest.TestCase):
 
         with patch('module.daily.daily.Timer', AccessTimer):
             daily.next()
+            self._drive_switch(daily)
 
         self.assertEqual(2, daily.daily_current)
         self.assertEqual(7, daily.device.screenshot.call_count)
@@ -68,8 +78,40 @@ class TestDailyCardSwitch(unittest.TestCase):
         with patch('module.daily.daily.Timer', AccessTimer):
             with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
                 daily.next()
+                self._drive_switch(daily)
 
         self.assertEqual(11, daily.device.screenshot.call_count)
+
+    def test_next_ignores_popup_frame_until_card_really_changes(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        popup = old.copy()
+        popup[200:500, 400:880] = 80
+        selected = old.copy()
+        selected[118:645, 534:744] = 100
+        daily = self._daily_with_frames([old, popup, popup, popup] + [selected] * 12)
+        daily.handle_daily_additional.side_effect = [True, True, True] + [False] * 20
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            for _ in range(3):
+                daily.device.screenshot()
+                self.assertFalse(daily._daily_switch_complete())
+                self.assertFalse(daily._daily_switch['changed'])
+            self._drive_switch(daily)
+
+        self.assertGreaterEqual(daily.handle_daily_additional.call_count, 3)
+        self.assertTrue(np.array_equal(selected, daily.device.image))
+
+    def test_daily_additional_stays_pending_while_popup_is_visible(self):
+        daily = object.__new__(Daily)
+        daily.handle_guild_popup_cancel = Mock(return_value=False)
+        daily.appear = Mock(return_value=True)
+
+        self.assertTrue(daily.handle_daily_additional())
+        daily.appear.assert_has_calls([
+            call(GUILD_POPUP_CONFIRM, offset=daily._popup_offset),
+            call(GUILD_POPUP_CANCEL, offset=daily._popup_offset),
+        ])
 
     def test_next_past_last_card_does_not_click_or_wait(self):
         image = np.zeros((720, 1280, 3), dtype=np.uint8)

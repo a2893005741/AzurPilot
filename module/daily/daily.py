@@ -14,10 +14,13 @@
 import numpy as np
 
 import module.config.server as server
+from module.base.timer import Timer
 from module.base.utils import get_color
 from module.combat.assets import BATTLE_PREPARATION
 from module.combat.combat import Combat
 from module.daily.assets import *
+from module.exception import GameStuckError
+from module.handler.assets import GUILD_POPUP_CANCEL, GUILD_POPUP_CONFIRM
 from module.logger import logger
 from module.ocr.ocr import Digit
 from module.ui.assets import BACK_ARROW, DAILY_CHECK
@@ -58,27 +61,65 @@ class Daily(Combat):
             logger.attr(f'每日任务_{self.daily_current}', '未活跃')
         return active
 
-    def _wait_daily_switch(self):
-        self.device.sleep((1, 1.2))
+    def _start_daily_switch(self, button):
+        self._daily_switch = {
+            'previous_card': self.image_crop(DAILY_ENTER, copy=True),
+            'previous_frame': None,
+            'changed': False,
+            'stable': Timer(1, count=3).start(),
+            'timeout': Timer(5, count=10).start(),
+        }
+        self.device.click(button)
+
+    def _daily_switch_complete(self):
+        """推进一次卡片切换检测，完成后返回 True。"""
+        switch = self._daily_switch
+        if switch is None:
+            return True
+
+        if not self.handle_daily_additional():
+            current_frame = self.image_crop(DAILY_ENTER, copy=False)
+            difference = np.mean(
+                np.abs(current_frame.astype(np.int16) - switch['previous_card'].astype(np.int16))
+            )
+
+            if not switch['changed']:
+                if difference > 3:
+                    switch['changed'] = True
+                    switch['stable'].reset()
+                    switch['previous_frame'] = current_frame.copy()
+            else:
+                frame_difference = np.mean(
+                    np.abs(current_frame.astype(np.int16) - switch['previous_frame'].astype(np.int16))
+                )
+                if frame_difference > 3:
+                    switch['previous_frame'] = current_frame.copy()
+                    switch['stable'].reset()
+                elif switch['stable'].reached():
+                    self._daily_switch = None
+                    return True
+
+        if switch['timeout'].reached():
+            raise GameStuckError('[每日任务] 卡片切换等待超时')
+        return False
 
     def next(self):
         self.daily_current += 1
         logger.info(f'[每日任务] 切换到 {self.daily_current}')
-        self.device.click(DAILY_NEXT)
-        self._wait_daily_switch()
-        self.device.screenshot()
+        if self.daily_current > 7:
+            return
+        self._start_daily_switch(DAILY_NEXT)
 
     def prev(self):
         self.daily_current -= 1
         logger.info(f'[每日任务] 切换到 {self.daily_current}')
-        self.device.click(DAILY_PREV)
-        self._wait_daily_switch()
-        self.device.screenshot()
+        self._start_daily_switch(DAILY_PREV)
 
     def handle_daily_additional(self):
         if self.handle_guild_popup_cancel():
             return True
-        return False
+        return self.appear(GUILD_POPUP_CONFIRM, offset=self._popup_offset) \
+            and self.appear(GUILD_POPUP_CANCEL, offset=self._popup_offset)
 
     def get_daily_stage_and_fleet(self):
         """
@@ -207,7 +248,7 @@ class Daily(Combat):
 
         self.ui_click(click_button=DAILY_ENTER, check_button=daily_enter_check, appear_button=DAILY_CHECK,
                       skip_first_screenshot=True)
-        if self.appear(DAILY_LOCKED):
+        if self.appear(DAILY_LOCKED, offset=(30, 30)):
             logger.info('每日锁定')
             self.ui_click(click_button=BACK_ARROW, check_button=DAILY_CHECK)
             self.device.sleep((1, 1.2))
@@ -299,18 +340,30 @@ class Daily(Combat):
         self.device.sleep(0.2)
         self.device.screenshot()
         self.daily_current = 1
+        self._daily_switch = None
         self.emergency_module_development = self.appear(ENTRANCE_EMERGENCY_MODULE_DEVELOPMENT, offset=(25, 50))
         logger.attr('emergency_module_development', self.emergency_module_development)
 
         logger.info(f'已检查列表: {self.daily_checked}')
-        for _ in range(max(self.daily_checked)):
-            self.next()
+        next_unchecked = max(self.daily_checked) + 1
 
         while 1:
+            if self._daily_switch is not None:
+                self.device.screenshot()
+                if not self._daily_switch_complete():
+                    continue
+            if self.daily_current < next_unchecked:
+                self.next()
+                continue
             if self.daily_current > 7:
                 break
             if self.daily_current == self.empty_index:
                 logger.info('此每日当前未开放')
+                self.daily_check()
+                self.next()
+                continue
+            if self.appear(DAILY_LOCKED, offset=(30, 30)):
+                logger.info(f'每日 {self.daily_current} 今日未开放，跳过')
                 self.daily_check()
                 self.next()
                 continue

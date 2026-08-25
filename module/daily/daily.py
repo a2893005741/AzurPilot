@@ -14,10 +14,12 @@
 import numpy as np
 
 import module.config.server as server
+from module.base.timer import Timer
 from module.base.utils import get_color
 from module.combat.assets import BATTLE_PREPARATION
 from module.combat.combat import Combat
 from module.daily.assets import *
+from module.exception import GameStuckError
 from module.logger import logger
 from module.ocr.ocr import Digit
 from module.ui.assets import BACK_ARROW, DAILY_CHECK
@@ -58,22 +60,53 @@ class Daily(Combat):
             logger.attr(f'每日任务_{self.daily_current}', '未活跃')
         return active
 
-    def _wait_daily_switch(self):
-        self.device.sleep((1, 1.2))
+    def _wait_daily_switch(self, previous_card):
+        """等待每日卡片完成切换，避免读取上一张卡片的状态。"""
+        timeout = Timer(5, count=10).start()
+        stable = Timer(1, count=3).start()
+        changed = False
+        previous_frame = previous_card
+
+        while 1:
+            self.device.screenshot()
+            current_frame = self.image_crop(DAILY_ENTER, copy=False)
+            difference = np.mean(
+                np.abs(current_frame.astype(np.int16) - previous_card.astype(np.int16))
+            )
+
+            if not changed:
+                if difference > 3:
+                    changed = True
+                    stable.reset()
+                    previous_frame = current_frame.copy()
+            else:
+                frame_difference = np.mean(
+                    np.abs(current_frame.astype(np.int16) - previous_frame.astype(np.int16))
+                )
+                if frame_difference > 3:
+                    previous_frame = current_frame.copy()
+                    stable.reset()
+                elif stable.reached():
+                    return
+
+            if timeout.reached():
+                raise GameStuckError('[每日任务] 卡片切换等待超时')
 
     def next(self):
         self.daily_current += 1
         logger.info(f'[每日任务] 切换到 {self.daily_current}')
+        if self.daily_current > 7:
+            return
+        previous_card = self.image_crop(DAILY_ENTER, copy=True)
         self.device.click(DAILY_NEXT)
-        self._wait_daily_switch()
-        self.device.screenshot()
+        self._wait_daily_switch(previous_card)
 
     def prev(self):
+        previous_card = self.image_crop(DAILY_ENTER, copy=True)
         self.daily_current -= 1
         logger.info(f'[每日任务] 切换到 {self.daily_current}')
         self.device.click(DAILY_PREV)
-        self._wait_daily_switch()
-        self.device.screenshot()
+        self._wait_daily_switch(previous_card)
 
     def handle_daily_additional(self):
         if self.handle_guild_popup_cancel():
@@ -207,7 +240,7 @@ class Daily(Combat):
 
         self.ui_click(click_button=DAILY_ENTER, check_button=daily_enter_check, appear_button=DAILY_CHECK,
                       skip_first_screenshot=True)
-        if self.appear(DAILY_LOCKED):
+        if self.appear(DAILY_LOCKED, offset=(30, 30)):
             logger.info('每日锁定')
             self.ui_click(click_button=BACK_ARROW, check_button=DAILY_CHECK)
             self.device.sleep((1, 1.2))
@@ -311,6 +344,11 @@ class Daily(Combat):
                 break
             if self.daily_current == self.empty_index:
                 logger.info('此每日当前未开放')
+                self.daily_check()
+                self.next()
+                continue
+            if self.appear(DAILY_LOCKED, offset=(30, 30)):
+                logger.info(f'每日 {self.daily_current} 今日未开放，跳过')
                 self.daily_check()
                 self.next()
                 continue

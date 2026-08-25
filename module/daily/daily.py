@@ -11,6 +11,7 @@
 继承自 Combat，可直接调用战斗流程。
 """
 
+import cv2
 import numpy as np
 
 import module.config.server as server
@@ -89,8 +90,12 @@ class Daily(Combat):
                     switch['stable'].reset()
                     switch['previous_frame'] = current_frame.copy()
             else:
+                # 卡片存在持续光效，先平滑再判断稳定，避免动画被误认为仍在切换。
                 frame_difference = np.mean(
-                    np.abs(current_frame.astype(np.int16) - switch['previous_frame'].astype(np.int16))
+                    np.abs(
+                        cv2.GaussianBlur(current_frame, (0, 0), 5).astype(np.int16)
+                        - cv2.GaussianBlur(switch['previous_frame'], (0, 0), 5).astype(np.int16)
+                    )
                 )
                 if frame_difference > 3:
                     switch['previous_frame'] = current_frame.copy()

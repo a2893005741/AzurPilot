@@ -71,6 +71,28 @@ class TestDailyCardSwitch(unittest.TestCase):
         self.assertEqual(call.click(DAILY_NEXT), daily.device.mock_calls[0])
         self.assertTrue(np.array_equal(selected, daily.device.image))
 
+    def test_next_ignores_animated_card_effects_when_waiting_for_stability(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        transition = old.copy()
+        transition[118:645, 534:744] = 40
+        selected_a = old.copy()
+        selected_a[118:645, 534:744] = 100
+        selected_b = selected_a.copy()
+        checker = np.indices((527, 210)).sum(axis=0) % 2
+        selected_a[118:645, 534:744] += (checker * 20).astype(np.uint8)[..., None]
+        selected_b[118:645, 534:744] += ((1 - checker) * 20).astype(np.uint8)[..., None]
+        daily = self._daily_with_frames(
+            [old, transition, selected_a, selected_b, selected_a, selected_b, selected_a, selected_b]
+        )
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            self._drive_switch(daily)
+
+        self.assertIsNone(daily._daily_switch)
+        self.assertTrue(np.array_equal(selected_a, daily.device.image)
+                        or np.array_equal(selected_b, daily.device.image))
+
     def test_next_does_not_accept_unchanged_previous_card(self):
         old = np.zeros((720, 1280, 3), dtype=np.uint8)
         daily = self._daily_with_frames([old] * 12)

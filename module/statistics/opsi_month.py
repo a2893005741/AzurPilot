@@ -213,16 +213,23 @@ def get_coins_timeline(
         month_start,
         next_month_start,
     )
-    if resource_snapshots:
-        return [
+    resource_timeline = []
+    for snapshot in resource_snapshots:
+        try:
+            yellow_coins = int(snapshot["yellow_coin"])
+            purple_coins = int(snapshot["purple_coin"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        resource_timeline.append(
             {
                 "ts": snapshot.get("ts"),
-                "yellow_coins": snapshot.get("yellow_coin"),
-                "purple_coins": snapshot.get("purple_coin"),
+                "yellow_coins": yellow_coins,
+                "purple_coins": purple_coins,
                 "source": "resource",
             }
-            for snapshot in resource_snapshots
-        ]
+        )
+    if resource_timeline:
+        return resource_timeline
 
     key_prefix = f"{year:04d}-{month:02d}"
     data = cl1_db.get_stats(instance_name, key_prefix)

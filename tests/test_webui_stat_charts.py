@@ -138,6 +138,29 @@ class TestStatisticsChartPayloads(unittest.TestCase):
         self.assertEqual([None, 100, 200, None], result["yellow_coins_list"])
         self.assertEqual([None, 10, 20, None], result["purple_coins_list"])
 
+    def test_coin_builder_tolerates_partial_snapshot_values(self):
+        chart_points = [
+            {"dt": datetime(2026, 8, 26, hour)} for hour in (10, 11)
+        ]
+        result = self.ap._build_ap_chart_coins_data(
+            [
+                {
+                    "ts": "2026-08-26T10:00:00",
+                    "yellow_coins": 100,
+                    "purple_coins": None,
+                },
+                {
+                    "ts": "2026-08-26T11:00:00",
+                    "yellow_coins": None,
+                    "purple_coins": 20,
+                },
+            ],
+            chart_points,
+            "line",
+        )
+        self.assertEqual([100, None], result["yellow_coins_list"])
+        self.assertEqual([None, 20], result["purple_coins_list"])
+
     def test_render_payload_contains_detail_and_auxiliary_fields(self):
         with (
             patch("module.webui.app_stat_action_point.current_time", return_value=datetime(2026, 8, 26, 12, 0)),

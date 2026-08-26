@@ -92,7 +92,7 @@ class TestCoinTimelineRecovery(unittest.TestCase):
         ):
             timeline = opsi_month.get_coins_timeline(2026, 8, "alas")
 
-        self.assertEqual(2, len(timeline))
+        self.assertEqual(1, len(timeline))
         self.assertEqual(
             {
                 "ts": "2026-08-01T00:00:00",
@@ -102,7 +102,27 @@ class TestCoinTimelineRecovery(unittest.TestCase):
             },
             timeline[0],
         )
-        self.assertIsNone(timeline[1]["yellow_coins"])
+
+    def test_coins_timeline_falls_back_when_all_resource_rows_are_partial(self):
+        self._insert_snapshot("2026-08-01T00:00:00", 2, None)
+        self._insert_snapshot("2026-08-02T12:00:00", None, 30)
+        fallback = [
+            {
+                "ts": "2026-08-25T12:00:00",
+                "yellow_coins": 500,
+                "purple_coins": 50,
+                "source": "cl1",
+            }
+        ]
+
+        with patch.object(
+            opsi_month.cl1_db,
+            "get_stats",
+            return_value={"coins_snapshots": fallback},
+        ):
+            timeline = opsi_month.get_coins_timeline(2026, 8, "alas")
+
+        self.assertEqual(fallback, timeline)
 
     def test_coins_timeline_falls_back_to_cl1_when_resource_history_is_empty(self):
         fallback = [

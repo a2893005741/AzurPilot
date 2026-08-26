@@ -331,13 +331,15 @@ class ActionPointStatisticsMixin(ChartInjectionMixin):
                     dt = datetime.fromisoformat(ts_raw)
                 except Exception:
                     continue
+                yellow_coins = self._snapshot_int(pt, "yellow_coins")
+                purple_coins = self._snapshot_int(pt, "purple_coins")
+                if yellow_coins is None and purple_coins is None:
+                    continue
                 coins_raw_points.append(
                     {
                         "dt": dt,
-                        "yellow_coins": int(pt.get("yellow_coins", 0)),
-                        "purple_coins": int(pt["purple_coins"])
-                        if "purple_coins" in pt
-                        else None,
+                        "yellow_coins": yellow_coins,
+                        "purple_coins": purple_coins,
                         "source": pt.get("source", "-"),
                     }
                 )
@@ -506,6 +508,17 @@ class ActionPointStatisticsMixin(ChartInjectionMixin):
                 + asset_data["legend_html"]
             ),
         }
+
+    @staticmethod
+    def _snapshot_int(point, key):
+        """将快照中的可选数值转换为整数，无效值保持为空。"""
+        value = point.get(key)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _snapshot_float(point, key):

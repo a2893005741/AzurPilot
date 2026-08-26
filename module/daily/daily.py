@@ -65,9 +65,10 @@ class Daily(Combat):
     def _start_daily_switch(self, button):
         self._daily_switch = {
             'previous_card': self.image_crop(DAILY_ENTER, copy=True),
-            'previous_frame': None,
-            'changed': False,
-            'stable': Timer(1, count=3).start(),
+            'target_card': self.image_crop(button, copy=True),
+            'target_seen': False,
+            'target_similarity': 0.,
+            'target_timer': Timer(1, count=3).start(),
             'timeout': Timer(5, count=10).start(),
         }
         self.device.click(button)
@@ -78,6 +79,18 @@ class Daily(Combat):
         previous_frame = cv2.GaussianBlur(previous_frame, (0, 0), 5)
         return np.mean(np.abs(current_frame.astype(np.int16) - previous_frame.astype(np.int16)))
 
+    @staticmethod
+    def _daily_card_similarity(current_frame, target_frame):
+        target_frame = cv2.resize(
+            target_frame,
+            current_frame.shape[1::-1],
+            interpolation=cv2.INTER_LINEAR,
+        )
+        current_frame = cv2.cvtColor(cv2.GaussianBlur(current_frame, (0, 0), 3), cv2.COLOR_RGB2GRAY)
+        target_frame = cv2.cvtColor(cv2.GaussianBlur(target_frame, (0, 0), 3), cv2.COLOR_RGB2GRAY)
+        similarity = cv2.matchTemplate(current_frame, target_frame, cv2.TM_CCOEFF_NORMED)[0, 0]
+        return float(similarity) if np.isfinite(similarity) else 0.
+
     def _daily_switch_complete(self):
         """推进一次卡片切换检测，完成后返回 True。"""
         switch = self._daily_switch
@@ -87,23 +100,28 @@ class Daily(Combat):
         if not self.handle_daily_additional():
             current_frame = self.image_crop(DAILY_ENTER, copy=False)
             difference = self._daily_card_difference(current_frame, switch['previous_card'])
+            similarity = self._daily_card_similarity(current_frame, switch['target_card'])
+            switch['target_similarity'] = max(switch['target_similarity'], similarity)
+            target_matched = difference > 3 and similarity > 0.6
 
-            if not switch['changed']:
-                if difference > 3:
-                    switch['changed'] = True
-                    switch['stable'].reset()
-                    switch['previous_frame'] = current_frame.copy()
+            if not switch['target_seen']:
+                if target_matched:
+                    switch['target_seen'] = True
+                    switch['target_timer'].reset()
             else:
-                frame_difference = self._daily_card_difference(current_frame, switch['previous_frame'])
-                if frame_difference > 3:
-                    switch['previous_frame'] = current_frame.copy()
-                    switch['stable'].reset()
-                elif switch['stable'].reached():
+                # 确认期持续验证目标卡片身份，但不要求逐帧静止，避免目标卡片的
+                # 光效和粒子动画重置计时器。
+                if not target_matched:
+                    switch['target_seen'] = False
+                    switch['target_timer'].reset()
+                elif switch['target_timer'].reached():
                     self._daily_switch = None
                     return True
 
         if switch['timeout'].reached():
-            raise GameStuckError('[每日任务] 卡片切换等待超时')
+            raise GameStuckError(
+                f'[每日任务] 卡片切换等待超时，目标相似度={switch["target_similarity"]:.3f}'
+            )
         return False
 
     def next(self):

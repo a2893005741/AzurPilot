@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import Mock, call, patch
 
+import cv2
 import numpy as np
 
 from module.daily.assets import DAILY_ENTER, DAILY_LOCKED, DAILY_NEXT
@@ -38,6 +39,7 @@ class TestDailyCardSwitch(unittest.TestCase):
         daily.device.image = frames[0]
         remaining = iter(frames[1:])
         daily.handle_daily_additional = Mock(return_value=False)
+        daily._daily_card_similarity = Mock(return_value=0.8)
         daily._daily_switch = None
 
         def screenshot():
@@ -67,7 +69,7 @@ class TestDailyCardSwitch(unittest.TestCase):
             self._drive_switch(daily)
 
         self.assertEqual(2, daily.daily_current)
-        self.assertEqual(7, daily.device.screenshot.call_count)
+        self.assertEqual(6, daily.device.screenshot.call_count)
         self.assertEqual(call.click(DAILY_NEXT), daily.device.mock_calls[0])
         self.assertTrue(np.array_equal(selected, daily.device.image))
 
@@ -93,6 +95,82 @@ class TestDailyCardSwitch(unittest.TestCase):
         self.assertTrue(np.array_equal(selected_a, daily.device.image)
                         or np.array_equal(selected_b, daily.device.image))
 
+    def test_next_accepts_changed_card_with_continuous_animation(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        selected_a = old.copy()
+        selected_b = old.copy()
+        selected_a[118:645, 534:744] = 80
+        selected_b[118:645, 534:744] = 140
+        animated_frames = [selected_a, selected_b] * 8
+        daily = self._daily_with_frames([old] + animated_frames)
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            self._drive_switch(daily)
+
+        self.assertIsNone(daily._daily_switch)
+        self.assertLess(daily.device.screenshot.call_count, len(animated_frames))
+
+    def test_next_does_not_accept_old_card_animation_without_target_match(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        animated_a = old.copy()
+        animated_b = old.copy()
+        animated_a[118:645, 534:744] = 80
+        animated_b[118:645, 534:744] = 140
+        daily = self._daily_with_frames([old] + [animated_a, animated_b] * 6)
+        daily._daily_card_similarity = Mock(return_value=0.1)
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
+                daily.next()
+                self._drive_switch(daily)
+
+        self.assertFalse(daily._daily_switch['target_seen'])
+
+    def test_daily_card_similarity_matches_scaled_target_preview(self):
+        target = np.random.default_rng(42).integers(0, 256, (443, 175, 3), dtype=np.uint8)
+        selected = cv2.resize(target, (210, 527))
+        other = np.roll(selected, 70, axis=1)
+
+        self.assertGreater(Daily._daily_card_similarity(selected, target), 0.9)
+        self.assertLess(Daily._daily_card_similarity(other, target), 0.6)
+
+    def test_next_does_not_accept_transient_frame_as_card_change(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        transient = old.copy()
+        transient[118:645, 534:744] = 100
+        daily = self._daily_with_frames([old, transient, old] + [old] * 10)
+        daily._daily_card_similarity.side_effect = [0.8] + [0.1] * 20
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            daily.device.screenshot()
+            self.assertFalse(daily._daily_switch_complete())
+            self.assertTrue(daily._daily_switch['target_seen'])
+            daily.device.screenshot()
+            self.assertFalse(daily._daily_switch_complete())
+            self.assertFalse(daily._daily_switch['target_seen'])
+            with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
+                self._drive_switch(daily)
+
+    def test_next_does_not_accept_target_glimpse_before_old_card_animation(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        transient = old.copy()
+        transient[118:645, 534:744] = 100
+        animated_a = old.copy()
+        animated_b = old.copy()
+        animated_a[118:645, 534:744] = 40
+        animated_b[118:645, 534:744] = 80
+        daily = self._daily_with_frames([old, transient] + [animated_a, animated_b] * 6)
+        daily._daily_card_similarity.side_effect = [0.8] + [0.1] * 20
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
+                daily.next()
+                self._drive_switch(daily)
+
+        self.assertFalse(daily._daily_switch['target_seen'])
+
     def test_next_ignores_old_card_animation_before_switch(self):
         old_a = np.zeros((720, 1280, 3), dtype=np.uint8)
         old_b = old_a.copy()
@@ -102,12 +180,13 @@ class TestDailyCardSwitch(unittest.TestCase):
         selected = np.zeros((720, 1280, 3), dtype=np.uint8)
         selected[118:645, 534:744] = 100
         daily = self._daily_with_frames([old_a, old_b] + [selected] * 6)
+        daily._daily_card_similarity.side_effect = [0.1] + [0.8] * 10
 
         with patch('module.daily.daily.Timer', AccessTimer):
             daily.next()
             daily.device.screenshot()
             self.assertFalse(daily._daily_switch_complete())
-            self.assertFalse(daily._daily_switch['changed'])
+            self.assertFalse(daily._daily_switch['target_seen'])
             self._drive_switch(daily)
 
         self.assertIsNone(daily._daily_switch)
@@ -138,7 +217,7 @@ class TestDailyCardSwitch(unittest.TestCase):
             for _ in range(3):
                 daily.device.screenshot()
                 self.assertFalse(daily._daily_switch_complete())
-                self.assertFalse(daily._daily_switch['changed'])
+                self.assertFalse(daily._daily_switch['target_seen'])
             self._drive_switch(daily)
 
         self.assertGreaterEqual(daily.handle_daily_additional.call_count, 3)

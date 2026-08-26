@@ -11,6 +11,7 @@
 继承自 Combat，可直接调用战斗流程。
 """
 
+import cv2
 import numpy as np
 
 import module.config.server as server
@@ -71,6 +72,12 @@ class Daily(Combat):
         }
         self.device.click(button)
 
+    @staticmethod
+    def _daily_card_difference(current_frame, previous_frame):
+        current_frame = cv2.GaussianBlur(current_frame, (0, 0), 5)
+        previous_frame = cv2.GaussianBlur(previous_frame, (0, 0), 5)
+        return np.mean(np.abs(current_frame.astype(np.int16) - previous_frame.astype(np.int16)))
+
     def _daily_switch_complete(self):
         """推进一次卡片切换检测，完成后返回 True。"""
         switch = self._daily_switch
@@ -79,9 +86,7 @@ class Daily(Combat):
 
         if not self.handle_daily_additional():
             current_frame = self.image_crop(DAILY_ENTER, copy=False)
-            difference = np.mean(
-                np.abs(current_frame.astype(np.int16) - switch['previous_card'].astype(np.int16))
-            )
+            difference = self._daily_card_difference(current_frame, switch['previous_card'])
 
             if not switch['changed']:
                 if difference > 3:
@@ -89,9 +94,7 @@ class Daily(Combat):
                     switch['stable'].reset()
                     switch['previous_frame'] = current_frame.copy()
             else:
-                frame_difference = np.mean(
-                    np.abs(current_frame.astype(np.int16) - switch['previous_frame'].astype(np.int16))
-                )
+                frame_difference = self._daily_card_difference(current_frame, switch['previous_frame'])
                 if frame_difference > 3:
                     switch['previous_frame'] = current_frame.copy()
                     switch['stable'].reset()
@@ -345,18 +348,17 @@ class Daily(Combat):
         logger.attr('emergency_module_development', self.emergency_module_development)
 
         logger.info(f'已检查列表: {self.daily_checked}')
-        next_unchecked = max(self.daily_checked) + 1
 
         while 1:
             if self._daily_switch is not None:
                 self.device.screenshot()
                 if not self._daily_switch_complete():
                     continue
-            if self.daily_current < next_unchecked:
-                self.next()
-                continue
             if self.daily_current > 7:
                 break
+            if self.daily_current in self.daily_checked:
+                self.next()
+                continue
             if self.daily_current == self.empty_index:
                 logger.info('此每日当前未开放')
                 self.daily_check()
@@ -408,7 +410,7 @@ class Daily(Combat):
             if self.emergency_module_development and self.config.Daily_EmergencyModuleDevelopment != 'skip':
                 self.daily_checked = [0]
 
-            if max(self.daily_checked) >= 7:
+            if all(index in self.daily_checked for index in range(1, 8)):
                 logger.info('每日清除完成')
                 break
 

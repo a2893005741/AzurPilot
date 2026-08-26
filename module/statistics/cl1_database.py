@@ -846,9 +846,6 @@ class Cl1Database:
                     if purple_coins is None and "purple_coins" not in last:
                         return
         snapshots.append(snapshot)
-        # 保留最近 500 条记录，避免数据过大
-        if len(snapshots) > 500:
-            snapshots = snapshots[-500:]
         data["coins_snapshots"] = snapshots
         self.save_stats(instance, month, data)
 

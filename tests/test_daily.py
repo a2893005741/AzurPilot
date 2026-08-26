@@ -67,7 +67,7 @@ class TestDailyCardSwitch(unittest.TestCase):
             self._drive_switch(daily)
 
         self.assertEqual(2, daily.daily_current)
-        self.assertEqual(7, daily.device.screenshot.call_count)
+        self.assertEqual(6, daily.device.screenshot.call_count)
         self.assertEqual(call.click(DAILY_NEXT), daily.device.mock_calls[0])
         self.assertTrue(np.array_equal(selected, daily.device.image))
 
@@ -92,6 +92,39 @@ class TestDailyCardSwitch(unittest.TestCase):
         self.assertIsNone(daily._daily_switch)
         self.assertTrue(np.array_equal(selected_a, daily.device.image)
                         or np.array_equal(selected_b, daily.device.image))
+
+    def test_next_accepts_changed_card_with_continuous_animation(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        selected_a = old.copy()
+        selected_b = old.copy()
+        selected_a[118:645, 534:744] = 80
+        selected_b[118:645, 534:744] = 140
+        animated_frames = [selected_a, selected_b] * 8
+        daily = self._daily_with_frames([old] + animated_frames)
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            self._drive_switch(daily)
+
+        self.assertIsNone(daily._daily_switch)
+        self.assertLess(daily.device.screenshot.call_count, len(animated_frames))
+
+    def test_next_does_not_accept_transient_frame_as_card_change(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        transient = old.copy()
+        transient[118:645, 534:744] = 100
+        daily = self._daily_with_frames([old, transient, old] + [old] * 10)
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            daily.device.screenshot()
+            self.assertFalse(daily._daily_switch_complete())
+            self.assertTrue(daily._daily_switch['changed'])
+            daily.device.screenshot()
+            self.assertFalse(daily._daily_switch_complete())
+            self.assertFalse(daily._daily_switch['changed'])
+            with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
+                self._drive_switch(daily)
 
     def test_next_ignores_old_card_animation_before_switch(self):
         old_a = np.zeros((720, 1280, 3), dtype=np.uint8)

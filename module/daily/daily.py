@@ -65,9 +65,8 @@ class Daily(Combat):
     def _start_daily_switch(self, button):
         self._daily_switch = {
             'previous_card': self.image_crop(DAILY_ENTER, copy=True),
-            'previous_frame': None,
             'changed': False,
-            'stable': Timer(1, count=3).start(),
+            'changed_timer': Timer(1, count=3).start(),
             'timeout': Timer(5, count=10).start(),
         }
         self.device.click(button)
@@ -91,14 +90,14 @@ class Daily(Combat):
             if not switch['changed']:
                 if difference > 3:
                     switch['changed'] = True
-                    switch['stable'].reset()
-                    switch['previous_frame'] = current_frame.copy()
+                    switch['changed_timer'].reset()
             else:
-                frame_difference = self._daily_card_difference(current_frame, switch['previous_frame'])
-                if frame_difference > 3:
-                    switch['previous_frame'] = current_frame.copy()
-                    switch['stable'].reset()
-                elif switch['stable'].reached():
+                # 只确认卡片已离开旧状态，不要求新卡片自身静止。每日卡片会持续播放
+                # 光效和粒子动画，逐帧比较会不断重置稳定计时器并误报超时。
+                if difference <= 3:
+                    switch['changed'] = False
+                    switch['changed_timer'].reset()
+                elif switch['changed_timer'].reached():
                     self._daily_switch = None
                     return True
 

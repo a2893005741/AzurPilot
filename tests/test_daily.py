@@ -153,6 +153,24 @@ class TestDailyCardSwitch(unittest.TestCase):
             with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
                 self._drive_switch(daily)
 
+    def test_next_does_not_accept_target_glimpse_before_old_card_animation(self):
+        old = np.zeros((720, 1280, 3), dtype=np.uint8)
+        transient = old.copy()
+        transient[118:645, 534:744] = 100
+        animated_a = old.copy()
+        animated_b = old.copy()
+        animated_a[118:645, 534:744] = 40
+        animated_b[118:645, 534:744] = 80
+        daily = self._daily_with_frames([old, transient] + [animated_a, animated_b] * 6)
+        daily._daily_card_similarity.side_effect = [0.8] + [0.1] * 20
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            with self.assertRaisesRegex(GameStuckError, '卡片切换等待超时'):
+                daily.next()
+                self._drive_switch(daily)
+
+        self.assertFalse(daily._daily_switch['target_seen'])
+
     def test_next_ignores_old_card_animation_before_switch(self):
         old_a = np.zeros((720, 1280, 3), dtype=np.uint8)
         old_b = old_a.copy()

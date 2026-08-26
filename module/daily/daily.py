@@ -102,15 +102,16 @@ class Daily(Combat):
             difference = self._daily_card_difference(current_frame, switch['previous_card'])
             similarity = self._daily_card_similarity(current_frame, switch['target_card'])
             switch['target_similarity'] = max(switch['target_similarity'], similarity)
+            target_matched = difference > 3 and similarity > 0.6
 
             if not switch['target_seen']:
-                if difference > 3 and similarity > 0.6:
+                if target_matched:
                     switch['target_seen'] = True
                     switch['target_timer'].reset()
             else:
-                # 目标卡片已正向匹配后，只防止画面退回旧卡片。目标卡片自身会持续
-                # 播放光效和粒子动画，不能再用逐帧静止作为完成条件。
-                if difference <= 3:
+                # 确认期持续验证目标卡片身份，但不要求逐帧静止，避免目标卡片的
+                # 光效和粒子动画重置计时器。
+                if not target_matched:
                     switch['target_seen'] = False
                     switch['target_timer'].reset()
                 elif switch['target_timer'].reached():

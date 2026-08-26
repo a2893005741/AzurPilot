@@ -199,9 +199,39 @@ def get_coins_timeline(
         year = now.year
     if month is None:
         month = now.month
-    key_prefix = f"{year:04d}-{month:02d}"
-
     instance_name = instance_name or "default"
+    month_start = datetime(year, month, 1)
+    if month == 12:
+        next_month_start = datetime(year + 1, 1, 1)
+    else:
+        next_month_start = datetime(year, month + 1, 1)
+
+    from module.statistics.resource_stats import get_resource_timeline_range
+
+    resource_snapshots = get_resource_timeline_range(
+        instance_name,
+        month_start,
+        next_month_start,
+    )
+    resource_timeline = []
+    for snapshot in resource_snapshots:
+        try:
+            yellow_coins = int(snapshot["yellow_coin"])
+            purple_coins = int(snapshot["purple_coin"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        resource_timeline.append(
+            {
+                "ts": snapshot.get("ts"),
+                "yellow_coins": yellow_coins,
+                "purple_coins": purple_coins,
+                "source": "resource",
+            }
+        )
+    if resource_timeline:
+        return resource_timeline
+
+    key_prefix = f"{year:04d}-{month:02d}"
     data = cl1_db.get_stats(instance_name, key_prefix)
 
     snapshots = data.get("coins_snapshots", [])

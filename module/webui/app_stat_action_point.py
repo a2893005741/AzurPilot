@@ -3,7 +3,6 @@
 from module.webui.app_dependencies import (
     current_time,
     datetime,
-    json,
     put_button,
     put_html,
     put_text,
@@ -16,11 +15,10 @@ from module.webui.app_helpers import (
     read_webapp_template,
 )
 
+from module.webui.app_stat_chart import ChartInjectionMixin
 
-from module.webui.app_types import WebUIMixinBase
 
-
-class ActionPointStatisticsMixin(WebUIMixinBase):
+class ActionPointStatisticsMixin(ChartInjectionMixin):
     """WebUI 体力趋势图的数据装配和图表渲染。"""
 
     def _load_ap_chart_timelines(self):
@@ -147,6 +145,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     labels.append(p["dt"].strftime("%m-%d %H:%M"))
                     ap_list.append(p["ap"])
                     ap_ts.append(int(p["dt"].timestamp() * 1000))
+                    detail_sources.append(p.get("source", "-"))
                     chart_points.append(p)
                 view_title = t("Gui.Stat.ViewTitleLine")
                 is_detail_mode = False
@@ -156,6 +155,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                 labels.append(p["dt"].strftime("%m-%d %H:%M"))
                 ap_list.append(p["ap"])
                 ap_ts.append(int(p["dt"].timestamp() * 1000))
+                detail_sources.append(p.get("source", "-"))
                 chart_points.append(p)
             view_title = t("Gui.Stat.ViewTitleLine")
         else:
@@ -249,24 +249,35 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
 
     @staticmethod
     def _align_ap_timeline(raw_points, chart_points):
-        """按最近时间戳将辅助时间线对齐到图表点。"""
-        raw_points.sort(key=lambda p: p["dt"])
+        """按最近时间戳对齐辅助时间线，覆盖范围外保留空值。"""
+        from bisect import bisect_left
+
+        if not chart_points:
+            return []
+        if not raw_points:
+            return [None] * len(chart_points)
+
+        raw_points = sorted(raw_points, key=lambda p: p["dt"])
+        raw_times = [point["dt"] for point in raw_points]
+        first_time = raw_times[0]
+        last_time = raw_times[-1]
         aligned_points = []
-        point_idx = 0
-        point_last = len(raw_points) - 1
         for chart_point in chart_points:
-            while point_idx < point_last:
-                cur_delta = abs(
-                    (raw_points[point_idx]["dt"] - chart_point["dt"]).total_seconds()
-                )
-                next_delta = abs(
-                    (
-                        raw_points[point_idx + 1]["dt"] - chart_point["dt"]
-                    ).total_seconds()
-                )
-                if next_delta > cur_delta:
-                    break
-                point_idx += 1
+            chart_time = chart_point["dt"]
+            if chart_time < first_time or chart_time > last_time:
+                aligned_points.append(None)
+                continue
+
+            right_idx = bisect_left(raw_times, chart_time)
+            if right_idx == 0:
+                point_idx = 0
+            elif right_idx == len(raw_points):
+                point_idx = len(raw_points) - 1
+            else:
+                left_idx = right_idx - 1
+                left_delta = chart_time - raw_times[left_idx]
+                right_delta = raw_times[right_idx] - chart_time
+                point_idx = right_idx if right_delta <= left_delta else left_idx
             aligned_points.append(raw_points[point_idx])
         return aligned_points
 
@@ -281,6 +292,27 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
             coins_timeline, chart_points, current_view
         )
         asset_data = self._build_ap_chart_asset_data(asset_timeline, current_view)
+        if asset_data["asset_list"] and chart_points:
+            asset_points = [
+                {
+                    "dt": datetime.fromtimestamp(
+                        ts / 1000, tz=chart_points[0]["dt"].tzinfo
+                    ),
+                    "asset": value,
+                }
+                for ts, value in zip(
+                    asset_data["asset_ts_list"], asset_data["asset_list"]
+                )
+            ]
+            aligned_assets = self._align_ap_timeline(asset_points, chart_points)
+            asset_data["asset_list"] = [
+                point["asset"] if point is not None else None
+                for point in aligned_assets
+            ]
+            asset_data["asset_ts_list"] = [
+                int(point["dt"].timestamp() * 1000) if point is not None else None
+                for point in aligned_assets
+            ]
         return self._combine_ap_chart_auxiliary_data(
             coins_data, distance_data, asset_data
         )
@@ -289,10 +321,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         """解析并对齐黄币、紫币时间线，构造对应统计和图例。"""
         yellow_coins_list = []
         purple_coins_list = []
-        coins_sources_list = []
-        show_coins = False
         stats_html = ""
-        legend_html = ""
 
         if coins_timeline and chart_points and current_view in ("line", "detail"):
             coins_raw_points = []
@@ -302,13 +331,15 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     dt = datetime.fromisoformat(ts_raw)
                 except Exception:
                     continue
+                yellow_coins = self._snapshot_int(pt, "yellow_coins")
+                purple_coins = self._snapshot_int(pt, "purple_coins")
+                if yellow_coins is None and purple_coins is None:
+                    continue
                 coins_raw_points.append(
                     {
                         "dt": dt,
-                        "yellow_coins": int(pt.get("yellow_coins", 0)),
-                        "purple_coins": int(pt["purple_coins"])
-                        if "purple_coins" in pt
-                        else None,
+                        "yellow_coins": yellow_coins,
+                        "purple_coins": purple_coins,
                         "source": pt.get("source", "-"),
                     }
                 )
@@ -317,15 +348,17 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                 for coins_point in self._align_ap_timeline(
                     coins_raw_points, chart_points
                 ):
-                    yellow_coins_list.append(coins_point["yellow_coins"])
-                    purple_coins_list.append(coins_point["purple_coins"])
-                    coins_sources_list.append(coins_point.get("source", "-"))
+                    if coins_point is None:
+                        yellow_coins_list.append(None)
+                        purple_coins_list.append(None)
+                    else:
+                        yellow_coins_list.append(coins_point["yellow_coins"])
+                        purple_coins_list.append(coins_point["purple_coins"])
 
                 valid_yellow_coins = [v for v in yellow_coins_list if v is not None]
                 valid_purple_coins = [
                     v for v in purple_coins_list if v is not None and v > 0
                 ]
-                show_coins = bool(valid_yellow_coins or valid_purple_coins)
 
                 if valid_yellow_coins:
                     yc_cur = valid_yellow_coins[-1]
@@ -340,8 +373,6 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     yc_min = min(valid_yellow_coins)
 
                     stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>黄币: <b style="color:#ffd54f">{yc_cur}</b></span><span>变化: <b style="color:{yc_change_color}">{yc_change_sign}{yc_change}</b></span><span>最高: <b style="color:#ef5350">{yc_max}</b></span><span>最低: <b style="color:#26a69a">{yc_min}</b></span><span></span></div>'
-                    legend_html += '<span class="ap-legend-item" data-series="2" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#ffd54f; border-radius:1px; border-top:1px dashed #ffd54f;"></span>黄币</span>'
-
                 if valid_purple_coins:
                     pc_cur = valid_purple_coins[-1]
                     pc_change = (
@@ -355,15 +386,11 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     pc_min = min(valid_purple_coins)
 
                     stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>紫币: <b style="color:#ce93d8">{pc_cur}</b></span><span>变化: <b style="color:{pc_change_color}">{pc_change_sign}{pc_change}</b></span><span>最高: <b style="color:#ef5350">{pc_max}</b></span><span>最低: <b style="color:#26a69a">{pc_min}</b></span><span></span></div>'
-                    legend_html += '<span class="ap-legend-item" data-series="1" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#ce93d8; border-radius:1px; border-top:1px dashed #ce93d8;"></span>紫币</span>'
-
         return {
             "yellow_coins_list": yellow_coins_list,
             "purple_coins_list": purple_coins_list,
-            "coins_sources_list": coins_sources_list,
-            "show_coins": show_coins,
             "stats_html": stats_html,
-            "legend_html": legend_html,
+            "legend_html": "",
         }
 
     def _build_ap_chart_distance_data(self, timeline, chart_points, current_view):
@@ -387,12 +414,15 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
 
         distance_list = []
         stats_html = ""
-        legend_html = ""
         if distance_raw_points and chart_points and current_view in ("line", "detail"):
             for distance_point in self._align_ap_timeline(
                 distance_raw_points, chart_points
             ):
-                distance_list.append(distance_point["distance"])
+                distance_list.append(
+                    distance_point["distance"]
+                    if distance_point is not None
+                    else None
+                )
 
             if distance_list:
                 valid_distance = [v for v in distance_list if v is not None]
@@ -409,18 +439,15 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     d_min = min(valid_distance)
 
                     stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>海里数: <b style="color:#1565c0">{d_cur}</b></span><span>变化: <b style="color:{d_change_color}">{d_change_sign}{d_change}</b></span><span>最高: <b style="color:#ef5350">{d_max}</b></span><span>最低: <b style="color:#26a69a">{d_min}</b></span><span></span></div>'
-                    legend_html += '<span class="ap-legend-item" data-series="4" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#1565c0; border-radius:1px;"></span>海里数</span>'
-
         return {
             "distance_list": distance_list,
             "stats_html": stats_html,
-            "legend_html": legend_html,
+            "legend_html": "",
         }
 
     def _build_ap_chart_asset_data(self, asset_timeline, current_view):
         """解析资产时间线，构造对应统计和图例。"""
-        asset_list = []
-        asset_ts_list = []
+        asset_raw_points = []
         if asset_timeline and current_view in ("line", "detail"):
             for pt in asset_timeline:
                 ts_raw = pt.get("ts", "")
@@ -428,15 +455,19 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     try:
                         va_dt = datetime.fromisoformat(ts_raw)
                         asset_value = self._snapshot_float(pt, "asset")
-                        if asset_value is None:
-                            continue
-                        asset_list.append(asset_value)
-                        asset_ts_list.append(int(va_dt.timestamp() * 1000))
-                    except TypeError, ValueError:
+                    except (TypeError, ValueError):
                         continue
+                    if asset_value is None:
+                        continue
+                    asset_raw_points.append({"dt": va_dt, "asset": asset_value})
+
+        asset_list = []
+        asset_ts_list = []
+        for asset_point in sorted(asset_raw_points, key=lambda point: point["dt"]):
+            asset_list.append(asset_point["asset"])
+            asset_ts_list.append(int(asset_point["dt"].timestamp() * 1000))
 
         stats_html = ""
-        legend_html = ""
         if asset_list:
             valid_asset = [v for v in asset_list if v is not None]
             if valid_asset:
@@ -450,35 +481,22 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                 a_min = min(valid_asset)
 
                 stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>资产: <b style="color:#22d3ee">{a_cur:.1f}</b></span><span>变化: <b style="color:{a_change_color}">{a_change_sign}{a_change:.1f}</b></span><span>最高: <b style="color:#ef5350">{a_max:.1f}</b></span><span>最低: <b style="color:#26a69a">{a_min:.1f}</b></span><span></span></div>'
-                legend_html += '<span class="ap-legend-item" data-series="3" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#22d3ee; border-radius:1px;"></span>资产</span>'
-
         return {
             "asset_list": asset_list,
             "asset_ts_list": asset_ts_list,
             "stats_html": stats_html,
-            "legend_html": legend_html,
+            "legend_html": "",
         }
 
     @staticmethod
     def _combine_ap_chart_auxiliary_data(coins_data, distance_data, asset_data):
         """按模板约定组合辅助序列、摘要 HTML 与图例。"""
-        show_coins = coins_data["show_coins"]
-        if not show_coins and (
-            asset_data["asset_list"]
-            or coins_data["yellow_coins_list"]
-            or coins_data["purple_coins_list"]
-            or distance_data["distance_list"]
-        ):
-            show_coins = True
-
         return {
             "yellow_coins_list": coins_data["yellow_coins_list"],
             "purple_coins_list": coins_data["purple_coins_list"],
-            "coins_sources_list": coins_data["coins_sources_list"],
             "distance_list": distance_data["distance_list"],
             "asset_list": asset_data["asset_list"],
             "asset_ts_list": asset_data["asset_ts_list"],
-            "show_coins": show_coins,
             "coins_stats_html": (
                 coins_data["stats_html"]
                 + distance_data["stats_html"]
@@ -492,6 +510,17 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         }
 
     @staticmethod
+    def _snapshot_int(point, key):
+        """将快照中的可选数值转换为整数，无效值保持为空。"""
+        value = point.get(key)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
     def _snapshot_float(point, key):
         """将快照中的可选数值转换为浮点数。"""
         value = point.get(key)
@@ -500,15 +529,15 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         return float(value)
 
     def _render_ap_chart_content(self, chart_data, auxiliary_data):
-        """将已装配的数据填充到 HTML 和 JavaScript 模板。"""
+        """将已装配的数据填充到 HTML，并把结构化的图表载荷交给前端渲染。
+
+        不再以字符串注入 JS 模板，而是把纯数据 JSON 放在
+        ``window.__apChartPayload``，由 ``webapp/ap_chart_echarts.js`` 读取。
+        """
         current_view = chart_data["current_view"]
         chart_id = f"ap_cv_{id(self)}"
-        detail_controls_display = (
-            "display:flex;" if current_view in ("line", "detail") else "display:none;"
-        )
 
-        html_tpl = read_webapp_template("ap_chart_panel.html")
-        html = html_tpl.format(
+        template_fields = dict(
             chart_id=chart_id,
             view_title=chart_data["view_title"],
             ap_cur=chart_data["ap_cur"],
@@ -519,52 +548,38 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
             ap_min=chart_data["ap_min"],
             ap_avg=chart_data["ap_avg"],
             data_points_text=chart_data["data_points_text"],
-            detail_controls_display=detail_controls_display,
             coins_stats_html=auxiliary_data["coins_stats_html"],
-            coins_legend_html=auxiliary_data["coins_legend_html"],
         )
-
-        js_tpl = read_webapp_template("ap_chart.js")
-        js_code = (
-            js_tpl.replace(
-                "__CHART_TYPE__",
-                "line" if chart_data["is_detail_mode"] else current_view,
-            )
-            .replace("__LABELS__", json.dumps(chart_data["labels"], ensure_ascii=False))
-            .replace("__OPENS__", json.dumps(chart_data["opens"]))
-            .replace("__HIGHS__", json.dumps(chart_data["highs"]))
-            .replace("__LOWS__", json.dumps(chart_data["lows"]))
-            .replace("__CLOSES__", json.dumps(chart_data["closes"]))
-            .replace("__COUNTS__", json.dumps(chart_data["counts"]))
-            .replace("__AP__", json.dumps(chart_data["ap_list"]))
-            .replace("__AP_TS__", json.dumps(chart_data["ap_ts"]))
-            .replace("__AVG__", str(chart_data["ap_avg"]))
-            .replace("__CHART_ID__", chart_id)
-            .replace(
-                "__IS_DETAIL_MODE__",
-                "true" if chart_data["is_detail_mode"] else "false",
-            )
-            .replace(
-                "__SOURCES__",
-                json.dumps(
-                    chart_data["detail_sources"]
-                    if chart_data["is_detail_mode"]
-                    else []
-                ),
-            )
-            .replace("__YELLOW_COINS__", json.dumps(auxiliary_data["yellow_coins_list"]))
-            .replace("__PURPLE_COINS__", json.dumps(auxiliary_data["purple_coins_list"]))
-            .replace("__COINS_SOURCES__", json.dumps(auxiliary_data["coins_sources_list"]))
-            .replace("__ASSET__", json.dumps(auxiliary_data["asset_list"]))
-            .replace("__ASSET_TS__", json.dumps(auxiliary_data["asset_ts_list"]))
-            .replace("__DISTANCE__", json.dumps(auxiliary_data["distance_list"]))
-            .replace(
-                "__SHOW_COINS__",
-                "true" if auxiliary_data["show_coins"] else "false",
-            )
-        )
-        from pywebio.session import run_js
-
+        html_tpl = read_webapp_template("ap_chart_panel.html")
         with use_scope("ap_chart", clear=True):
-            put_html(html)
-            run_js(js_code)
+            put_html(html_tpl.format(**template_fields))
+            render_toolbar = getattr(self, "_render_ap_chart_toolbar", None)
+            if callable(render_toolbar):
+                render_toolbar(current_view, chart_id)
+
+        payload = {
+            "view": current_view,
+            "chartType": "candlestick" if current_view in ("day", "month") else "line",
+            "labels": chart_data["labels"],
+            "opens": chart_data["opens"],
+            "highs": chart_data["highs"],
+            "lows": chart_data["lows"],
+            "closes": chart_data["closes"],
+            "counts": chart_data["counts"],
+            "ap": chart_data["ap_list"],
+            "apTs": chart_data["ap_ts"],
+            "sources": chart_data["detail_sources"],
+            "purpleCoins": auxiliary_data["purple_coins_list"],
+            "yellowCoins": auxiliary_data["yellow_coins_list"],
+            "asset": auxiliary_data["asset_list"],
+            "assetTs": auxiliary_data["asset_ts_list"],
+            "distance": auxiliary_data["distance_list"],
+            "avg": chart_data["ap_avg"],
+            "isDetailMode": chart_data["is_detail_mode"],
+        }
+        self._inject_chart_scripts(
+            chart_id=chart_id,
+            payload=payload,
+            render_fn="__renderApChart",
+            render_script=read_webapp_template("ap_chart_echarts.js"),
+        )

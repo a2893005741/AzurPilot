@@ -93,6 +93,26 @@ class TestDailyCardSwitch(unittest.TestCase):
         self.assertTrue(np.array_equal(selected_a, daily.device.image)
                         or np.array_equal(selected_b, daily.device.image))
 
+    def test_next_ignores_old_card_animation_before_switch(self):
+        old_a = np.zeros((720, 1280, 3), dtype=np.uint8)
+        old_b = old_a.copy()
+        checker = np.indices((527, 210)).sum(axis=0) % 2
+        old_a[118:645, 534:744] = (checker * 20).astype(np.uint8)[..., None]
+        old_b[118:645, 534:744] = ((1 - checker) * 20).astype(np.uint8)[..., None]
+        selected = np.zeros((720, 1280, 3), dtype=np.uint8)
+        selected[118:645, 534:744] = 100
+        daily = self._daily_with_frames([old_a, old_b] + [selected] * 6)
+
+        with patch('module.daily.daily.Timer', AccessTimer):
+            daily.next()
+            daily.device.screenshot()
+            self.assertFalse(daily._daily_switch_complete())
+            self.assertFalse(daily._daily_switch['changed'])
+            self._drive_switch(daily)
+
+        self.assertIsNone(daily._daily_switch)
+        self.assertTrue(np.array_equal(selected, daily.device.image))
+
     def test_next_does_not_accept_unchanged_previous_card(self):
         old = np.zeros((720, 1280, 3), dtype=np.uint8)
         daily = self._daily_with_frames([old] * 12)
@@ -170,6 +190,24 @@ class TestDailyLockedCard(unittest.TestCase):
         self.assertEqual(7, daily.next.call_count)
         self.assertEqual([0, 1, 2, 3, 4, 5, 6, 7], daily.daily_checked)
 
+    def test_non_contiguous_checked_cards_process_lowest_unchecked_card(self):
+        daily = object.__new__(Daily)
+        daily.daily_checked = [0, 2]
+        daily.device = Mock()
+        daily.device.image = np.zeros((720, 1280, 3), dtype=np.uint8)
+        daily.ui_ensure = Mock()
+        daily.ui_goto = Mock()
+        daily.appear = Mock(return_value=False)
+        daily.get_daily_stage_and_fleet = Mock(return_value=(1, 1))
+        daily.is_active = Mock(return_value=True)
+        daily.daily_execute = Mock()
+
+        with patch('module.daily.daily.OCR_REMAIN.ocr', return_value=1):
+            daily.daily_run_one()
+
+        daily.daily_execute.assert_called_once_with(remain=1, stage=1, fleet=1)
+        self.assertEqual([0, 2, 1], daily.daily_checked)
+
     def test_daily_run_continues_after_one_card_until_all_cards_checked(self):
         daily = object.__new__(Daily)
         daily.emergency_module_development = False
@@ -177,16 +215,18 @@ class TestDailyLockedCard(unittest.TestCase):
 
         def run_one():
             if daily.daily_checked == [0]:
-                daily.daily_checked.append(1)
-            else:
                 daily.daily_checked.append(7)
+                return
+            daily.daily_checked.append(next(
+                index for index in range(1, 8) if index not in daily.daily_checked
+            ))
 
         daily.daily_run_one = Mock(side_effect=run_one)
 
         daily.daily_run()
 
-        self.assertEqual(2, daily.daily_run_one.call_count)
-        self.assertEqual([0, 1, 7], daily.daily_checked)
+        self.assertEqual(7, daily.daily_run_one.call_count)
+        self.assertEqual(set(range(8)), set(daily.daily_checked))
 
 
 if __name__ == '__main__':

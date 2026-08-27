@@ -17,6 +17,7 @@
 import cv2
 
 from module.base.timer import Timer
+from module.combat.assets import BATTLE_PREPARATION
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
@@ -44,6 +45,12 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
     map_cat_attack_timer = Timer(2)
     map_clear_percentage_prev = -1
     map_clear_percentage_timer = Timer(0.3, count=1)
+    WITHDRAW_RESULT_HANDLERS = (
+        'handle_battle_status',
+        'handle_exp_info',
+        'handle_get_ship',
+        'handle_get_items',
+    )
 
     # 屏幕上显示的舰队编号。
     fleet_show_index = 1
@@ -301,11 +308,7 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             if self.is_in_stage():
                 break
 
-            if self.appear(MAP_PREPARATION, offset=(20, 20), interval=2):
-                self.device.click(MAP_PREPARATION_CANCEL)
-                continue
-            if self.appear(FLEET_PREPARATION, offset=(20, 50), interval=2):
-                self.device.click(MAP_PREPARATION_CANCEL)
+            if self.handle_enter_map_preparation_cancel():
                 continue
 
         return True
@@ -451,6 +454,12 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             else:
                 self.device.screenshot()
 
+            if self.handle_withdraw_battle_preparation():
+                continue
+            if self.handle_enter_map_preparation_cancel():
+                continue
+            if self.handle_withdraw_result():
+                continue
             if self.appear_then_click(FLEET_SWITCH_CONFIRM, offset=(30, 30)):
                 continue
             if self.handle_popup_confirm('WITHDRAW'):
@@ -468,6 +477,39 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             # 结束判断
             if self.handle_in_stage():
                 raise CampaignEnd('Withdraw')
+
+    def handle_withdraw_battle_preparation(self):
+        """退出撤退前仍残留的战斗准备页。"""
+        if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):
+            logger.info(f'{BATTLE_PREPARATION} -> {BACK_ARROW}')
+            self.device.click(BACK_ARROW)
+            return True
+        return False
+
+    def handle_enter_map_preparation_cancel(self):
+        """从舰队准备或地图准备页退回关卡选择页。"""
+        if self.appear(MAP_PREPARATION, offset=(20, 20), interval=2):
+            logger.info(f'{MAP_PREPARATION} -> {MAP_PREPARATION_CANCEL}')
+            self.device.click(MAP_PREPARATION_CANCEL)
+            return True
+        if self.appear(FLEET_PREPARATION, offset=(20, 50), interval=2):
+            logger.info(f'{FLEET_PREPARATION} -> {MAP_PREPARATION_CANCEL}')
+            self.device.click(MAP_PREPARATION_CANCEL)
+            return True
+        return False
+
+    def handle_withdraw_result(self):
+        """推进撤退过程中可能出现的战斗结算页面。"""
+        # MapOperation 也由不混入 Combat 的任务复用，结算处理器在该场景下是可选的。
+        self._withdraw_result_processing = True
+        try:
+            for name in self.WITHDRAW_RESULT_HANDLERS:
+                handler = getattr(self, name, None)
+                if handler and handler():
+                    return True
+            return self.handle_popup_confirm('COMBAT_STATUS')
+        finally:
+            self._withdraw_result_processing = False
 
     def handle_map_cat_attack(self):
         """

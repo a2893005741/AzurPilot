@@ -96,13 +96,23 @@ def platform_skip(module: str) -> bool:
 
 def import_in_subprocess(module: str, timeout: int) -> tuple[bool, str]:
     """在独立子进程中导入模块，返回 (是否成功, 错误摘要)。"""
-    code = f"import {module}"
-    env = {**os.environ, "AZURPILOT_NTP_DISABLE": "1"}
+    # `python -c` 会把 `-c` 作为 sys.argv[0]，日志初始化会因此尝试创建 log/-c.txt。
+    # 每个模块使用独立名称，避免并行导入时多个进程争用同一个日志文件。
+    safe_module = module.replace(".", "-").replace("_", "-")
+    program_name = f"import-smoke-{safe_module}"
+    code = f"import sys; sys.argv[0] = {program_name!r}; import {module}"
+    env = {
+        **os.environ,
+        "AZURPILOT_NTP_DISABLE": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
     try:
         proc = subprocess.run(
             [str(PYTHON), "-c", code],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             env=env,
             cwd=REPO_ROOT,
@@ -196,9 +206,9 @@ def main() -> int:
     # 结论：意外失败或过期白名单都会使检查失败。
     ok = not unexpected and not stale
     if ok:
-        print("\n[import-smoke] 通过 ✅")
+        print("\n[import-smoke] 通过 [OK]")
     else:
-        print("\n[import-smoke] 失败 ❌")
+        print("\n[import-smoke] 失败 [FAIL]")
 
     # 无论通过与否都写汇总文件，供 CI 报告引用真实数据（不伪造结果）。
     if args.summary_file:

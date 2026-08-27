@@ -175,6 +175,40 @@ def get_resource_timeline(
         return []
 
 
+def get_resource_timeline_range(
+    instance: str,
+    start: datetime,
+    end: datetime,
+) -> List[Dict[str, Any]]:
+    """获取实例在半开时间区间 ``[start, end)`` 内的完整资源快照。"""
+    _validate_interval(start, end)
+    try:
+        _ensure_table()
+        with _local_lock:
+            with _connect() as conn:
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    '''
+                    SELECT * FROM resource_snapshots
+                    WHERE instance = ? AND ts >= ? AND ts < ?
+                    ORDER BY ts ASC, id ASC
+                    ''',
+                    (instance, start.isoformat(), end.isoformat()),
+                ).fetchall()
+
+        result = []
+        for row in rows:
+            item = dict(row)
+            timestamp = _parse_snapshot_timestamp(item.get('ts'))
+            if timestamp is None or not start <= timestamp < end:
+                continue
+            result.append(item)
+        return result
+    except Exception as e:
+        logger.warning(f'[统计-资源] 获取资源区间时间线失败: {e}')
+        return []
+
+
 def _validate_interval(start: datetime, end: datetime) -> None:
     """校验日报区间使用的本地 naive datetime 参数。"""
     if not isinstance(start, datetime) or not isinstance(end, datetime):
@@ -307,5 +341,6 @@ __all__ = [
     'RESOURCE_COLUMNS',
     'record_resource_snapshot',
     'get_resource_timeline',
+    'get_resource_timeline_range',
     'get_resource_interval_summary',
 ]

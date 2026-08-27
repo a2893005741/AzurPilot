@@ -22,17 +22,27 @@ import sys
 import unittest
 from pathlib import Path
 
+from PIL import Image
+
+from dev_tools.import_smoke_test import import_in_subprocess
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
 
 
 def _run_py(code: str, timeout: int = 120) -> subprocess.CompletedProcess:
     """在独立子进程中执行代码，隔离 import 副作用。"""
-    env = {**os.environ, "AZURPILOT_NTP_DISABLE": "1"}
+    env = {
+        **os.environ,
+        "AZURPILOT_NTP_DISABLE": "1",
+        "PYTHONIOENCODING": "utf-8",
+    }
     return subprocess.run(
         [PYTHON, "-c", code],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=timeout,
         env=env,
         cwd=REPO_ROOT,
@@ -61,6 +71,62 @@ class TestEntryPointImports(unittest.TestCase):
     def test_al_ocr_imports_alone(self):
         # 单独导入 al_ocr 必须成功（真实损坏时会在此暴露）。
         self._assert_import_ok("module.ocr.al_ocr")
+
+
+class TestImportSmokeRunner(unittest.TestCase):
+    """冒烟扫描器必须隔离并行子进程的日志文件。"""
+
+    def test_awaken_assets_imports_without_log_collision(self):
+        ok, error = import_in_subprocess("module.awaken.assets", timeout=30)
+        self.assertTrue(ok, error)
+
+
+class TestFakePILIsolation(unittest.TestCase):
+    """WebUI 的轻量依赖不得破坏进程中已经加载的真实 Pillow。"""
+
+    def test_fake_pil_lifecycle_preserves_loaded_pillow(self):
+        asset = REPO_ROOT / "assets" / "map_detection" / "os_globe_map.png"
+        code = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from PIL import Image\n"
+            "real_pil = sys.modules['PIL']\n"
+            "real_image = sys.modules['PIL.Image']\n"
+            "from module.webui.fake_pil_module import "
+            "import_fake_pil_module, remove_fake_pil_module\n"
+            "import_fake_pil_module()\n"
+            "remove_fake_pil_module()\n"
+            "assert sys.modules['PIL'] is real_pil\n"
+            "assert sys.modules['PIL.Image'] is real_image\n"
+            f"with Image.open(Path({str(asset)!r})) as image:\n"
+            "    image.verify()\n"
+        )
+
+        proc = _run_py(code)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr[-500:])
+
+
+class TestRequiredRuntimeAssets(unittest.TestCase):
+    """运行时代码硬依赖的静态资源必须随仓库分发。"""
+
+    def test_os_globe_map_is_packaged(self):
+        asset = REPO_ROOT / "assets" / "map_detection" / "os_globe_map.png"
+        self.assertTrue(asset.is_file(), f"缺少大世界全球地图资源：{asset}")
+
+        with Image.open(asset) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(image.size, (2570, 1694))
+            image.verify()
+
+    def test_readme_mac_gui_image_is_packaged(self):
+        asset = REPO_ROOT / "doc" / "macGUI.png"
+        self.assertTrue(asset.is_file(), f"缺少 README 引用的 macOS 界面图片：{asset}")
+
+        with Image.open(asset) as image:
+            self.assertEqual(image.format, "PNG")
+            self.assertEqual(image.size, (2560, 1728))
+            image.verify()
 
 
 class TestProcessIsolation(unittest.TestCase):

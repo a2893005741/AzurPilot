@@ -8,8 +8,8 @@ from deploy.utils import *
 
 
 GIT_OVER_CDN_REPOSITORY = 'git://git.pull/AzurPilot'
-GIT_OVER_CDN_FALLBACK_REPOSITORY = 'https://gitcode.com/ddl2/AzurLaneAutoScript'
-GITHUB_REPOSITORY = 'https://github.com/wess09/AzurPilot'
+GIT_OVER_CDN_FALLBACK_REPOSITORY = 'https://github.com/a2893005741/AzurPilot'
+GITHUB_REPOSITORY = 'https://github.com/a2893005741/AzurPilot'
 
 
 class ExecutionError(Exception):
@@ -160,7 +160,7 @@ class DeployConfig(ConfigModel):
         if self.Repository == GIT_OVER_CDN_REPOSITORY:
             super().__setattr__('Repository', GIT_OVER_CDN_FALLBACK_REPOSITORY)
         if self.Repository in ['global']:
-            super().__setattr__('Repository', 'https://github.com/wess09/AzurPilot')
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
         if self.Repository in ['cn']:
             super().__setattr__('Repository', GIT_OVER_CDN_REPOSITORY)
 

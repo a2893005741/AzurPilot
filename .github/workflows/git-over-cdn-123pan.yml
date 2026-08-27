@@ -15,9 +15,7 @@ on:
         description: "Remote folder name under parent folder"
         required: false
         default: "AzurPilot_master"
-  push:
-    branches:
-      - master
+  # 123Pan 需要单独的 ClientID/ClientSecret，未配置时不参与日常自动发布。
 
 jobs:
   build-and-upload:

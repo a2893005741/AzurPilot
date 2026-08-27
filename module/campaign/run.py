@@ -21,6 +21,7 @@ from module.campaign.campaign_event import CampaignEvent
 from module.shop.shop_status import ShopStatus
 from module.campaign.campaign_ui import MODE_SWITCH_1
 from module.config.config import AzurLaneConfig
+from module.config.task_priority import parse_task_priority
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import map_files, to_map_file_name
 from module.logger import logger
@@ -418,6 +419,83 @@ class CampaignRun(CampaignEvent, ShopStatus):
         """单次战役完成后的扩展钩子。"""
         pass
 
+    def get_low_emotion_next_campaign_tasks(self, task):
+        """从任务优先级配置中获取当前战役系列的后续任务。"""
+        task_prefix = next(
+            (
+                prefix
+                for prefix in ('Event', 'Main')
+                if task == prefix or (task.startswith(prefix) and task[len(prefix):].isdigit())
+            ),
+            None,
+        )
+        if task_prefix is None:
+            return []
+
+        campaign_tasks = [
+            candidate
+            for candidate in parse_task_priority(self.config.SCHEDULER_PRIORITY)
+            if candidate == task_prefix
+            or (candidate.startswith(task_prefix) and candidate[len(task_prefix):].isdigit())
+        ]
+        try:
+            return campaign_tasks[campaign_tasks.index(task) + 1:]
+        except ValueError:
+            return []
+
+    def handle_low_emotion_withdrawal(self):
+        """延后因低心情撤退的当前任务，并切换到后续同系列战役图。"""
+        if not getattr(self.campaign, 'low_emotion_withdrawn', False):
+            return False
+
+        task = self.config.task.command
+        try:
+            # 低心情弹窗可能出现在战斗准备页。先退出该页面，回到地图后再撤退。
+            self.campaign.withdraw(skip_first_screenshot=False)
+        except CampaignEnd:
+            pass
+
+        emotion = self.campaign.emotion
+        emotion.update()
+        if emotion.using_public:
+            public_fleet = getattr(emotion, 'public_fleet', None)
+            fleets = [public_fleet] if public_fleet is not None else []
+        else:
+            # 初次出击时地图还未初始化，无法可靠判断是哪一队触发弹窗。
+            # 双舰队配置下保守地延后两队，避免按错误舰队提前重试。
+            fleets = list(getattr(emotion, 'fleets', []))
+            if not self.config.FLEET_2:
+                fleets = fleets[:1]
+
+        if not fleets:
+            logger.critical('[低心情] 未找到舰队心情记录，无法安全延后当前任务')
+            raise RequestHumanTakeover
+
+        # 游戏已显示低心情强制出击弹窗，说明本地记录的心情值已经失真。
+        # 不能继续用过高的旧值（例如 75）计算，否则会把当前任务排回现在。
+        for fleet in fleets:
+            fleet.current = 0
+        emotion.record()
+        emotion.show()
+        recovered = emotion.get_recovered_for_battle(self.campaign._map_battle)
+
+        fleet_names = ', '.join(str(fleet.fleet) for fleet in fleets)
+        logger.info(
+            f'[低心情] 游戏端低心情，{task} 的 {fleet_names} 队按 0 心情恢复至 {recovered}'
+        )
+        self.config.task_delay(target=recovered)
+
+        # 后继同系列战役图由用户的任务优先级配置决定，跳过用户禁用的任务。
+        # 所有后继图不可调用时，最后一张图交由调度器处理。
+        for next_task in self.get_low_emotion_next_campaign_tasks(task):
+            if self.config.task_call(next_task, force_call=False):
+                logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_task}')
+                self.config.update()
+                break
+
+        self.campaign.low_emotion_withdrawn = False
+        return True
+
     def handle_commission_notice(self):
         """
         检查委托通知。如果发现委托完成，停止当前任务并调用委托处理。
@@ -511,6 +589,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
             self.device.click_record_clear()
             try:
                 self.campaign.run()
+            except CampaignEnd:
+                if not getattr(self.campaign, 'low_emotion_withdrawn', False):
+                    raise
             except ScriptEnd as e:
                 logger.hr('脚本结束')
                 logger.info(str(e))
@@ -518,6 +599,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
                 if str(e) == 'DefeatWithdraw=withdraw_stop':
                     self.config.Scheduler_Enable = False
                 break
+
+            if self.handle_low_emotion_withdrawal():
+                self.config.task_stop('[低心情] 已撤退并延后当前任务')
 
             # 更新配置
             if len(self.campaign.config.modified):

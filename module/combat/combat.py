@@ -505,10 +505,11 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         """
         if self.is_combat_executing():
             return False
+        wait_for_transition = not getattr(self, '_withdraw_result_processing', False)
         if self.appear(BATTLE_STATUS_S, interval=self.battle_status_click_interval):
             if drop:
                 drop.handle_add(self)
-            else:
+            elif wait_for_transition:
                 self.device.sleep((0.25, 0.5))
             self.device.click(BATTLE_STATUS_S)
             return True
@@ -516,7 +517,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             logger.warning('[战斗-结算] 战斗评价 A')
             if drop:
                 drop.handle_add(self)
-            else:
+            elif wait_for_transition:
                 self.device.sleep((0.25, 0.5))
             self.device.click(BATTLE_STATUS_A)
             return True
@@ -524,7 +525,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             logger.warning('[战斗-结算] 战斗评价 B')
             if drop:
                 drop.handle_add(self)
-            else:
+            elif wait_for_transition:
                 self.device.sleep((0.25, 0.5))
             self.device.click(BATTLE_STATUS_B)
             return True
@@ -532,7 +533,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             logger.warning('[战斗-结算] 战斗评价 C')
             if drop:
                 drop.handle_add(self)
-            else:
+            elif wait_for_transition:
                 self.device.sleep((0.25, 0.5))
             self.device.click(BATTLE_STATUS_C)
             return True
@@ -540,7 +541,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             logger.warning('[战斗-结算] 战斗评价 D')
             if drop:
                 drop.handle_add(self)
-            else:
+            elif wait_for_transition:
                 self.device.sleep((0.25, 0.5))
             self.device.click(BATTLE_STATUS_D)
             return True
@@ -595,20 +596,26 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         """
         if self.is_combat_executing():
             return False
+        wait_for_transition = not getattr(self, '_withdraw_result_processing', False)
         if self.appear_then_click(EXP_INFO_S):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         if self.appear_then_click(EXP_INFO_A):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         if self.appear_then_click(EXP_INFO_B):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         if self.appear_then_click(EXP_INFO_C):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
         if self.appear_then_click(EXP_INFO_D):
-            self.device.sleep((0.25, 0.5))
+            if wait_for_transition:
+                self.device.sleep((0.25, 0.5))
             return True
 
         return False

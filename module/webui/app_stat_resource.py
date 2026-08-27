@@ -2,11 +2,9 @@
 
 from module.webui.app_dependencies import (
     datetime,
-    json,
     put_button,
     put_html,
     put_text,
-    run_js,
     t,
     use_scope,
 )
@@ -16,11 +14,10 @@ from module.webui.app_helpers import (
     read_webapp_template,
 )
 
+from module.webui.app_stat_chart import ChartInjectionMixin
 
-from module.webui.app_types import WebUIMixinBase
 
-
-class ResourceStatisticsMixin(WebUIMixinBase):
+class ResourceStatisticsMixin(ChartInjectionMixin):
     """WebUI 全资源趋势图视图。"""
 
     def _render_resource_chart(self):
@@ -40,8 +37,8 @@ class ResourceStatisticsMixin(WebUIMixinBase):
             self._show_resource_no_valid_data()
             return
 
-        html, js_code = self._build_resource_chart_content(labels, series_map)
-        self._output_resource_chart(html, js_code)
+        html, chart_request = self._build_resource_chart_content(labels, series_map)
+        self._output_resource_chart(html, chart_request)
 
     def _load_resource_timeline(self):
         from module.statistics.opsi_month import get_resource_timeline
@@ -112,28 +109,16 @@ class ResourceStatisticsMixin(WebUIMixinBase):
                 if raw_val is not None:
                     try:
                         series_map[key]["data"].append(int(raw_val))
-                    except TypeError, ValueError:
+                    except (TypeError, ValueError):
                         series_map[key]["data"].append(None)
                 else:
                     series_map[key]["data"].append(None)
 
-        # 前向填充：用上一个有效值填补 None，避免折线图断点
-        for key in series_map:
-            prev = None
-            filled = []
-            for v in series_map[key]["data"]:
-                if v is not None:
-                    prev = v
-                filled.append(prev)
-            series_map[key]["data"] = filled
-
         return labels, series_map
 
     def _build_resource_chart_content(self, labels, series_map):
-        legend_html = ""
         stats_html = ""
         series_data = []
-        series_idx = 0
         for key, meta in series_map.items():
             valid_data = [v for v in meta["data"] if v is not None]
             if valid_data:
@@ -148,12 +133,6 @@ class ResourceStatisticsMixin(WebUIMixinBase):
                 )
             else:
                 stats_html += f'<span style="white-space:nowrap;opacity:0.5;">{meta["name"]}: -</span>'
-            legend_html += (
-                f'<span class="rc-legend-item" data-series="{series_idx}" '
-                f'style="display:flex;align-items:center;gap:4px;cursor:pointer;opacity:1;">'
-                f'<span style="width:12px;height:3px;background:{meta["color"]};border-radius:1px;"></span>'
-                f"{meta['name']}</span>"
-            )
             series_data.append(
                 {
                     "key": key,
@@ -162,7 +141,6 @@ class ResourceStatisticsMixin(WebUIMixinBase):
                     "data": meta["data"],
                 }
             )
-            series_idx += 1
 
         chart_id = f"rc_{id(self)}"
 
@@ -171,17 +149,12 @@ class ResourceStatisticsMixin(WebUIMixinBase):
             chart_id=chart_id,
             title=t("Gui.Stat.ResourceChartTitle"),
             stats_html=stats_html,
-            legend_html=legend_html,
         )
-
-        js_tpl = read_webapp_template("resource_chart.js")
-        js_code = (
-            js_tpl.replace("__LABELS__", json.dumps(labels, ensure_ascii=False))
-            .replace("__SERIES_DATA__", json.dumps(series_data, ensure_ascii=False))
-            .replace("__CHART_ID__", chart_id)
-            .replace("__CHART_TITLE__", t("Gui.Stat.ResourceChartTitle"))
-        )
-        return html, js_code
+        payload = {
+            "labels": labels,
+            "series": series_data,
+        }
+        return html, {"payload": payload, "chart_id": chart_id}
 
     def _show_resource_load_error(self, error):
         with use_scope("resource_chart", clear=True):
@@ -202,6 +175,12 @@ class ResourceStatisticsMixin(WebUIMixinBase):
 
     @staticmethod
     def _output_resource_chart(html, js_code):
+        """输出资源图表容器，并复用共享注入能力下发库、主题与渲染脚本。"""
         with use_scope("resource_chart", clear=True):
             put_html(html)
-            run_js(js_code)
+        ChartInjectionMixin._inject_chart_scripts(
+            chart_id=js_code["chart_id"],
+            payload=js_code["payload"],
+            render_fn="__renderResourceChart",
+            render_script=read_webapp_template("resource_chart_echarts.js"),
+        )

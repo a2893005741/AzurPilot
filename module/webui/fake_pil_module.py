@@ -9,14 +9,26 @@ import sys
 from types import ModuleType
 
 
+_fake_pil_module = None
+_fake_image_module = None
+
+
 def import_fake_pil_module():
+    global _fake_pil_module, _fake_image_module
+    if 'PIL' in sys.modules or 'PIL.Image' in sys.modules:
+        return
+
     fake_pil_module = ModuleType('PIL')
     fake_pil_module.Image = ModuleType('PIL.Image')
     fake_pil_module.Image.Image = type('MockPILImage', (), dict(__init__=None))
+    _fake_pil_module = fake_pil_module
+    _fake_image_module = fake_pil_module.Image
     sys.modules['PIL'] = fake_pil_module
     sys.modules['PIL.Image'] = fake_pil_module.Image
 
 
 def remove_fake_pil_module():
-    sys.modules.pop('PIL', None)
-    sys.modules.pop('PIL.Image', None)
+    if sys.modules.get('PIL') is _fake_pil_module:
+        sys.modules.pop('PIL', None)
+    if sys.modules.get('PIL.Image') is _fake_image_module:
+        sys.modules.pop('PIL.Image', None)

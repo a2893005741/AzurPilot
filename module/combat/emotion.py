@@ -17,14 +17,19 @@
 游戏客户端存在已知 bug：长时间运行后情绪计算不准确，需要定期重启。
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time import sleep
 
 import numpy as np
 
 from module.base.decorator import cached_property
+from module.base.emotion import (
+    DIC_RECOVER_MAX,
+    SECONDS_PER_TICK,
+    calculate_emotion_recovery,
+    emotion_recovery_speed,
+)
 from module.base.utils import random_normal_distribution_int
-from module.config.config import AzurLaneConfig
 from module.config.time_source import now as current_time
 from module.exception import ScriptEnd, ScriptError, RequestHumanTakeover
 from module.logger import logger
@@ -36,22 +41,6 @@ DIC_LIMIT = {
     'prevent_yellow_face': 30, # 防止黄脸
     'prevent_red_face': 2,     # 防止红脸
 }
-# 情绪恢复速度：每 6 分钟恢复的点数
-DIC_RECOVER = {
-    'not_in_dormitory': 20,    # 港区休息
-    'dormitory_floor_1': 40,   # 后宅一楼
-    'dormitory_floor_2': 50,   # 后宅二楼
-}
-# 情绪上限
-DIC_RECOVER_MAX = {
-    'not_in_dormitory': 119,
-    'dormitory_floor_1': 150,
-    'dormitory_floor_2': 150,
-}
-OATH_RECOVER = 10    # 誓约额外恢复速度
-ONSEN_RECOVER = 10   # 温泉额外恢复速度
-
-
 class FleetEmotion:
     """单个舰队的情绪追踪器。
 
@@ -142,12 +131,7 @@ class FleetEmotion:
         Returns:
             int: 每 6 分钟的恢复速度。
         """
-        speed = DIC_RECOVER[self.recover]
-        if self.oath:
-            speed += OATH_RECOVER
-        if self.onsen:
-            speed += ONSEN_RECOVER
-        return speed // 10
+        return emotion_recovery_speed(self.recover, self.oath, self.onsen)
 
     @property
     def limit(self):
@@ -176,12 +160,15 @@ class FleetEmotion:
         符合情绪控制的安全方向（宁可低估也不高估）。
         """
         time_diff = current_time().timestamp() - self.record.timestamp()
-        time_diff = max(time_diff, 0)
-        # speed 为每360秒的恢复量，换算为每秒恢复 speed/360 点
-        recovery = self.speed * time_diff / 360
-        self.current = min(max(self.value, 0) + int(recovery), self.max)
+        self.current, fractional = calculate_emotion_recovery(
+            self.value,
+            self.recover,
+            time_diff,
+            oath=self.oath,
+            onsen=self.onsen,
+        )
         # 保留未满1点的恢复余数对应的秒数，用于 record() 回扣
-        self._fractional_seconds = recovery - int(recovery)
+        self._fractional_seconds = fractional
 
     def get_recovered(self, expected_reduce=0):
         """计算情绪恢复到控制阈值的时间。
@@ -205,8 +192,8 @@ class FleetEmotion:
         emotion_needed = self.limit + expected_reduce - self.current
         if emotion_needed <= 0:
             return current_time()
-        # speed 为每360秒的恢复量，换算恢复所需秒数
-        seconds_needed = emotion_needed * 360 / self.speed
+        # speed 为每个恢复周期的恢复量，换算恢复所需秒数
+        seconds_needed = emotion_needed * SECONDS_PER_TICK / self.speed
         return current_time() + timedelta(seconds=seconds_needed)
 
 class Emotion:
@@ -291,7 +278,7 @@ class Emotion:
             fractional = getattr(fleet, '_fractional_seconds', 0)
             if fractional > 0:
                 # 回扣 fractional_seconds 对应的秒数
-                record_time = record_time - timedelta(seconds=fractional * 360 / fleet.speed)
+                record_time = record_time - timedelta(seconds=fractional * SECONDS_PER_TICK / fleet.speed)
             with self.config.multi_set():
                 setattr(self.config, fleet.value_name, new_value)
                 setattr(self.config, fleet.value_name.replace('Value', 'Record'), record_time)
@@ -303,7 +290,7 @@ class Emotion:
                 record_time = current_time().replace(microsecond=0)
                 fractional = getattr(fleet, '_fractional_seconds', 0)
                 if fractional > 0:
-                    record_time = record_time - timedelta(seconds=fractional * 360 / fleet.speed)
+                    record_time = record_time - timedelta(seconds=fractional * SECONDS_PER_TICK / fleet.speed)
                 setattr(self.config, fleet.value_name, new_value)
                 setattr(self.config, fleet.value_name.replace('Value', 'Record'), record_time)
 
@@ -336,23 +323,16 @@ class Emotion:
     def reduce_shipwreck(self):
         return 10
 
-    def _check_reduce(self, battle):
-        """检查战斗带来的情绪减少。
+    def get_recovered_for_battle(self, battle):
+        """计算完成下一次战役所需的情绪恢复时间。
 
         Returns:
-            recovered (datetime): 预期恢复时间。
-            delay (bool): 是否需要延迟。
+            datetime: 扣除下一次战役的预计情绪后达到控制阈值的时间。
         """
         if self.using_public:
             reduce = battle * self.reduce_per_battle_before_entering
             logger.info(f'[情绪-检查] 预期情绪扣减: {reduce}')
-
-            self.update()
-            self.record()
-            self.show()
-            recovered = self.public_fleet.get_recovered(reduce)
-            delay = recovered > current_time()
-            return recovered, delay
+            return self.public_fleet.get_recovered(reduce)
 
         method = self.config.Fleet_FleetOrder
 
@@ -369,13 +349,15 @@ class Emotion:
 
         battle = tuple(np.array(battle) * self.reduce_per_battle_before_entering)
         logger.info(f'[情绪-检查] 预期情绪扣减: {battle}')
+        return max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
 
+    def _check_reduce(self, battle):
+        """检查战斗带来的情绪减少。"""
         self.update()
         self.record()
         self.show()
-        recovered = max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
-        delay = recovered > current_time()
-        return recovered, delay
+        recovered = self.get_recovered_for_battle(battle)
+        return recovered, recovered > current_time()
 
     def check_reduce(self, battle):
         """进入战役前检查情绪。

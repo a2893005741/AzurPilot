@@ -141,6 +141,7 @@ class DailySummaryService:
         self.instance = instance
         self.store = store or get_daily_summary_store()
         self._lock = threading.Lock()
+        self._idle_condition = threading.Condition(self._lock)
         self._active_periods: set[str] = set()
         self._processed_periods: set[str] = set()
         self._invalid_trigger_value: str | None = None
@@ -237,6 +238,14 @@ class DailySummaryService:
         thread.start()
         return True
 
+    def wait_until_idle(self, timeout: float | None = None) -> bool:
+        """等待所有已提交的日报后台任务完成。"""
+        with self._idle_condition:
+            return self._idle_condition.wait_for(
+                lambda: not self._active_periods,
+                timeout=timeout,
+            )
+
     def _generate_and_send(self, request: dict[str, Any]) -> None:
         period_key = request['period_key']
         try:
@@ -320,8 +329,9 @@ class DailySummaryService:
                 self.store.cleanup(keep_days=DAILY_SUMMARY_KEEP_DAYS)
             except Exception as error:
                 logger.warning(f'[日报] 清理过期记录失败，已忽略: {type(error).__name__}')
-            with self._lock:
+            with self._idle_condition:
                 self._active_periods.discard(period_key)
+                self._idle_condition.notify_all()
 
     def build_facts(
         self,

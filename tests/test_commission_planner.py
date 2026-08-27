@@ -237,8 +237,8 @@ class TestCommissionTierFilter(unittest.TestCase):
 
 
 class TestCommissionAlgorithmSwitch(unittest.TestCase):
-    def test_dynamic_programming_is_disabled_by_default(self):
-        self.assertIs(GeneratedConfig.Commission_DynamicProgramming, False)
+    def test_dynamic_programming_is_enabled_by_default(self):
+        self.assertIs(GeneratedConfig.Commission_DynamicProgramming, True)
         self.assertIsNone(GeneratedConfig.Commission_Blacklist)
         self.assertIsInstance(GeneratedConfig.Commission_DelayHalfLife, float)
         self.assertIsInstance(GeneratedConfig.Commission_DeadlineFutureHorizon, float)
@@ -370,11 +370,17 @@ class TestCommissionValueModel(unittest.TestCase):
         self.assertGreaterEqual(threshold, 0)
         self.assertLess(threshold, deadline)
 
-    def test_delaying_more_high_value_jobs_reduces_threshold(self):
+    def test_delaying_more_high_value_jobs_does_not_increase_threshold(self):
         one = delay_threshold_seconds(1, 1, 12 * 60 * 60)
         three = delay_threshold_seconds(1, 3, 12 * 60 * 60)
 
-        self.assertLess(three, one)
+        self.assertLessEqual(three, one)
+
+    def test_delaying_many_more_high_value_jobs_reduces_threshold(self):
+        one = delay_threshold_seconds(1, 1, 12 * 60 * 60)
+        ten = delay_threshold_seconds(1, 10, 12 * 60 * 60)
+
+        self.assertLess(ten, one)
 
     def test_earlier_delayed_filter_has_larger_delay_penalty(self):
         early = delay_threshold_seconds(

@@ -573,7 +573,7 @@ page_main.link(button=MAIN_GOTO_REWARD, destination=page_reward)
 - **工具**：pyyaml、inflection、psutil、chardet、matplotlib、pycryptodome、watchdog、numba、lz4
 
 ## Webapp（前端静态资源）
-`webapp/` 仅包含前端静态资源（HTML/JS 片段，如 `ap_chart_echarts.js`、`resource_chart.html` 等），直接由 `module/webui/` 服务。原 Electron + Vue 3 应用（`webapp/packages/*`）已于 2026-07-24 提交 `53e23a23b` 移除，无 pnpm 构建步骤。`gui.py` 的 `--electron` 参数保留（用于旧客户端兼容），前端样式与 SPA 资源位于 `assets/gui/`、`assets/spa/`。
+`webapp/` 仅包含前端静态资源（HTML/JS 片段，如 `ap_chart.js`、`resource_chart.html` 等），直接由 `module/webui/` 服务。原 Electron + Vue 3 应用（`webapp/packages/*`）已于 2026-07-24 提交 `53e23a23b` 移除，无 pnpm 构建步骤。`gui.py` 的 `--electron` 参数保留（用于旧客户端兼容），前端样式与 SPA 资源位于 `assets/gui/`、`assets/spa/`。
 
 ## CI
 GitHub Actions 使用 `uv sync --frozen` 和 `uv run`。运行：ruff lint、`button_extract.py`、`config_updater.py`（检查未提交的 diff）、Docker 发布、上游同步。

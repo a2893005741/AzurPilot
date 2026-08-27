@@ -20,12 +20,6 @@ from module.webui.app_types import WebUIMixinBase
 class ChartInjectionMixin(WebUIMixinBase):
     """为统计图表提供 ECharts 库、主题与渲染脚本的按需注入。"""
 
-    # 各图表渲染函数与前端读取的载荷全局变量名的对应关系。
-    _PAYLOAD_VAR_NAMES = {
-        "__renderApChart": "__apChartPayload",
-        "__renderResourceChart": "__resourceChartPayload",
-    }
-
     @staticmethod
     def _inject_echarts(theme_script):
         """按需注入 ECharts 库与共用暗色主题，仅在缺失时执行一次。
@@ -131,8 +125,8 @@ class ChartInjectionMixin(WebUIMixinBase):
         """注入库、主题与渲染脚本，然后下发数据并触发渲染。
 
         脚本经 ``run_js`` 发送，浏览器按到达顺序定义主题和渲染函数；实际
-        渲染统一等待 ``window.__alasEchartsPromise`` 完成。`chart_id` 与载荷
-        经 ``window`` 全局传递，AP 图与资源图各自注册渲染函数，互不覆盖。
+        渲染统一等待 ``window.__alasEchartsPromise`` 完成。每次调用在闭包中
+        捕获自己的图表 ID 与载荷，避免同类图表并发刷新时互相覆盖。
 
         Args:
             chart_id (str): 图表容器 ID。
@@ -147,12 +141,13 @@ class ChartInjectionMixin(WebUIMixinBase):
         ChartInjectionMixin._inject_renderer(
             render_fn=render_fn, render_script=render_script
         )
-        payload_name = ChartInjectionMixin._PAYLOAD_VAR_NAMES[render_fn]
+        chart_id_json = json.dumps(chart_id, ensure_ascii=False)
         run_js(
-            f"window.{payload_name}={json_payload};"
+            f"(function(payload){{"
             f"(window.__alasEchartsPromise||Promise.resolve(window.echarts))"
             f".then(function(){{if(window.{render_fn})window.{render_fn}("
-            f"'{chart_id}',window.{payload_name});}})"
+            f"{chart_id_json},payload);}})"
             f".catch(function(){{if(window.{render_fn})window.{render_fn}("
-            f"'{chart_id}',window.{payload_name});}});"
+            f"{chart_id_json},payload);}});"
+            f"}})({json_payload});"
         )

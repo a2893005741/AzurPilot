@@ -101,28 +101,44 @@ async function render(file, functionName, payload) {
             ],
         },
     );
-    assert.strictEqual(resource.option.yAxis.length, 6);
+    assert.strictEqual(resource.option.yAxis.length, 4);
     assert.strictEqual(resource.option.grid.left, 60);
     assert.strictEqual(resource.option.grid.right, 156);
     assert.strictEqual(resource.option.grid.containLabel, false);
     assert.strictEqual(resource.option.yAxis[0].axisLabel.color, "#6a6f7e");
     assert.strictEqual(resource.option.yAxis[0].splitLine.show, true);
+    assert.strictEqual(resource.option.yAxis[0].show, true);
     assert.deepStrictEqual(
         Array.from(resource.option.series, (series) => series.yAxisIndex),
-        [1, 2, 3, 4, 5],
+        [0, 0, 1, 2, 3],
     );
     assert.deepStrictEqual(
         Array.from(resource.option.yAxis.slice(3), (axis) => axis.offset),
-        [0, 44, 88],
+        [88],
     );
-    assert.strictEqual(resource.option.yAxis[3].axisLabel.formatter(5.399999999), "5.4");
-    assert.strictEqual(resource.option.yAxis[4].axisLabel.formatter(125427.5), "125k");
+    assert.strictEqual(resource.option.yAxis[1].axisLabel.formatter(5.399999999), "5.4");
+    assert.strictEqual(resource.option.yAxis[2].axisLabel.formatter(125427.5), "125k");
     assert.ok(resource.option.series.every((series) => series.connectNulls === false));
     assert.ok(resource.option.series.every((series) => series.clip === true));
     assert.ok(resource.option.dataZoom.every((zoom) => zoom.filterMode === "empty"));
     assert.ok(resource.handlers.legendselectchanged);
     resource.handlers.legendselectchanged({ selected: { Oil: true, Coin: true, AP: true, YC: false, PC: false } });
     assert.strictEqual(resource.calls[1].grid.right, 68);
+    resource.handlers.legendselectchanged({ selected: { Oil: false, Coin: false, AP: true, YC: true, PC: true } });
+    assert.strictEqual(resource.calls[2].yAxis[0].show, false);
+    resource.handlers.legendselectchanged({ selected: { Oil: true, Coin: true, AP: true, YC: false, PC: true } });
+    assert.strictEqual(resource.calls[3].grid.right, 112);
+    assert.strictEqual(resource.calls[3].yAxis[3].offset, 44);
+
+    const specialOnly = await render(
+        "webapp/resource_chart_echarts.js",
+        "__renderResourceChart",
+        {
+            labels: ["10:00"],
+            series: [{ key: "ActionPoint", name: "AP", color: "#00f", data: [100] }],
+        },
+    );
+    assert.strictEqual(specialOnly.option.yAxis[0].show, false);
 
     const lifecycleCharts = [];
     let disconnected = 0;

@@ -286,6 +286,52 @@ if (appendCount !== 1) throw new Error(`expected one script, got ${appendCount}`
             check=True,
         )
 
+    @unittest.skipUnless(shutil.which("node"), "需要 Node.js 验证并发载荷隔离")
+    def test_pending_chart_injections_keep_their_own_payload(self):
+        calls = []
+        with (
+            patch("module.webui.app_stat_chart.run_js", side_effect=calls.append),
+            patch("module.webui.app_stat_chart.read_webapp_template", return_value=""),
+        ):
+            for label in ("first", "second"):
+                ChartInjectionMixin._inject_chart_scripts(
+                    chart_id="ap_chart",
+                    payload={"labels": [label]},
+                    render_fn="__renderApChart",
+                    render_script="",
+                )
+
+        payload_scripts = [
+            script
+            for script in calls
+            if '"labels": ["' in script and "__renderApChart" in script
+        ]
+        self.assertEqual(2, len(payload_scripts))
+        node_program = r"""
+const vm = require("vm");
+let resolveReady;
+const rendered = [];
+const context = {
+    Promise,
+    __alasEchartsPromise: new Promise((resolve) => { resolveReady = resolve; }),
+    __renderApChart(chartId, payload) { rendered.push([chartId, payload.labels[0]]); },
+};
+context.window = context;
+vm.runInNewContext(process.argv[1], context);
+vm.runInNewContext(process.argv[2], context);
+resolveReady({});
+setImmediate(function () {
+    const actual = JSON.stringify(rendered);
+    const expected = JSON.stringify([["ap_chart", "first"], ["ap_chart", "second"]]);
+    if (actual !== expected) throw new Error(`payloads were overwritten: ${actual}`);
+});
+"""
+        subprocess.run(
+            ["node", "-e", node_program, *payload_scripts],
+            cwd=PROJECT_ROOT,
+            check=True,
+        )
+
     @unittest.skipUnless(shutil.which("node"), "需要 Node.js 验证 AMD 加载器")
     def test_loader_exposes_requirejs_module_on_window(self):
         calls = []
@@ -347,11 +393,11 @@ Promise.resolve(context.__alasEchartsPromise).then(function () {
         for marker in ("MA5", "MA10", "dataZoom", "axisPointer", "来源", "__ap_segments"):
             self.assertIn(marker, ap_script)
         for marker in (
-            "yAxisIndex: i",
             "dataZoom",
             "axisPointer",
             'type: "scroll"',
             "compactAxisLabel",
+            "ordinarySeries",
         ):
             self.assertIn(marker, resource_script)
 

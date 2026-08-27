@@ -81,6 +81,32 @@ class TestImportSmokeRunner(unittest.TestCase):
         self.assertTrue(ok, error)
 
 
+class TestFakePILIsolation(unittest.TestCase):
+    """WebUI 的轻量依赖不得破坏进程中已经加载的真实 Pillow。"""
+
+    def test_fake_pil_lifecycle_preserves_loaded_pillow(self):
+        asset = REPO_ROOT / "assets" / "map_detection" / "os_globe_map.png"
+        code = (
+            "import sys\n"
+            "from pathlib import Path\n"
+            "from PIL import Image\n"
+            "real_pil = sys.modules['PIL']\n"
+            "real_image = sys.modules['PIL.Image']\n"
+            "from module.webui.fake_pil_module import "
+            "import_fake_pil_module, remove_fake_pil_module\n"
+            "import_fake_pil_module()\n"
+            "remove_fake_pil_module()\n"
+            "assert sys.modules['PIL'] is real_pil\n"
+            "assert sys.modules['PIL.Image'] is real_image\n"
+            f"with Image.open(Path({str(asset)!r})) as image:\n"
+            "    image.verify()\n"
+        )
+
+        proc = _run_py(code)
+
+        self.assertEqual(proc.returncode, 0, proc.stderr[-500:])
+
+
 class TestRequiredRuntimeAssets(unittest.TestCase):
     """运行时代码硬依赖的静态资源必须随仓库分发。"""
 

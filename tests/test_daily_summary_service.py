@@ -1,9 +1,9 @@
 import sys
 import tempfile
+import threading
 import types
 import unittest
 import json
-import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -100,15 +100,40 @@ class TestDailySummaryService(unittest.TestCase):
             self.assertTrue(
                 self.service.check_due(config, now=datetime(2026, 8, 22, 0, 10, 2))
             )
-            deadline = time.monotonic() + 2
-            period = self.store.get_period('alpha', 'cn:2026-08-22:0010')
-            while period is not None and period['status'] == 'generating':
-                self.assertLess(time.monotonic(), deadline)
-                time.sleep(0.01)
-                period = self.store.get_period('alpha', 'cn:2026-08-22:0010')
+            self.assertTrue(self.service.wait_until_idle(timeout=2))
 
+        period = self.store.get_period('alpha', 'cn:2026-08-22:0010')
         self.assertEqual('sent', period['status'])
         send.assert_called_once_with('provider: json', '日报正文')
+
+    def test_wait_until_idle_includes_final_database_cleanup(self):
+        cleanup_started = threading.Event()
+        cleanup_release = threading.Event()
+
+        def cleanup(*args, **kwargs):
+            cleanup_started.set()
+            cleanup_release.wait(timeout=2)
+
+        config = summary_config(
+            DailySummary_TriggerTime='00:10',
+            Emulator_PackageName='auto',
+            Emulator_ServerName='cn_android-0',
+        )
+        with (
+            patch.object(daily_summary, 'server_time_offset_for', return_value=timedelta()),
+            patch('module.base.async_executor.async_executor.flush'),
+            patch.object(self.service, 'build_facts', return_value=sample_facts()),
+            patch.object(self.service, '_generate_report', return_value=('日报正文', 1)),
+            patch.object(self.service, '_send_report', return_value=(True, 1)),
+            patch.object(self.store, 'cleanup', side_effect=cleanup),
+        ):
+            self.assertTrue(
+                self.service.check_due(config, now=datetime(2026, 8, 22, 0, 10, 2))
+            )
+            self.assertTrue(cleanup_started.wait(timeout=2))
+            self.assertFalse(self.service.wait_until_idle(timeout=0))
+            cleanup_release.set()
+            self.assertTrue(self.service.wait_until_idle(timeout=2))
 
     def test_unresolved_automatic_package_does_not_claim_a_period(self):
         config = summary_config(

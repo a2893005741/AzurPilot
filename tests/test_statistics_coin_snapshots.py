@@ -73,7 +73,7 @@ class TestCoinTimelineRecovery(unittest.TestCase):
             [item["ts"] for item in timeline],
         )
 
-    def test_coins_timeline_prefers_complete_resource_history(self):
+    def test_coins_timeline_merges_partial_month_resource_and_cl1_history(self):
         self._insert_snapshot("2026-08-01T00:00:00", 2, 20)
         self._insert_snapshot("2026-08-02T12:00:00", None, 30)
 
@@ -82,6 +82,12 @@ class TestCoinTimelineRecovery(unittest.TestCase):
             "get_stats",
             return_value={
                 "coins_snapshots": [
+                    {
+                        "ts": "2026-08-01T00:00:00",
+                        "yellow_coins": 999,
+                        "purple_coins": 999,
+                        "source": "cl1",
+                    },
                     {
                         "ts": "2026-08-25T12:00:00",
                         "yellow_coins": 500,
@@ -92,16 +98,13 @@ class TestCoinTimelineRecovery(unittest.TestCase):
         ):
             timeline = opsi_month.get_coins_timeline(2026, 8, "alas")
 
-        self.assertEqual(1, len(timeline))
         self.assertEqual(
-            {
-                "ts": "2026-08-01T00:00:00",
-                "yellow_coins": 2,
-                "purple_coins": 20,
-                "source": "resource",
-            },
-            timeline[0],
+            ["2026-08-01T00:00:00", "2026-08-25T12:00:00"],
+            [item["ts"] for item in timeline],
         )
+        self.assertEqual("resource", timeline[0]["source"])
+        self.assertEqual(2, timeline[0]["yellow_coins"])
+        self.assertEqual(500, timeline[1]["yellow_coins"])
 
     def test_coins_timeline_falls_back_when_all_resource_rows_are_partial(self):
         self._insert_snapshot("2026-08-01T00:00:00", 2, None)

@@ -1,5 +1,5 @@
 (function () {
-    // 资源变化图：每条资源使用独立逻辑 Y 轴，避免数量级互相压平。
+    // 资源变化图：普通资源共用可见左轴，特殊资源使用独立右轴。
     function findContainer(chartId) { return document.getElementById(chartId + "_echarts"); }
     function escapeHtml(value) {
         return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
@@ -42,14 +42,13 @@
     }
     function axisForSeries(series, rightOffset, compact) {
         var range = rangeForSeries(series);
-        var special = series.key === "ActionPoint" || series.key === "YellowCoin" || series.key === "PurpleCoin";
         return {
             type: "value", min: range.min, max: range.max,
-            position: special ? "right" : "left",
-            offset: special ? rightOffset : 0,
-            show: special && !compact,
-            axisLabel: { show: special && !compact, color: series.color, formatter: compactAxisLabel },
-            axisLine: { show: special && !compact, lineStyle: { color: series.color } },
+            position: "right",
+            offset: rightOffset,
+            show: !compact,
+            axisLabel: { show: !compact, color: series.color, formatter: compactAxisLabel },
+            axisLine: { show: !compact, lineStyle: { color: series.color } },
             splitLine: { show: false },
         };
     }
@@ -79,12 +78,20 @@
         if (!seriesData.length) return;
         var compact = el.clientWidth < 640;
         var selectedState = {};
+        var ordinarySeries = seriesData.filter(function (series) {
+            return series.key !== "ActionPoint" && series.key !== "YellowCoin" && series.key !== "PurpleCoin";
+        });
         function buildAxes() {
             var rightAxisCount = 0;
-            var nextAxes = [neutralAxis(seriesData, selectedState)];
+            var ordinaryAxis = neutralAxis(ordinarySeries, selectedState);
+            ordinaryAxis.show = ordinarySeries.some(function (series) {
+                return selectedState[series.name] !== false;
+            });
+            var nextAxes = [ordinaryAxis];
             seriesData.forEach(function (series) {
                 var selected = selectedState[series.name] !== false;
                 var special = series.key === "ActionPoint" || series.key === "YellowCoin" || series.key === "PurpleCoin";
+                if (!special) return;
                 var axis = axisForSeries(series, special ? rightAxisCount * 44 : 0, compact);
                 if (special && selected) rightAxisCount += 1;
                 axis.show = special && selected && !compact;
@@ -115,8 +122,11 @@
         function chartToolbox() {
             return { right: 8, top: compact ? 26 : 4, feature: { dataZoom: { yAxisIndex: "none" }, restore: {} } };
         }
-        var optionSeries = seriesData.map(function (s, i) {
-            return { name: s.name, type: "line", data: s.data, yAxisIndex: i + 1, symbol: "none", connectNulls: false, clip: true, lineStyle: { width: 1.5, color: s.color }, itemStyle: { color: s.color }, __seriesKey: s.key };
+        var rightAxisIndex = 0;
+        var optionSeries = seriesData.map(function (s) {
+            var special = s.key === "ActionPoint" || s.key === "YellowCoin" || s.key === "PurpleCoin";
+            var yAxisIndex = special ? ++rightAxisIndex : 0;
+            return { name: s.name, type: "line", data: s.data, yAxisIndex: yAxisIndex, symbol: "none", connectNulls: false, clip: true, lineStyle: { width: 1.5, color: s.color }, itemStyle: { color: s.color }, __seriesKey: s.key };
         });
         var chart = echarts.init(el, "alas-stat-dark");
         window.__resourceChartInstances[chartId] = chart;

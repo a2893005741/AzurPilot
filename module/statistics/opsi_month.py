@@ -228,20 +228,26 @@ def get_coins_timeline(
                 "source": "resource",
             }
         )
-    if resource_timeline:
-        return resource_timeline
-
     key_prefix = f"{year:04d}-{month:02d}"
     data = cl1_db.get_stats(instance_name, key_prefix)
-
     snapshots = data.get("coins_snapshots", [])
-    if not snapshots:
-        return []
-
     try:
-        return sorted(snapshots, key=lambda e: e.get("ts", ""))
+        cl1_timeline = sorted(snapshots, key=lambda e: e.get("ts", ""))
     except Exception:
-        return snapshots
+        cl1_timeline = snapshots
+
+    # 资源快照在相同时间点包含完整的两个凭证值，优先于旧 CL1 快照；
+    # 其他时间点仍保留，以兼容月中开始记录资源快照的实例。
+    merged = {}
+    for snapshot in cl1_timeline:
+        if isinstance(snapshot, dict) and snapshot.get("ts"):
+            merged[snapshot["ts"]] = snapshot
+    for snapshot in resource_timeline:
+        merged[snapshot["ts"]] = snapshot
+    try:
+        return [merged[timestamp] for timestamp in sorted(merged)]
+    except Exception:
+        return list(merged.values())
 
 
 __all__ = [

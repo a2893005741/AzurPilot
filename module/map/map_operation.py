@@ -16,8 +16,10 @@
 
 import cv2
 
+from module.base.button import Button
 from module.base.timer import Timer
 from module.combat.assets import BATTLE_PREPARATION
+from module.config import server
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
@@ -26,6 +28,20 @@ from module.map.assets import *
 from module.map.map_fleet_preparation import FleetPreparation
 from module.retire.retirement import Retirement
 from module.ui.assets import BACK_ARROW, DAILY_CHECK
+
+MAP_DETAIL_IMMEDIATE_START = Button(
+    area=(908, 486, 1110, 550),
+    color=(234, 188, 114),
+    button=(908, 486, 1110, 550),
+    name='MAP_DETAIL_IMMEDIATE_START',
+)
+
+MAP_PREPARATION_FALLBACK = Button(
+    area=(980, 494, 1170, 550),
+    color=(243, 207, 118),
+    button=(960, 487, 1172, 558),
+    name='MAP_PREPARATION_FALLBACK',
+)
 
 
 class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
@@ -160,6 +176,10 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         self.stage_entrance = button
         self.map_clear_percentage_prev = -1
         self.map_clear_percentage_timer.reset()
+        # 困难战役强制启用自动搜索。新版客户端可能从关卡详情直接进入
+        # 舰队准备并开始加载，跳过原本在地图准备页设置该运行时状态的步骤。
+        if mode == 'hard' and self.config.Campaign_UseAutoSearch:
+            self.map_is_auto_search = True
 
         with self.stat.new(
                 genre=self.config.campaign_name, method=self.config.DropRecord_CombatRecord
@@ -195,6 +215,11 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                 if self.appear(DAILY_CHECK, offset=(20, 20), interval=3):
                     logger.info(f'{DAILY_CHECK} -> {BACK_ARROW}')
                     self.device.click(BACK_ARROW)
+                    continue
+
+                # 新版客户端会先打开关卡详情弹窗，再显示地图准备按钮。
+                if self.handle_map_detail():
+                    campaign_timer.reset()
                     continue
 
                 # 地图准备
@@ -416,11 +441,8 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             Button | None: 地图准备页出现且信息动画结束时，返回普通或困难模式
                 对应的准备按钮；否则返回 None。
         """
-        if self.appear(MAP_PREPARATION, offset=(20, 20)):
-            prep_button = MAP_PREPARATION
-        elif self.appear(MAP_PREPARATION_HARD, offset=(20, 20)):
-            prep_button = MAP_PREPARATION_HARD
-        else:
+        prep_button = self.appear_map_preparation()
+        if not prep_button:
             self.map_clear_percentage_prev = -1
             self.map_clear_percentage_timer.reset()
             return None
@@ -451,6 +473,32 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             self.map_clear_percentage_prev = percent
             self.map_clear_percentage_timer.reset()
             return None
+
+    def handle_map_detail(self):
+        """点击关卡详情弹窗中的立即前往按钮。"""
+        if not self.appear(MAP_DETAIL_IMMEDIATE_START, interval=2):
+            return False
+        logger.info(f'{MAP_DETAIL_IMMEDIATE_START} -> 进入地图')
+        self.device.click(MAP_DETAIL_IMMEDIATE_START)
+        return True
+
+    def appear_map_preparation(self, interval=0):
+        """检测地图准备按钮，兼容困难模式资源和新版客户端放大的按钮。"""
+        if interval:
+            appear_kwargs = {'offset': (20, 20), 'interval': interval}
+        else:
+            appear_kwargs = {'offset': (20, 20)}
+        if self.appear(MAP_PREPARATION, **appear_kwargs):
+            return MAP_PREPARATION
+        if self.appear(MAP_PREPARATION_HARD, **appear_kwargs):
+            return MAP_PREPARATION_HARD
+        if server.server != 'cn':
+            return None
+        if interval:
+            appeared = self.appear(MAP_PREPARATION_FALLBACK, interval=interval, threshold=20)
+        else:
+            appeared = self.appear(MAP_PREPARATION_FALLBACK, threshold=20)
+        return MAP_PREPARATION_FALLBACK if appeared else None
 
     def withdraw(self, skip_first_screenshot=True):
         """

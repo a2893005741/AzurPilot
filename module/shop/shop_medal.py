@@ -41,6 +41,21 @@ class ShopScroll(Scroll):
         self.length = np.sum(mask)
         return mask
 
+    def cal_position(self, main):
+        """计算滚动位置，处理整条轨道被识别为滚动块的无滚动场景。"""
+        self.match_color(main)
+        if self.length >= self.total:
+            logger.warning(f'{self.name} 检测到无可滚动内容，视为底部')
+            return 1.0
+        return super().cal_position(main)
+
+    def set(self, position, main, **kwargs):
+        self.match_color(main)
+        if self.length >= self.total:
+            logger.warning(f'{self.name} 检测到无可滚动内容，跳过拖拽')
+            return 0
+        return super().set(position, main, **kwargs)
+
 
 MEDAL_SHOP_SCROLL_250814 = ShopScroll(
     MEDAL_SHOP_SCROLL_AREA_250814.button,

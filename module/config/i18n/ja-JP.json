@@ -78,6 +78,10 @@
       "name": "1-1伏撃周回 (ベータ)",
       "help": "1-1でボスを倒さず伏撃を周回してリソースを獲得します。緊急委託の流れに沿った自動艦船交換に対応。"
     },
+    "OperationHandover": {
+      "name": "作戦委託Plus",
+      "help": "指定ステージで作戦委託を実行し、通常出撃は行いません。"
+    },
     "EventGeneral": {
       "name": "イベント共通",
       "help": ""
@@ -1323,6 +1327,20 @@
       "withdraw_continue": "撤退して任務続行",
       "switch_fleet": "艦隊切替して続行",
       "withdraw_stop": "撤退して任務終了"
+    }
+  },
+  "OperationHandover": {
+    "_info": {
+      "name": "作戦委託設定",
+      "help": "作戦回数と全権委託書の使用数を固定します。"
+    },
+    "BattleCount": {
+      "name": "作戦回数",
+      "help": "1回の作戦委託で行う連続戦闘回数。"
+    },
+    "FullDelegationBookCount": {
+      "name": "全権委託書数",
+      "help": "1回の作戦委託で使用する全権委託書の数。"
     }
   },
   "StopCondition": {

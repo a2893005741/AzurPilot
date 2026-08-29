@@ -78,6 +78,10 @@
       "name": "1-1刷伏击喵",
       "help": "在1-1不碰boss刷伏击捞物资喵，还能自动换船~ 暂时不太完善"
     },
+    "OperationHandover": {
+      "name": "作战委托Plus喵",
+      "help": "进入指定关卡执行作战委托，期间不进行普通出击喵。"
+    },
     "EventGeneral": {
       "name": "活动通用守则喵",
       "help": "适用于大多数活动的通用选项喵 (=^･ω･^=)"
@@ -1323,6 +1327,20 @@
       "withdraw_continue": "撤退后继续任务喵",
       "switch_fleet": "切换队伍继续出击喵",
       "withdraw_stop": "撤退后关闭任务喵"
+    }
+  },
+  "OperationHandover": {
+    "_info": {
+      "name": "作战委托设置喵",
+      "help": "固定设置作战次数和全权委托书数量喵。"
+    },
+    "BattleCount": {
+      "name": "作战次数喵",
+      "help": "每批作战委托执行的连续战斗次数喵。"
+    },
+    "FullDelegationBookCount": {
+      "name": "全权委托书数量喵",
+      "help": "每批使用的作战全权委托书数量喵。"
     }
   },
   "StopCondition": {

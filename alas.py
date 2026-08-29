@@ -1478,6 +1478,10 @@ class AzurLaneAutoScript:
         from module.campaign.ambush_1_1 import Ambush11
         Ambush11(config=self.config, device=self.device).run()
 
+    def operation_handover(self):
+        from module.campaign.operation_handover import OperationHandover
+        OperationHandover(config=self.config, device=self.device).run()
+
     def daemon(self):
         from module.daemon.daemon import AzurLaneDaemon
         AzurLaneDaemon(config=self.config, device=self.device, task="Daemon").run()

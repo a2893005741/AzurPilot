@@ -556,7 +556,7 @@ class TaskConfigMixin(WebUIMixinBase):
                 "name": f"{task}.Scheduler.Enable",
                 "value": True,
             })
-            pin[f"{task}_Scheduler_Enable"] = True
+            pin[f"{task}_Scheduler_Enable"] = to_pin_value(True)
         toast(t("Gui.Text.RunNow"))
 
     @use_scope("navigator")

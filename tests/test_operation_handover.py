@@ -192,6 +192,27 @@ class TestOperationHandover(unittest.TestCase):
         operation.run()
         operation.campaign.run.assert_not_called()
 
+    def test_run_reuses_already_open_handover_panel(self):
+        operation = self.make_operation()
+        operation.config.Campaign_Name = '1-1'
+        operation.config.Campaign_Event = 'campaign_main'
+        operation.config.Campaign_Mode = 'normal'
+        operation.config.override = Mock()
+        operation.handle_stage_name = Mock(return_value=('1-1', 'campaign_main'))
+        operation.load_campaign = Mock()
+        operation.campaign = Mock()
+        operation.stage = '1-1'
+        operation.loop = Mock(side_effect=[[None]])
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_DETAIL_CLOSE)
+        operation.handle_handover_panel = Mock(return_value=True)
+        operation._handover_finished = True
+
+        operation.run()
+
+        operation.campaign.ensure_campaign_ui.assert_not_called()
+        operation.device.screenshot.assert_called_once_with()
+        operation.handle_handover_panel.assert_called_once_with()
+
 
 if __name__ == '__main__':
     unittest.main()

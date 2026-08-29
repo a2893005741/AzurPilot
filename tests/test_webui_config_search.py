@@ -60,7 +60,7 @@ class TestWebUIConfigSearch(unittest.TestCase):
             ],
         )
         mock_pin.__setitem__.assert_called_once_with(
-            "OperationHandover_Scheduler_Enable", True
+            "OperationHandover_Scheduler_Enable", [True]
         )
 
     def test_other_task_run_now_keeps_enable_state_unchanged(self):

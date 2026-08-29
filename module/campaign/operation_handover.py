@@ -76,6 +76,22 @@ def _parse_duration(value):
 class OperationHandover(CampaignRun):
     """只处理作战委托面板的独立任务。"""
 
+    _HANDOVER_PANEL_MARKERS = (
+        OPERATION_HANDOVER_PANEL_CLOSE,
+        DELEGATION_DETAIL_CLAIM,
+        DELEGATION_HANDOVER_START,
+        DELEGATION_SHIP_SKIP,
+        DELEGATION_TOTAL_CONFIRM,
+        DELEGATION_TOTAL_LEAVE,
+    )
+
+    def _handover_panel_is_open(self):
+        """判断当前画面是否已经是作战委托详情或奖励页。"""
+        return any(
+            self.appear(button, offset=(20, 20))
+            for button in self._HANDOVER_PANEL_MARKERS
+        )
+
     def run(self):
         """进入配置关卡，处理当前一批作战委托后返回。"""
         name, folder = self.handle_stage_name(
@@ -86,19 +102,26 @@ class OperationHandover(CampaignRun):
         self.config.override(Campaign_Name=name, Campaign_Event=folder,
                              Campaign_Mode=self.config.Campaign_Mode)
         self.load_campaign(name, folder=folder)
-        self.campaign.ensure_campaign_ui(name=self.stage, mode=self.config.Campaign_Mode)
+        # 立即运行可能发生在用户已经打开作战委托详情时。先检查当前帧，
+        # 避免 ensure_campaign_ui 导航回战役页而把正在查看的委托面板关掉。
+        self.device.screenshot()
+        panel_open = self._handover_panel_is_open()
+        if not panel_open:
+            self.campaign.ensure_campaign_ui(name=self.stage, mode=self.config.Campaign_Mode)
 
-        for _ in self.loop(timeout=30):
-            if self.appear(OPERATION_HANDOVER_ENTRY, offset=(20, 20)):
-                self.device.click(OPERATION_HANDOVER_ENTRY)
-                break
-            if self.appear(self.campaign.ENTRANCE, offset=(20, 20)):
-                self.device.click(self.campaign.ENTRANCE)
-                continue
+            for _ in self.loop(timeout=30):
+                if self.appear(OPERATION_HANDOVER_ENTRY, offset=(20, 20)):
+                    self.device.click(OPERATION_HANDOVER_ENTRY)
+                    break
+                if self.appear(self.campaign.ENTRANCE, offset=(20, 20)):
+                    self.device.click(self.campaign.ENTRANCE)
+                    continue
+            else:
+                logger.warning('[作战委托] 未找到关卡详情入口，延后任务')
+                self.config.task_delay(success=False)
+                return
         else:
-            logger.warning('[作战委托] 未找到关卡详情入口，延后任务')
-            self.config.task_delay(success=False)
-            return
+            logger.info('[作战委托] 已在作战委托详情页，跳过战役导航')
 
         self._handover_finished = False
         for _ in self.loop(timeout=90):

@@ -21,7 +21,8 @@ class ConfigWatcher:
     def get_mtime(self) -> datetime:
         """获取配置文件的最后修改时间。"""
         timestamp = os.stat(filepath_config(self.config_name)).st_mtime
-        mtime = datetime.fromtimestamp(timestamp).replace(microsecond=0)
+        # 保留文件系统时间精度，避免 WebUI 在同一秒写入配置时被漏检。
+        mtime = datetime.fromtimestamp(timestamp)
         return mtime
 
     def should_reload(self) -> bool:

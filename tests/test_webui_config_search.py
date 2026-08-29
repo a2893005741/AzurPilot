@@ -40,10 +40,16 @@ class TestWebUIConfigSearch(unittest.TestCase):
     def test_operation_handover_run_now_wakes_default_disabled_task(self):
         task_config = object.__new__(TaskConfigMixin)
         task_config.modified_config_queue = Mock()
+        task_config.alas_config = Mock()
+        task_config.alas_name = "alas"
+        task_config.alas_config.read_file.return_value = {
+            "OperationHandover": {"Scheduler": {"Enable": False}}
+        }
 
         with patch("module.webui.app_task_config.t", return_value="立即运行"), \
                 patch("module.webui.app_task_config.toast"), \
-                patch("module.webui.app_task_config.pin") as mock_pin:
+                patch("module.webui.app_task_config.pin") as mock_pin, \
+                patch("module.webui.app_task_config.run_js") as mock_run_js:
             task_config._queue_run_now("OperationHandover")
 
         self.assertEqual(
@@ -59,9 +65,33 @@ class TestWebUIConfigSearch(unittest.TestCase):
                 }),
             ],
         )
-        mock_pin.__setitem__.assert_called_once_with(
-            "OperationHandover_Scheduler_Enable", [True]
+        mock_pin.__setitem__.assert_not_called()
+        mock_run_js.assert_called_once()
+        self.assertIn(
+            "OperationHandover_Scheduler_Enable",
+            mock_run_js.call_args.args[0],
         )
+        self.assertIn("input.checked = true", mock_run_js.call_args.args[0])
+
+    def test_operation_handover_run_now_preserves_enabled_state(self):
+        task_config = object.__new__(TaskConfigMixin)
+        task_config.modified_config_queue = Mock()
+        task_config.alas_config = Mock()
+        task_config.alas_name = "alas"
+        task_config.alas_config.read_file.return_value = {
+            "OperationHandover": {"Scheduler": {"Enable": True}}
+        }
+
+        with patch("module.webui.app_task_config.t", return_value="立即运行"), \
+                patch("module.webui.app_task_config.toast"), \
+                patch("module.webui.app_task_config.run_js") as mock_run_js:
+            task_config._queue_run_now("OperationHandover")
+
+        task_config.modified_config_queue.put.assert_called_once_with({
+            "name": "OperationHandover.Scheduler.NextRun",
+            "value": "",
+        })
+        mock_run_js.assert_not_called()
 
     def test_other_task_run_now_keeps_enable_state_unchanged(self):
         task_config = object.__new__(TaskConfigMixin)

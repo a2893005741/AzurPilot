@@ -1,6 +1,7 @@
 """WebUI任务菜单和配置表单"""
 
 from html import escape
+import json
 from typing import cast
 
 import module.webui.lang as lang
@@ -547,16 +548,40 @@ class TaskConfigMixin(WebUIMixinBase):
         """将任务加入立即执行队列。
 
         作战委托Plus默认关闭，用户点击“立即运行”时需要同时唤醒该任务；
-        其他任务保持原有的仅清空 ``NextRun`` 行为。
+        已启用时保持开关状态不变，其他任务保持原有的仅清空 ``NextRun`` 行为。
         """
         run_now_path = f"{task}.Scheduler.NextRun"
         self.modified_config_queue.put({"name": run_now_path, "value": ""})
         if task == "OperationHandover":
-            self.modified_config_queue.put({
-                "name": f"{task}.Scheduler.Enable",
-                "value": True,
-            })
-            pin[f"{task}_Scheduler_Enable"] = to_pin_value(True)
+            config = getattr(self, "alas_config", None)
+            config_name = getattr(self, "alas_name", "")
+            enabled = False
+            if config is not None and config_name:
+                try:
+                    enabled = bool(
+                        deep_get(
+                            config.read_file(config_name),
+                            f"{task}.Scheduler.Enable",
+                            False,
+                        )
+                    )
+                except Exception:
+                    logger.warning("[WebUI] 无法读取作战委托启用状态，按关闭状态唤醒任务")
+
+            if not enabled:
+                self.modified_config_queue.put({
+                    "name": f"{task}.Scheduler.Enable",
+                    "value": True,
+                })
+                # 旧版 PyWebIO 前端在 pin_update 后可能重新读取 checkbox 的旧值，
+                # 造成“立即运行”后页面看起来又被关闭。直接更新 DOM 属性，不派发 change 事件，
+                # 真实配置仍由上面的保存队列写入。
+                pin_name = f"{task}_Scheduler_Enable"
+                selector = json.dumps(f'input[name="{pin_name}"]')
+                run_js(
+                    f"document.querySelectorAll({selector})"
+                    ".forEach(function (input) { input.checked = true; });"
+                )
         toast(t("Gui.Text.RunNow"))
 
     @use_scope("navigator")

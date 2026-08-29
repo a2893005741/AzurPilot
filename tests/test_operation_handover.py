@@ -108,6 +108,32 @@ class TestOperationHandover(unittest.TestCase):
         self.assertTrue(operation.handle_handover_panel())
         operation.device.click.assert_called_once_with(DELEGATION_SHIP_SKIP)
 
+    def test_run_retries_transient_reward_page_detection(self):
+        operation = self.make_operation()
+        operation.config.Campaign_Name = '1-1'
+        operation.config.Campaign_Event = 'campaign_main'
+        operation.config.Campaign_Mode = 'normal'
+        operation.config.override = Mock()
+        operation.handle_stage_name = Mock(return_value=('1-1', 'campaign_main'))
+        operation.load_campaign = Mock()
+        operation.campaign = Mock()
+        operation.stage = '1-1'
+        operation.loop = Mock(return_value=iter([None, None]))
+        operation.appear = Mock(return_value=False)
+        operation._handover_panel_is_open = Mock(return_value=True)
+        def handle_once():
+            if operation.handle_handover_panel.call_count == 2:
+                operation._handover_finished = True
+            return operation.handle_handover_panel.call_count == 2
+
+        operation.handle_handover_panel = Mock(side_effect=handle_once)
+        operation._handover_finished = True
+
+        operation.run()
+
+        self.assertEqual(operation.handle_handover_panel.call_count, 2)
+        operation.config.task_delay.assert_not_called()
+
     def test_start_requires_running_state_confirmation(self):
         operation = self.make_operation()
         operation._set_handover_amount = Mock(return_value=True)
@@ -212,6 +238,75 @@ class TestOperationHandover(unittest.TestCase):
         operation.campaign.ensure_campaign_ui.assert_not_called()
         operation.device.screenshot.assert_called_once_with()
         operation.handle_handover_panel.assert_called_once_with()
+
+    def test_run_refreshes_after_clicking_handover_entry(self):
+        operation = self.make_operation()
+        operation.config.Campaign_Name = '1-1'
+        operation.config.Campaign_Event = 'campaign_main'
+        operation.config.Campaign_Mode = 'normal'
+        operation.config.override = Mock()
+        operation.handle_stage_name = Mock(return_value=('1-1', 'campaign_main'))
+        operation.load_campaign = Mock()
+        operation.campaign = Mock()
+        operation.stage = '1-1'
+        operation.loop = Mock(return_value=iter([None]))
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button.name == 'OPERATION_HANDOVER_ENTRY')
+        operation.handle_handover_panel = Mock(return_value=True)
+        operation._handover_finished = True
+
+        operation.run()
+
+        self.assertEqual(operation.device.screenshot.call_count, 2)
+        operation.device.click.assert_called_once()
+        self.assertEqual(operation.loop.call_args.kwargs['skip_first'], False)
+
+    def test_run_clicks_ocr_stage_entrance_without_color_detection(self):
+        operation = self.make_operation()
+        operation.config.Campaign_Name = '1-1'
+        operation.config.Campaign_Event = 'campaign_main'
+        operation.config.Campaign_Mode = 'normal'
+        operation.config.override = Mock()
+        operation.handle_stage_name = Mock(return_value=('1-1', 'campaign_main'))
+        operation.load_campaign = Mock()
+        operation.campaign = Mock()
+        operation.stage = '1-1'
+        operation.campaign.ENTRANCE = object()
+        operation.loop = Mock(side_effect=[[None], [None]])
+        operation.handle_handover_panel = Mock(return_value=True)
+        operation._handover_finished = True
+
+        calls = []
+
+        def appear(button, **kwargs):
+            calls.append((button, kwargs))
+            return button is operation.campaign.ENTRANCE
+
+        operation.appear = Mock(side_effect=appear)
+        operation.run()
+
+        self.assertNotIn((operation.campaign.ENTRANCE, {}), calls)
+        operation.device.click.assert_called_once_with(operation.campaign.ENTRANCE)
+
+    def test_run_accepts_existing_completed_handover_detail(self):
+        operation = self.make_operation()
+        operation.config.Campaign_Name = '14-4'
+        operation.config.Campaign_Event = 'campaign_main'
+        operation.config.Campaign_Mode = 'normal'
+        operation.config.override = Mock()
+        operation.handle_stage_name = Mock(return_value=('14-4', 'campaign_main'))
+        operation.load_campaign = Mock()
+        operation.campaign = Mock()
+        operation.stage = '14-4'
+        operation.loop = Mock(side_effect=[[None], [None]])
+        operation.handle_handover_panel = Mock(return_value=True)
+        operation._handover_finished = True
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_DETAIL_CLAIM)
+
+        operation.run()
+
+        operation.device.click.assert_not_called()
+        operation.handle_handover_panel.assert_called_once_with()
+
 
 
 if __name__ == '__main__':

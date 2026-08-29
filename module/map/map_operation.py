@@ -538,7 +538,8 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             return True
 
         # 领取时的熟练度溢出确认，沿用通用信息弹窗处理器。
-        if not getattr(self, '_delegation_termination_pending', False) \
+        if getattr(self, '_delegation_reward_flow', False) \
+                and not getattr(self, '_delegation_termination_pending', False) \
                 and self.handle_popup_confirm(name='DELEGATION_REWARD_OVERFLOW'):
             return True
 

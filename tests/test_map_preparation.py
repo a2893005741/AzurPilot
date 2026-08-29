@@ -41,6 +41,15 @@ class TestMapPreparation(unittest.TestCase):
         self.assertTrue(operation.handle_delegation_popup())
         operation.device.click.assert_called_once_with(DELEGATION_DETAIL_CLAIM)
 
+    def test_delegation_does_not_confirm_generic_popup_outside_reward_flow(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation.appear = Mock(return_value=False)
+        operation.handle_popup_confirm = Mock(return_value=True)
+
+        self.assertFalse(operation.handle_delegation_popup())
+        operation.handle_popup_confirm.assert_not_called()
+
     def test_delegation_in_progress_terminates_instead_of_closing_details(self):
         operation = object.__new__(MapOperation)
         operation.device = Mock()

@@ -37,6 +37,45 @@ def make_entry(
 
 
 class TestWebUIConfigSearch(unittest.TestCase):
+    def test_operation_handover_run_now_wakes_default_disabled_task(self):
+        task_config = object.__new__(TaskConfigMixin)
+        task_config.modified_config_queue = Mock()
+
+        with patch("module.webui.app_task_config.t", return_value="立即运行"), \
+                patch("module.webui.app_task_config.toast"), \
+                patch("module.webui.app_task_config.pin") as mock_pin:
+            task_config._queue_run_now("OperationHandover")
+
+        self.assertEqual(
+            task_config.modified_config_queue.put.call_args_list,
+            [
+                unittest.mock.call({
+                    "name": "OperationHandover.Scheduler.NextRun",
+                    "value": "",
+                }),
+                unittest.mock.call({
+                    "name": "OperationHandover.Scheduler.Enable",
+                    "value": True,
+                }),
+            ],
+        )
+        mock_pin.__setitem__.assert_called_once_with(
+            "OperationHandover_Scheduler_Enable", True
+        )
+
+    def test_other_task_run_now_keeps_enable_state_unchanged(self):
+        task_config = object.__new__(TaskConfigMixin)
+        task_config.modified_config_queue = Mock()
+
+        with patch("module.webui.app_task_config.t", return_value="立即运行"), \
+                patch("module.webui.app_task_config.toast"):
+            task_config._queue_run_now("Main")
+
+        task_config.modified_config_queue.put.assert_called_once_with({
+            "name": "Main.Scheduler.NextRun",
+            "value": "",
+        })
+
     def test_normalize_search_text_ignores_case_and_whitespace(self):
         self.assertEqual(normalize_search_text("  Package\n\t Name  "), "package name")
         self.assertEqual(normalize_search_text(None), "")

@@ -464,11 +464,8 @@ class TaskConfigMixin(WebUIMixinBase):
             output_kwargs = resolved_kwargs.copy()
             if group_name == "Scheduler" and arg_name == "NextRun":
                 # 立即运行按钮：清空 NextRun 触发调度器立即执行该任务
-                run_now_path = f"{task}.Scheduler.NextRun"
-
-                def _run_now(_path=run_now_path):
-                    self.modified_config_queue.put({"name": _path, "value": ""})
-                    toast(t("Gui.Text.RunNow"))
+                def _run_now(_task=task):
+                    self._queue_run_now(_task)
 
                 run_now_btn = put_html(
                     f'<a href="javascript:void(0)" '
@@ -545,6 +542,22 @@ class TaskConfigMixin(WebUIMixinBase):
             onclick=lambda: run_js(js),
             color="navigator",
         )
+
+    def _queue_run_now(self, task: str) -> None:
+        """将任务加入立即执行队列。
+
+        作战委托Plus默认关闭，用户点击“立即运行”时需要同时唤醒该任务；
+        其他任务保持原有的仅清空 ``NextRun`` 行为。
+        """
+        run_now_path = f"{task}.Scheduler.NextRun"
+        self.modified_config_queue.put({"name": run_now_path, "value": ""})
+        if task == "OperationHandover":
+            self.modified_config_queue.put({
+                "name": f"{task}.Scheduler.Enable",
+                "value": True,
+            })
+            pin[f"{task}_Scheduler_Enable"] = True
+        toast(t("Gui.Text.RunNow"))
 
     @use_scope("navigator")
     def set_navigator(self, group):

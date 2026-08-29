@@ -223,7 +223,11 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                     continue
 
                 # 地图准备
-                if map_timer.reached() and self.handle_map_mode_switch(mode) and self.handle_map_preparation():
+                if map_timer.reached() and self.handle_map_mode_switch(mode):
+                    prep_button = self.handle_map_preparation()
+                else:
+                    prep_button = None
+                if prep_button:
                     self.map_get_info()
                     self.handle_map_walk_speedup()
                     self.handle_fast_forward()
@@ -232,7 +236,7 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                         self.enter_map_cancel()
                         self.handle_map_stop()
                         raise ScriptEnd(f'Reach condition: {self.config.StopCondition_MapAchievement}')
-                    self.device.click(MAP_PREPARATION)
+                    self.device.click(prep_button)
                     map_click += 1
                     map_timer.reset()
                     campaign_timer.reset()
@@ -434,21 +438,23 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         处理地图准备阶段，等待地图信息动画完成。
 
         Returns:
-            bool: MAP_PREPARATION 按钮是否出现且地图信息动画是否已完成。
+            Button | None: 地图准备页出现且信息动画结束时，返回普通或困难模式
+                对应的准备按钮；否则返回 None。
         """
-        if not self.appear_map_preparation():
+        prep_button = self.appear_map_preparation()
+        if not prep_button:
             self.map_clear_percentage_prev = -1
             self.map_clear_percentage_timer.reset()
-            return False
+            return None
         if not self.config.MAP_HAS_CLEAR_PERCENTAGE:
             logger.attr('地图有通关百分比', self.config.MAP_HAS_CLEAR_PERCENTAGE)
-            return True
+            return prep_button
         if self.config.MAP_IS_ONE_TIME_STAGE:
             logger.attr('地图是一次性关卡', self.config.MAP_IS_ONE_TIME_STAGE)
-            return True
+            return prep_button
         # 信息栏会遮挡进度条和 MAP_GREEN
         if self.info_bar_count():
-            return False
+            return None
 
         percent = self.get_map_clear_percentage()
         logger.attr('地图通关百分比', f'{int(percent * 100)}%')
@@ -456,17 +462,17 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         # 2022.08.21 当 `percent` 从 0 上升时仍然启用此逻辑。
         if percent > 0.95 and 0 <= self.map_clear_percentage_prev < 0.95:
             # 地图通关进度达到 100%，直接退出
-            return True
+            return prep_button
         if abs(percent - self.map_clear_percentage_prev) < 0.02:
             self.map_clear_percentage_prev = percent
             if self.map_clear_percentage_timer.reached():
-                return True
+                return prep_button
             else:
-                return False
+                return None
         else:
             self.map_clear_percentage_prev = percent
             self.map_clear_percentage_timer.reset()
-            return False
+            return None
 
     def handle_map_detail(self):
         """点击关卡详情弹窗中的立即前往按钮。"""
@@ -477,18 +483,30 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         return True
 
     def appear_map_preparation(self, interval=0):
-        """检测地图准备按钮，兼容新版客户端放大的按钮。"""
+        """检测地图准备按钮，兼容困难模式和新版客户端放大按钮。
+
+        Returns:
+            Button | None: 实际出现的准备按钮；未出现时返回 None。
+        """
         if interval:
             appeared = self.appear(MAP_PREPARATION, offset=(20, 20), interval=interval)
         else:
             appeared = self.appear(MAP_PREPARATION, offset=(20, 20))
         if appeared:
-            return True
-        if server.server != 'cn':
-            return False
+            return MAP_PREPARATION
         if interval:
-            return self.appear(MAP_PREPARATION_FALLBACK, interval=interval, threshold=20)
-        return self.appear(MAP_PREPARATION_FALLBACK, threshold=20)
+            appeared = self.appear(MAP_PREPARATION_HARD, offset=(20, 20), interval=interval)
+        else:
+            appeared = self.appear(MAP_PREPARATION_HARD, offset=(20, 20))
+        if appeared:
+            return MAP_PREPARATION_HARD
+        if server.server != 'cn':
+            return None
+        if interval:
+            appeared = self.appear(MAP_PREPARATION_FALLBACK, interval=interval, threshold=20)
+        else:
+            appeared = self.appear(MAP_PREPARATION_FALLBACK, threshold=20)
+        return MAP_PREPARATION_FALLBACK if appeared else None
 
     def withdraw(self, skip_first_screenshot=True):
         """
@@ -535,8 +553,9 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
 
     def handle_enter_map_preparation_cancel(self):
         """从舰队准备或地图准备页退回关卡选择页。"""
-        if self.appear(MAP_PREPARATION, offset=(20, 20), interval=2):
-            logger.info(f'{MAP_PREPARATION} -> {MAP_PREPARATION_CANCEL}')
+        prep_button = self.appear_map_preparation(interval=2)
+        if prep_button:
+            logger.info(f'{prep_button} -> {MAP_PREPARATION_CANCEL}')
             self.device.click(MAP_PREPARATION_CANCEL)
             return True
         if self.appear(FLEET_PREPARATION, offset=(20, 50), interval=2):

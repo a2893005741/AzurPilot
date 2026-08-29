@@ -18,6 +18,17 @@ import cv2
 
 from module.base.button import Button
 from module.base.timer import Timer
+from module.campaign.assets import (
+    DELEGATION_DETAIL_CLAIM,
+    DELEGATION_DETAIL_CLOSE,
+    DELEGATION_DETAIL_TERMINATE,
+    DELEGATION_POPUP_CANCEL,
+    DELEGATION_POPUP_CHECK,
+    DELEGATION_SHIP_SKIP,
+    DELEGATION_TERMINATE_CONFIRM,
+    DELEGATION_TOTAL_CONFIRM,
+    DELEGATION_TOTAL_LEAVE,
+)
 from module.combat.assets import BATTLE_PREPARATION
 from module.config import server
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
@@ -215,6 +226,11 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                 if self.appear(DAILY_CHECK, offset=(20, 20), interval=3):
                     logger.info(f'{DAILY_CHECK} -> {BACK_ARROW}')
                     self.device.click(BACK_ARROW)
+                    continue
+
+                # 关卡被作战委托占用时会弹出提示窗，遮挡地图准备流程
+                if self.handle_delegation_popup():
+                    campaign_timer.reset()
                     continue
 
                 # 新版客户端会先打开关卡详情弹窗，再显示地图准备按钮。
@@ -473,6 +489,91 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             self.map_clear_percentage_prev = percent
             self.map_clear_percentage_timer.reset()
             return None
+
+    def handle_delegation_popup(self):
+        """处理关卡被作战委托占用时的提示窗。
+
+        作战委托是独立于日常委托的玩法，被委托占用的关卡在委托结束前无法进入。
+        该弹窗沿用了通用双按钮样式，但右键文案为「查看委托」而非「确认」，
+        不会被 handle_popup_cancel 消化，需要单独识别。
+
+        Returns:
+            bool: 是否在作战委托流程中完成了一次检测或点击。
+
+        Raises:
+            TaskEnd: 详情页仍在进行中且没有领取按钮时，延后任务重试。
+        """
+        if self.appear(DELEGATION_POPUP_CHECK, offset=(20, 20)) \
+                and self.appear(DELEGATION_POPUP_CANCEL, offset=(20, 20), interval=2):
+            logger.hr('进入作战委托详情')
+            self.device.click(DELEGATION_POPUP_CHECK)
+            self._delegation_detail_open = True
+            self._delegation_reward_flow = False
+            self._delegation_termination_pending = False
+            return True
+
+        if self.appear(DELEGATION_DETAIL_CLAIM, offset=(20, 20), interval=1):
+            logger.info(f'{DELEGATION_DETAIL_CLAIM} -> 领取奖励')
+            self.device.click(DELEGATION_DETAIL_CLAIM)
+            self._delegation_detail_open = False
+            self._delegation_reward_flow = True
+            self._delegation_termination_pending = False
+            return True
+
+        if getattr(self, '_delegation_detail_open', False) \
+                and self.appear(DELEGATION_DETAIL_TERMINATE, offset=(20, 20), interval=1):
+            logger.info(f'{DELEGATION_DETAIL_TERMINATE} -> 终止作战')
+            self.device.click(DELEGATION_DETAIL_TERMINATE)
+            self._delegation_detail_open = False
+            self._delegation_reward_flow = True
+            self._delegation_termination_pending = True
+            return True
+
+        # 终止确认弹窗使用截图中明确的蓝色确认按钮。
+        if getattr(self, '_delegation_termination_pending', False) \
+                and self.appear(DELEGATION_TERMINATE_CONFIRM, offset=(20, 20), interval=1):
+            logger.info(f'{DELEGATION_TERMINATE_CONFIRM} -> 确定终止作战')
+            self.device.click(DELEGATION_TERMINATE_CONFIRM)
+            self._delegation_termination_pending = False
+            return True
+
+        # 领取时的熟练度溢出确认，沿用通用信息弹窗处理器。
+        if not getattr(self, '_delegation_termination_pending', False) \
+                and self.handle_popup_confirm(name='DELEGATION_REWARD_OVERFLOW'):
+            return True
+
+        # 新船展示页出现在奖励汇总页之前，跳过按钮不依赖前置状态即可识别。
+        if getattr(self, '_delegation_reward_flow', False) \
+                and self.appear(DELEGATION_SHIP_SKIP, offset=(20, 20), interval=1):
+            logger.info(f'{DELEGATION_SHIP_SKIP} -> 跳过新船展示')
+            self.device.click(DELEGATION_SHIP_SKIP)
+            return True
+        # 汇总页确认按钮用于继续奖励流程；完成后若仍有新船展示，下一轮会跳过。
+        if getattr(self, '_delegation_reward_flow', False) \
+                and self.appear(DELEGATION_TOTAL_CONFIRM, offset=(20, 20), interval=1):
+            logger.info(f'{DELEGATION_TOTAL_CONFIRM} -> 继续奖励流程')
+            self.device.click(DELEGATION_TOTAL_CONFIRM)
+            return True
+        if getattr(self, '_delegation_reward_flow', False) \
+                and self.appear(DELEGATION_TOTAL_LEAVE, offset=(20, 20), interval=1):
+            logger.info(f'{DELEGATION_TOTAL_LEAVE} -> 返回战役')
+            self.device.click(DELEGATION_TOTAL_LEAVE)
+            self._delegation_detail_open = False
+            self._delegation_reward_flow = False
+            return True
+
+        # 未完成详情页没有可验证的领取按钮，只能安全退出并延后下次检查。
+        if getattr(self, '_delegation_detail_open', False) \
+                and self.appear(DELEGATION_DETAIL_CLOSE, offset=(20, 20), interval=2):
+            logger.warning('[作战委托] 详情仍在进行中，暂时无法领取，延后重试')
+            self.device.click(DELEGATION_DETAIL_CLOSE)
+            self._delegation_detail_open = False
+            self._delegation_reward_flow = False
+            self._delegation_termination_pending = False
+            self.config.task_delay(minute=(30, 60))
+            self.config.task_stop('Delegation is still running')
+
+        return False
 
     def handle_map_detail(self):
         """点击关卡详情弹窗中的立即前往按钮。"""

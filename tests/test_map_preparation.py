@@ -4,6 +4,15 @@ from unittest.mock import MagicMock, Mock, call, patch
 import numpy as np
 
 from module.map.map_operation import (
+    DELEGATION_DETAIL_CLAIM,
+    DELEGATION_DETAIL_CLOSE,
+    DELEGATION_DETAIL_TERMINATE,
+    DELEGATION_POPUP_CANCEL,
+    DELEGATION_POPUP_CHECK,
+    DELEGATION_SHIP_SKIP,
+    DELEGATION_TERMINATE_CONFIRM,
+    DELEGATION_TOTAL_CONFIRM,
+    DELEGATION_TOTAL_LEAVE,
     MAP_DETAIL_IMMEDIATE_START,
     MAP_PREPARATION,
     MAP_PREPARATION_FALLBACK,
@@ -13,6 +22,89 @@ from module.map.map_operation import (
 
 
 class TestMapPreparation(unittest.TestCase):
+    def test_delegation_popup_opens_details_instead_of_canceling(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button in {
+            DELEGATION_POPUP_CHECK, DELEGATION_POPUP_CANCEL,
+        })
+
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_called_once_with(DELEGATION_POPUP_CHECK)
+
+    def test_delegation_detail_claim_clicks_only_claim_button(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_DETAIL_CLAIM)
+        operation.handle_popup_confirm = Mock(return_value=False)
+
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_called_once_with(DELEGATION_DETAIL_CLAIM)
+
+    def test_delegation_in_progress_terminates_instead_of_closing_details(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation._delegation_detail_open = True
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_DETAIL_TERMINATE)
+        operation.handle_popup_confirm = Mock(return_value=False)
+
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_called_once_with(DELEGATION_DETAIL_TERMINATE)
+        self.assertTrue(operation._delegation_reward_flow)
+        self.assertFalse(operation._delegation_detail_open)
+
+    def test_delegation_termination_confirmation_clicks_confirm_button(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation._delegation_termination_pending = True
+        operation._delegation_reward_flow = True
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_TERMINATE_CONFIRM)
+        operation.handle_popup_confirm = Mock(return_value=False)
+
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_called_once_with(DELEGATION_TERMINATE_CONFIRM)
+        self.assertFalse(operation._delegation_termination_pending)
+
+    def test_delegation_in_progress_closes_and_delays(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation.config = Mock()
+        operation.config.task_stop.side_effect = RuntimeError
+        operation._delegation_detail_open = True
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_DETAIL_CLOSE)
+        operation.handle_popup_confirm = Mock(return_value=False)
+
+        self.assertRaises(RuntimeError, operation.handle_delegation_popup)
+        operation.device.click.assert_called_once_with(DELEGATION_DETAIL_CLOSE)
+        operation.config.task_delay.assert_called_once_with(minute=(30, 60))
+        operation.config.task_stop.assert_called_once_with('Delegation is still running')
+
+    def test_delegation_reward_flow_skips_ship_then_confirms_total(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation.handle_popup_confirm = Mock(return_value=False)
+        operation._delegation_reward_flow = True
+        visible = {DELEGATION_SHIP_SKIP}
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button in visible)
+
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_called_once_with(DELEGATION_SHIP_SKIP)
+
+        visible.clear()
+        visible.add(DELEGATION_TOTAL_CONFIRM)
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_has_calls([call(DELEGATION_SHIP_SKIP), call(DELEGATION_TOTAL_CONFIRM)])
+
+    def test_delegation_total_leave_returns_to_campaign(self):
+        operation = object.__new__(MapOperation)
+        operation.device = Mock()
+        operation.handle_popup_confirm = Mock(return_value=False)
+        operation._delegation_reward_flow = True
+        operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_TOTAL_LEAVE)
+
+        self.assertTrue(operation.handle_delegation_popup())
+        operation.device.click.assert_called_once_with(DELEGATION_TOTAL_LEAVE)
+
     def test_enter_map_marks_hard_direct_loading_as_auto_search(self):
         operation = object.__new__(MapOperation)
         operation.config = Mock(

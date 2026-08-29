@@ -76,6 +76,10 @@ Farm:
       - Fleet
       - Submarine
       - Emotion
+    OperationHandover:
+      - Scheduler
+      - Campaign
+      - OperationHandover
 Event:
   menu: collapse
   page: setting

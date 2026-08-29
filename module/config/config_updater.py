@@ -67,6 +67,7 @@ ARCHIVES_PREFIX = {
 MAINS = ['Main', 'Main2', 'Main3']
 EVENTS = ['Event', 'Event2', 'Event3', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp']
 GEMS_FARMINGS = ['GemsFarming', 'ThreeOilLowCost']
+OPERATION_HANDOVERS = ['OperationHandover']
 RAIDS = ['Raid', 'RaidDaily', 'RaidScuttle']
 WAR_ARCHIVES = ['WarArchives']
 COALITIONS = ['Coalition', 'CoalitionSp', 'CoalitionScuttle']
@@ -306,7 +307,7 @@ class ConfigGenerator:
 
         # 非主线任务隐藏 Campaign.Mode（Mode 仅适用于主线地图）
         for task in list(data.keys()):
-            if task not in MAINS:
+            if task not in MAINS and task not in OPERATION_HANDOVERS:
                 if deep_get(data, keys=f'{task}.Campaign.Mode') is not None:
                     deep_set(data, keys=f'{task}.Campaign.Mode.display', value='hide')
 
@@ -545,15 +546,17 @@ class ConfigGenerator:
                         if not hasattr(self, f'_{server}_latest_event_date'):
                             setattr(self, f'_{server}_latest_event_date', int(event.date))
                         if int(event.date) == getattr(self, f'_{server}_latest_event_date'):
-                            for task in EVENTS + GEMS_FARMINGS:
+                            for task in EVENTS + GEMS_FARMINGS + OPERATION_HANDOVERS:
                                 insert(task)
 
-        for task in EVENTS + GEMS_FARMINGS + WAR_ARCHIVES + RAIDS + COALITIONS:
+        for task in EVENTS + GEMS_FARMINGS + OPERATION_HANDOVERS + WAR_ARCHIVES + RAIDS + COALITIONS:
             latest = {}
             for server in ARCHIVES_PREFIX.keys():
                 latest[server] = deep_get(self.args, keys=f'{task}.Campaign.Event.option_{server}', default=[])
             options = set().union(*latest.values())
             options = sorted([option for option in options if option != 'campaign_main'])
+            if task in OPERATION_HANDOVERS:
+                options.insert(0, 'campaign_main')
             if task not in WAR_ARCHIVES:
                 deep_set(self.args, keys=f'{task}.Campaign.Event.option_bold', value=options)
             deep_set(self.args, keys=f'{task}.Campaign.Event.option', value=options)

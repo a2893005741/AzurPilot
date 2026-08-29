@@ -78,6 +78,10 @@
       "name": "Ambush 1-1",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "Operation Handover Plus",
+      "help": "Runs operational handover on the selected stage without starting regular sorties."
+    },
     "EventGeneral": {
       "name": "Event General",
       "help": ""
@@ -1323,6 +1327,20 @@
       "withdraw_continue": "Withdraw & Continue Task",
       "switch_fleet": "Switch Fleet & Continue",
       "withdraw_stop": "Withdraw & Stop Task"
+    }
+  },
+  "OperationHandover": {
+    "_info": {
+      "name": "Operation Handover",
+      "help": "Set a fixed battle count and full delegation book count."
+    },
+    "BattleCount": {
+      "name": "Battle count",
+      "help": "Number of continuous battles in one operation handover batch."
+    },
+    "FullDelegationBookCount": {
+      "name": "Full delegation books",
+      "help": "Number of full delegation books to use in one batch."
     }
   },
   "StopCondition": {

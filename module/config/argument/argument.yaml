@@ -343,6 +343,7 @@ YukikazeTaskManager:
       > Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3
       > OpsiScheduling
       > OpsiMeowfficerFarming
+      > OperationHandover
       > GemsFarming
       > Ambush11
       > OpsiHazard1Leveling
@@ -385,6 +386,15 @@ Campaign:
   DefeatWithdraw:
     value: withdraw_stop
     option: [ withdraw_continue, switch_fleet, withdraw_stop ]
+OperationHandover:
+  BattleCount:
+    type: input
+    value: 1
+    validate: [1, 15]
+  FullDelegationBookCount:
+    type: input
+    value: 0
+    validate: [0, 15]
 StopCondition:
   OilLimit: 1000
   CoinLimit: 0

@@ -78,6 +78,10 @@
       "name": "1-1刷伏击(尚不完善)",
       "help": "在1-1不打boss刷伏击获得物资等，支持按紧急委托流程自动换船。"
     },
+    "OperationHandover": {
+      "name": "作战委托Plus",
+      "help": "进入指定关卡执行作战委托，作战期间不进行普通出击。"
+    },
     "EventGeneral": {
       "name": "活动通用",
       "help": ""
@@ -1323,6 +1327,20 @@
       "withdraw_continue": "撤退后继续任务",
       "switch_fleet": "切换队伍继续出击",
       "withdraw_stop": "撤退后关闭任务"
+    }
+  },
+  "OperationHandover": {
+    "_info": {
+      "name": "作战委托设置",
+      "help": "固定设置作战次数和全权委托书数量。"
+    },
+    "BattleCount": {
+      "name": "作战次数",
+      "help": "每批作战委托执行的连续战斗次数。"
+    },
+    "FullDelegationBookCount": {
+      "name": "全权委托书数量",
+      "help": "每批使用的作战全权委托书数量。"
     }
   },
   "StopCondition": {

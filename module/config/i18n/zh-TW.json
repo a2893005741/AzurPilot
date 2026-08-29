@@ -78,6 +78,10 @@
       "name": "1-1刷伏擊(測試中)",
       "help": "在1-1不打boss刷伏擊獲得物資等，支援按緊急委託流程自動換船。"
     },
+    "OperationHandover": {
+      "name": "作戰委託Plus",
+      "help": "進入指定關卡執行作戰委託，作戰期間不進行普通出擊。"
+    },
     "EventGeneral": {
       "name": "活動通用",
       "help": ""
@@ -1323,6 +1327,20 @@
       "withdraw_continue": "撤退後繼續任務",
       "switch_fleet": "切換隊伍繼續出擊",
       "withdraw_stop": "撤退後關閉任務"
+    }
+  },
+  "OperationHandover": {
+    "_info": {
+      "name": "作戰委託設定",
+      "help": "固定設定作戰次數和全權委託書數量。"
+    },
+    "BattleCount": {
+      "name": "作戰次數",
+      "help": "每批作戰委託執行的連續戰鬥次數。"
+    },
+    "FullDelegationBookCount": {
+      "name": "全權委託書數量",
+      "help": "每批使用的作戰全權委託書數量。"
     }
   },
   "StopCondition": {

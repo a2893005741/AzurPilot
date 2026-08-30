@@ -29,7 +29,7 @@ from module.campaign.assets import (
     DELEGATION_TOTAL_CONFIRM,
     DELEGATION_TOTAL_LEAVE,
 )
-from module.combat.assets import BATTLE_PREPARATION
+from module.combat.assets import BATTLE_PREPARATION, GET_SHIP
 from module.config import server
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
@@ -302,6 +302,15 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                     continue
 
                 if self.handle_submarine_cost_popup():
+                    continue
+
+                # 进入下一关前可能残留上一轮的出船结果页。
+                # CampaignBase 复用 Combat.handle_get_ship() 记录新船；
+                # 仅继承 MapOperation 的功能则直接点击通用确认区域。
+                if hasattr(self, 'handle_get_ship'):
+                    if self.handle_get_ship(drop=drop):
+                        continue
+                elif self.appear_then_click(GET_SHIP, interval=1):
                     continue
 
                 # 剧情跳过

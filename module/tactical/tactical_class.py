@@ -461,9 +461,14 @@ class RewardTacticalClass(Dock):
             self.device.click(TACTICAL_CLASS_START)
             return True
 
-        logger.info('[战术-选择] 取消战术')
-        logger.info(f'[战术-选择] 点击取消 {TACTICAL_CLASS_CANCEL}')
-        self.device.click(TACTICAL_CLASS_CANCEL)
+        # 切换技能失败时可能已经返回战术主页，重新确认页面后再取消，避免误点训练槽位。
+        self.device.screenshot()
+        if self.appear(TACTICAL_CLASS_START, offset=(30, 30)):
+            logger.info('[战术-选择] 取消战术')
+            logger.info(f'[战术-选择] 点击取消 {TACTICAL_CLASS_CANCEL}')
+            self.device.click(TACTICAL_CLASS_CANCEL)
+        else:
+            logger.info('[战术-选择] 已离开教材选择页面，跳过取消')
         return True
 
     def handle_rapid_training(self):

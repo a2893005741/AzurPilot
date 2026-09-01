@@ -1,8 +1,9 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from module.map.map_grids import SelectedGrids
+from module.tactical.assets import TACTICAL_CLASS_CANCEL
 from module.tactical.tactical_class import SKILL_GRIDS, RewardTacticalClass
 
 
@@ -39,6 +40,24 @@ class TestTacticalSkillAutoSwitch(unittest.TestCase):
 
         handler._try_switch_to_next_skill.assert_called_once_with()
         handler.device.click.assert_called_once()
+
+    def test_does_not_cancel_again_when_switch_returns_to_tactical_page(self):
+        handler = self._handler([True])
+        handler._try_switch_to_next_skill = RewardTacticalClass._try_switch_to_next_skill.__get__(
+            handler, RewardTacticalClass
+        )
+        handler._wait_until_appear = Mock(return_value=True)
+        handler.find_not_full_level_skill = Mock(return_value=None)
+        handler._return_to_tactical_page = Mock()
+        handler.appear = Mock(return_value=False)
+
+        self.assertTrue(handler._tactical_books_choose())
+
+        self.assertEqual(
+            handler.device.click.call_args_list,
+            [call(TACTICAL_CLASS_CANCEL)],
+        )
+        handler.device.screenshot.assert_called_once_with()
 
     def test_keeps_book_selection_for_non_max_skill(self):
         handler = self._handler([False])

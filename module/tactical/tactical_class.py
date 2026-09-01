@@ -420,6 +420,19 @@ class RewardTacticalClass(Dock):
             if not self._tactical_books_get():
                 return False
 
+            # 满级技能不应再选择教材；配置过滤器包含 `first` 回退项时，
+            # 仅检查过滤结果会掩盖满级状态并直接重复开课。
+            if self.config.Tactical_SkillAutoSwitch \
+                    and self._is_current_skill_max(skip_first_screenshot=True):
+                if retry >= MAX_SWITCH_RETRIES:
+                    logger.warning('[战术-选择] 达到技能切换最大重试次数')
+                    break
+                logger.info('[战术-选择] 当前技能已满级，尝试切换到下一个技能')
+                if self._try_switch_to_next_skill():
+                    logger.info('[战术-选择] 已切换到下一个技能，重新进入教材选择')
+                    continue
+                break
+
             self.device.click_record_clear()
             # 确保第一本教材被选中
             # 对于较慢的电脑，选中状态可能已改变
@@ -434,21 +447,9 @@ class RewardTacticalClass(Dock):
             books = BOOK_FILTER.apply(self.books.grids)
             logger.attr('教材排序', ' > '.join([str(book) for book in books]))
 
-            # 如果有可用教材则选择，否则检测是否因为技能已满级
+            # 没有可用教材时取消本次课程。
             if not books:
-                # 无教材可选时，检测是否因为技能已满级（受 SkillAutoSwitch 配置控制）
-                if not self.config.Tactical_SkillAutoSwitch:
-                    break
-                if retry >= MAX_SWITCH_RETRIES:
-                    logger.warning('[战术-选择] 达到技能切换最大重试次数')
-                    break
-                if not self._is_current_skill_max(skip_first_screenshot=True):
-                    break
-                logger.info('[战术-选择] 没有教材因为技能已满级，尝试切换到下一个技能')
-                if not self._try_switch_to_next_skill():
-                    break
-                logger.info('[战术-选择] 已切换到下一个技能，重新进入教材选择')
-                continue
+                break
 
             book = books[0]
             if str(book) != 'first':

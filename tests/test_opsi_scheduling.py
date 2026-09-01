@@ -253,6 +253,17 @@ class ExploreSchedulingConfig:
 
 
 class TestExploreSchedulingEnable(unittest.TestCase):
+    def test_explore_checks_scheduling_threshold_before_loading_zones(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        with patch.object(
+            explore,
+            '_switch_to_smart_scheduling_after_zone',
+            side_effect=TaskEnd,
+        ):
+            with self.assertRaises(TaskEnd):
+                explore._os_explore()
+
     def test_explore_task_stops_when_phase_is_not_explore(self):
         explore = OpsiExplore.__new__(OpsiExplore)
         explore.config = ExploreSchedulingConfig()

@@ -20,6 +20,22 @@ class OpsiExplore(OSMap):
     # 探索失败的区域 ID 列表
     _os_explore_failed_zone = []
 
+    def _delay_explore_for_scheduling_phase(self):
+        """闭环已切离开荒时，阻止开荒任务再次抢占队列。"""
+        if not self._is_explore_scheduling_enabled():
+            return False
+        phase = self._get_explore_scheduling_phase()
+        if phase == self.EXPLORE_SCHEDULING_PHASE_EXPLORE:
+            return False
+
+        next_reset = get_os_next_reset()
+        logger.info(
+            f'[大世界-探索] 闭环阶段为 {phase}，开荒已暂停，延迟到下次重置'
+        )
+        self.config.task_delay(target=next_reset)
+        self.config.task_stop()
+        return True
+
     def _get_explore_coin_preserve(self):
         value = self.config.cross_get(
             keys='OpsiScheduling.OpsiScheduling.OperationCoinsPreserve',
@@ -76,14 +92,7 @@ class OpsiExplore(OSMap):
             return False
 
         ap_total = self._get_explore_action_point_total()
-        ap_reserve = self.config.cross_get(
-            keys='OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve',
-            default=200,
-        )
-        try:
-            ap_reserve = int(ap_reserve or 0)
-        except (TypeError, ValueError):
-            ap_reserve = 200
+        ap_reserve = self._get_explore_action_point_reserve()
         if ap_total <= ap_reserve:
             logger.info(
                 f'[大世界-探索] 黄币已达 {coin_upper}，但总行动力 {ap_total} '
@@ -100,6 +109,28 @@ class OpsiExplore(OSMap):
         logger.info('[大世界-探索] 黄币达到智能调度上限，切换侵蚀1')
         self.config.task_stop()
         return True
+
+    def _should_skip_first_auto_search(self):
+        """闭环达到侵蚀1门槛时，避免初始化阶段先清理当前海域。"""
+        if getattr(getattr(self.config, 'task', None), 'command', None) != 'OpsiExplore':
+            return False
+        if not self._is_explore_scheduling_enabled():
+            return False
+        if self._get_explore_scheduling_phase() != self.EXPLORE_SCHEDULING_PHASE_EXPLORE:
+            return False
+        if self.get_yellow_coins() < self._get_explore_coin_upper_bound():
+            return False
+        return self._get_explore_action_point_total() > self._get_explore_action_point_reserve()
+
+    def _get_explore_action_point_reserve(self):
+        value = self.config.cross_get(
+            keys='OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve',
+            default=200,
+        )
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 200
 
     def _finish_explore_scheduling(self):
         """持久化开荒完成阶段，并按黄币余额决定是否唤起补币。"""
@@ -198,10 +229,15 @@ class OpsiExplore(OSMap):
 
         if not len(order):
             end()
+            return
+
+        # 首次进入开荒前也检查一次，避免已有高额黄币时先进入一个海域。
+        self._switch_to_smart_scheduling_after_zone()
 
         # 开始探索
         self._os_explore_failed_zone = []
         for zone in order:
+            self._delay_explore_for_scheduling_phase()
             # 检查区域是否已解锁为安全海域
             if not self.globe_goto(zone, stop_if_safe=True):
                 completed_count += 1
@@ -209,6 +245,7 @@ class OpsiExplore(OSMap):
                     percentage = completed_count / total_zones * 100
                     self.config.OpsiExplore_ExploreProgress = f'已完成百分之{percentage:.2f}'
                 self.config.OpsiExplore_LastZone = zone
+                self._switch_to_smart_scheduling_after_zone()
                 continue
 
             # 运行区域
@@ -246,6 +283,7 @@ class OpsiExplore(OSMap):
             end()
 
     def os_explore(self):
+        self._delay_explore_for_scheduling_phase()
         for _ in range(2):
             try:
                 self._os_explore()

@@ -602,6 +602,7 @@ class GeneratedConfig:
     OpsiExplore_ForceRun = False
     OpsiExplore_LastZone = 0
     OpsiExplore_AllowHazard1Leveling = False
+    OpsiExplore_EnableSmartScheduling = False  # True, False
     OpsiExplore_ExploreProgress = None
 
     # 配置组 `OpsiShop`

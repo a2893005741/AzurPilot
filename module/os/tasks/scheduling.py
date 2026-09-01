@@ -972,7 +972,40 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         if not self.is_in_opsi_explore():
             return False
 
+        phase_getter = getattr(self, '_get_explore_scheduling_phase', None)
+        phase = (
+            phase_getter()
+            if callable(phase_getter) and self._is_explore_scheduling_enabled()
+            else None
+        )
+        current_task = getattr(getattr(self.config, 'task', None), 'command', None)
+        if phase in (
+            self.EXPLORE_SCHEDULING_PHASE_CL1,
+            self.EXPLORE_SCHEDULING_PHASE_COIN_TASK,
+        ) and current_task in ('OpsiScheduling', 'OpsiPreventActionPointOverflow'):
+            return False
+
         self._delay_smart_scheduling_to_server_update('每月开荒+正在运行')
+        self.config.task_stop()
+        return True
+
+    def _return_to_explore_when_coins_low(self, yellow_coins, cl1_preserve):
+        """侵蚀 1 阶段黄币降到下限时切回未完成的开荒。"""
+        if not self._is_explore_scheduling_enabled():
+            return False
+        if self._get_explore_scheduling_phase() != self.EXPLORE_SCHEDULING_PHASE_CL1:
+            return False
+        if yellow_coins >= cl1_preserve:
+            return False
+
+        self._clear_coin_replenish_target()
+        self._clear_ap_replenish_active()
+        self._set_explore_scheduling_phase(self.EXPLORE_SCHEDULING_PHASE_EXPLORE)
+        self._delay_smart_scheduling_to_server_update('侵蚀1黄币低于下限，返回每月开荒+')
+        self.config.task_call('OpsiExplore', force_call=True)
+        logger.info(
+            f'[大世界-智能调度+] 侵蚀1黄币 {yellow_coins} < 下限 {cl1_preserve}，返回开荒'
+        )
         self.config.task_stop()
         return True
 
@@ -986,6 +1019,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             return
 
         yellow_coins = self.get_yellow_coins()
+        cl1_preserve = self._get_smart_scheduling_operation_coins_preserve()
+        if self._return_to_explore_when_coins_low(yellow_coins, cl1_preserve):
+            return
         total_ap, current_ap = self._get_scheduling_action_point()
 
         # 月末清理行动力检查（优先级最高，先于黄币和侵蚀1调度）
@@ -1020,10 +1056,14 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     self.config.task_stop()
                     return
 
-        cl1_preserve = self._get_smart_scheduling_operation_coins_preserve()
         cl1_ap_preserve = self._get_effective_cl1_ap_preserve()
         meow_ap_preserve = self._get_coin_task_action_point_preserve()
         coin_target_scheduling = self._is_coin_target_scheduling_enabled()
+        explore_phase = (
+            self._get_explore_scheduling_phase()
+            if self._is_explore_scheduling_enabled()
+            else None
+        )
         self._sync_smart_scheduling_mode_state(coin_target_scheduling)
         coin_replenish_active = self._is_coin_replenish_active()
         ap_replenish_active = self._is_ap_replenish_active()
@@ -1041,7 +1081,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             )
 
         try:
-            if coin_target_scheduling and (yellow_coins < cl1_preserve or coin_replenish_active):
+            if coin_target_scheduling and (
+                explore_phase == self.EXPLORE_SCHEDULING_PHASE_COIN_TASK
+                or yellow_coins < cl1_preserve
+                or coin_replenish_active
+            ):
                 coin_target, start_coins, return_threshold = self._get_coin_replenish_target(
                     yellow_coins,
                     cl1_preserve,
@@ -1053,6 +1097,14 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 if yellow_coins >= coin_target:
                     logger.info(f'[大世界-智能调度+] 黄币已补足 ({yellow_coins} >= {coin_target})，恢复侵蚀1练级')
                     self._clear_coin_replenish_target()
+                    if explore_phase == self.EXPLORE_SCHEDULING_PHASE_COIN_TASK:
+                        self._set_explore_scheduling_phase(
+                            self.EXPLORE_SCHEDULING_PHASE_COMPLETED
+                        )
+                        self._delay_smart_scheduling_to_server_update(
+                            '每月开荒已完成且黄币补足'
+                        )
+                        self.config.task_stop()
                 else:
                     logger.info(f'[大世界-智能调度+] 黄币未补足 ({yellow_coins} < {coin_target})，需要执行黄币补充任务')
                     if total_ap <= meow_ap_preserve:

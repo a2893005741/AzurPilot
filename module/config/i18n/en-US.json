@@ -3208,6 +3208,12 @@
       "name": "Allow Hazard 1 Leveling during exploration",
       "help": "If enabled, Corrosion 1 Leveling will not be postponed. Use with caution, as you might run out of Action Points for exploration."
     },
+    "EnableSmartScheduling": {
+      "name": "Use smart scheduling",
+      "help": "During exploration, switch to Corrosion 1 when coins reach the smart scheduling upper bound, then resume exploration below the lower bound. Smart scheduling and coin-target scheduling must both be enabled.",
+      "True": "True",
+      "False": "False"
+    },
     "ExploreProgress": {
       "name": "Monthly Exploration Progress",
       "help": "Shows the current completion percentage of monthly exploration."

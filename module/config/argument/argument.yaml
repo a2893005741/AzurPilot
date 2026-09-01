@@ -1071,6 +1071,10 @@ OpsiExplore:
   ForceRun: false
   LastZone: 0
   AllowHazard1Leveling: false
+  EnableSmartScheduling:
+    type: checkbox
+    value: false
+    option: [true, false]
   ExploreProgress:
     type: textarea
     display: disabled

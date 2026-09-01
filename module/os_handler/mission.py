@@ -288,7 +288,11 @@ class MissionHandler(GlobeOperation, ZoneManager):
             scheduling_enabled = self.config.cross_get(
                 keys='OpsiExplore.OpsiExplore.EnableSmartScheduling',
                 default=False,
-            ) is True
+            )
+            if isinstance(scheduling_enabled, list):
+                scheduling_enabled = any(bool(item) for item in scheduling_enabled)
+            else:
+                scheduling_enabled = scheduling_enabled is True
             if callable(phase_getter) and scheduling_enabled:
                 phase = phase_getter()
                 current_task = getattr(getattr(self.config, 'task', None), 'command', None)

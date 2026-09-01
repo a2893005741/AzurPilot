@@ -266,6 +266,14 @@ class TestExploreSchedulingEnable(unittest.TestCase):
             with self.assertRaises(TaskEnd):
                 explore._delay_explore_for_scheduling_phase()
 
+    def test_enable_switch_accepts_legacy_checkbox_list_value(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.values[
+            'OpsiExplore.OpsiExplore.EnableSmartScheduling'
+        ] = [True]
+        self.assertTrue(explore._is_explore_scheduling_enabled())
+
     def test_uses_shared_smart_scheduling_storage_path(self):
         self.assertEqual(
             OpsiExplore.EXPLORE_SCHEDULING_STATE_PATH,

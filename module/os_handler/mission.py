@@ -284,6 +284,26 @@ class MissionHandler(GlobeOperation, ZoneManager):
         # 2023-03-14 11:15:28.425 | INFO | [OpsiExplore] (True, datetime.datetime(2023, 4, 1, 2, 0))
         # 2023-03-14 11:15:28.426 | INFO | 每月开荒+仍在运行，仅接取任务...
         if enable and next_run < next_reset - timedelta(hours=12):
+            phase_getter = getattr(self, '_get_explore_scheduling_phase', None)
+            scheduling_enabled = self.config.cross_get(
+                keys='OpsiExplore.OpsiExplore.EnableSmartScheduling',
+                default=False,
+            ) is True
+            if callable(phase_getter) and scheduling_enabled:
+                phase = phase_getter()
+                current_task = getattr(getattr(self.config, 'task', None), 'command', None)
+                delegated = bool(
+                    getattr(self, '_smart_scheduling_context', False)
+                    or getattr(self.config, '_smart_scheduling_context', False)
+                )
+                if phase in ('cl1', 'coin_task') and (
+                    current_task in ('OpsiScheduling', 'OpsiPreventActionPointOverflow')
+                    or delegated
+                ):
+                    logger.info(
+                        f'每月开荒+闭环阶段为 {phase}，允许智能调度任务执行'
+                    )
+                    return False
             logger.info('每月开荒+仍在运行，仅接取任务。每月开荒+访问所有区域时会完成这些任务，不必担心遗漏。')
             return True
         else:

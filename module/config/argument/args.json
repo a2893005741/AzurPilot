@@ -13012,6 +13012,14 @@
         "type": "checkbox",
         "value": false
       },
+      "EnableSmartScheduling": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
       "ExploreProgress": {
         "type": "textarea",
         "value": "",

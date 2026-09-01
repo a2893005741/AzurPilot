@@ -2511,6 +2511,7 @@
       "ForceRun": false,
       "LastZone": 0,
       "AllowHazard1Leveling": false,
+      "EnableSmartScheduling": false,
       "ExploreProgress": null
     },
     "OpsiFleet": {

@@ -7,6 +7,8 @@ from module.campaign.os_run import OSCampaignRun
 from module.config.config import TaskEnd
 from module.os.tasks.prevent_action_point_overflow import OpsiPreventActionPointOverflow
 from module.os.tasks.scheduling import OpsiScheduling
+from module.os.tasks.explore import OpsiExplore
+from module.os.tasks.hazard_leveling import OpsiHazard1Leveling
 from module.os_handler.action_point import ActionPointLimit
 
 
@@ -229,3 +231,142 @@ class TestSmartSchedulingExploreDelay(unittest.TestCase):
                 )
             ],
         )
+
+
+class ExploreSchedulingConfig:
+    def __init__(self, explore=True, scheduling=True, preserve=True):
+        self.values = {
+            'OpsiExplore.OpsiExplore.EnableSmartScheduling': explore,
+            'OpsiScheduling.Scheduler.Enable': scheduling,
+            'OpsiScheduling.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve': preserve,
+            'OpsiScheduling.OpsiScheduling.OperationCoinsPreserve': 30000,
+            'OpsiScheduling.OpsiScheduling.OperationCoinsReturnThreshold': 20000,
+        }
+
+    def cross_get(self, keys, default=None):
+        if keys == 'OpsiScheduling.OpsiScheduling.Storage.Storage':
+            return getattr(self, 'storage', default)
+        return self.values.get(keys, default)
+
+    def is_task_enabled(self, task):
+        return self.values.get(f'{task}.Scheduler.Enable', False)
+
+
+class TestExploreSchedulingEnable(unittest.TestCase):
+    def test_requires_all_three_switches(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        for key in ('explore', 'scheduling', 'preserve'):
+            values = {'explore': True, 'scheduling': True, 'preserve': True}
+            values[key] = False
+            explore.config = ExploreSchedulingConfig(**values)
+            self.assertFalse(explore._is_explore_scheduling_enabled())
+
+        explore.config = ExploreSchedulingConfig()
+        self.assertTrue(explore._is_explore_scheduling_enabled())
+
+    def test_switches_to_cl1_only_at_upper_coin_bound_and_sufficient_ap(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.task_delay_calls = []
+        explore.config.task_call_calls = []
+        explore.config.task_delay = lambda *args, **kwargs: explore.config.task_delay_calls.append((args, kwargs))
+        explore.config.task_call = lambda *args, **kwargs: explore.config.task_call_calls.append((args, kwargs))
+        explore.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
+        with (
+            patch.object(explore, '_get_explore_scheduling_phase', return_value=explore.EXPLORE_SCHEDULING_PHASE_EXPLORE),
+            patch.object(explore, 'get_yellow_coins', return_value=49999),
+        ):
+            self.assertFalse(explore._switch_to_smart_scheduling_after_zone())
+        with (
+            patch.object(explore, '_get_explore_scheduling_phase', return_value=explore.EXPLORE_SCHEDULING_PHASE_EXPLORE),
+            patch.object(explore, 'get_yellow_coins', return_value=50000),
+            patch.object(explore, '_get_explore_action_point_total', return_value=201),
+            patch.object(explore, '_set_explore_scheduling_phase') as set_phase,
+            patch('module.os.tasks.explore.get_os_next_reset', return_value=object()),
+        ):
+            with self.assertRaises(TaskEnd):
+                explore._switch_to_smart_scheduling_after_zone()
+        set_phase.assert_called_once_with(explore.EXPLORE_SCHEDULING_PHASE_CL1)
+        self.assertEqual(
+            explore.config.task_call_calls,
+            [(('OpsiScheduling',), {'force_call': True})],
+        )
+
+    def test_cl1_low_coins_returns_to_explore_without_coin_replenish(self):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = ExploreSchedulingConfig()
+        scheduling.config.task_delay_calls = []
+        scheduling.config.task_call_calls = []
+        scheduling.config.task_delay = lambda *args, **kwargs: scheduling.config.task_delay_calls.append((args, kwargs))
+        scheduling.config.task_call = lambda *args, **kwargs: scheduling.config.task_call_calls.append((args, kwargs))
+        scheduling.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
+        with (
+            patch.object(scheduling, '_get_explore_scheduling_phase', return_value=scheduling.EXPLORE_SCHEDULING_PHASE_CL1),
+            patch.object(scheduling, '_set_explore_scheduling_phase') as set_phase,
+            patch.object(scheduling, '_clear_coin_replenish_target') as clear_coin,
+            patch.object(scheduling, '_clear_ap_replenish_active') as clear_ap,
+        ):
+            with self.assertRaises(TaskEnd):
+                scheduling._return_to_explore_when_coins_low(29999, 30000)
+        set_phase.assert_called_once_with(scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE)
+        clear_coin.assert_called_once()
+        clear_ap.assert_called_once()
+        self.assertEqual(
+            scheduling.config.task_call_calls,
+            [(('OpsiExplore',), {'force_call': True})],
+        )
+
+    def test_completed_explore_with_low_coins_enters_coin_task(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.task_call_calls = []
+        explore.config.task_call = lambda *args, **kwargs: explore.config.task_call_calls.append((args, kwargs))
+        with (
+            patch.object(explore, 'get_yellow_coins', return_value=29999),
+            patch.object(explore, '_set_explore_scheduling_phase') as set_phase,
+        ):
+            explore._finish_explore_scheduling()
+        set_phase.assert_called_once_with(explore.EXPLORE_SCHEDULING_PHASE_COIN_TASK)
+        self.assertEqual(
+            explore.config.task_call_calls,
+            [(('OpsiScheduling',), {'force_call': True})],
+        )
+
+    def test_new_month_resets_stale_phase(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.storage = {
+            explore.EXPLORE_SCHEDULING_MONTH_KEY: 'old',
+            explore.EXPLORE_SCHEDULING_PHASE_KEY: explore.EXPLORE_SCHEDULING_PHASE_CL1,
+        }
+        with patch('module.os.map.get_os_next_reset') as next_reset:
+            next_reset.return_value = __import__('datetime').datetime(2026, 9, 1, 3)
+            self.assertEqual(
+                explore._get_explore_scheduling_phase(),
+                explore.EXPLORE_SCHEDULING_PHASE_EXPLORE,
+            )
+
+    def test_completed_explore_with_sufficient_coins_does_not_call_scheduling(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.task_call_calls = []
+        explore.config.task_call = lambda *args, **kwargs: explore.config.task_call_calls.append((args, kwargs))
+        with (
+            patch.object(explore, 'get_yellow_coins', return_value=30000),
+            patch.object(explore, '_set_explore_scheduling_phase') as set_phase,
+        ):
+            explore._finish_explore_scheduling()
+        set_phase.assert_called_once_with(explore.EXPLORE_SCHEDULING_PHASE_COMPLETED)
+        self.assertEqual(explore.config.task_call_calls, [])
+
+    def test_independent_hazard1_yields_during_closed_loop_cl1(self):
+        hazard = OpsiHazard1Leveling.__new__(OpsiHazard1Leveling)
+        hazard.config = ExploreSchedulingConfig()
+        hazard.config.task_delay = lambda *args, **kwargs: None
+        hazard.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
+        with (
+            patch.object(hazard, '_is_explore_scheduling_enabled', return_value=True),
+            patch.object(hazard, '_get_explore_scheduling_phase', return_value=hazard.EXPLORE_SCHEDULING_PHASE_CL1),
+        ):
+            with self.assertRaises(TaskEnd):
+                hazard.run_hazard1_leveling_once()

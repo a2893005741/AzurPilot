@@ -32,7 +32,7 @@ import inflection
 
 from module.base.timer import Timer
 from module.config.config import TaskEnd
-from module.config.utils import get_os_reset_remain
+from module.config.utils import get_os_next_reset, get_os_reset_remain
 from module.exception import (
     CampaignEnd,
     GameTooManyClickError,
@@ -88,11 +88,80 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         _solved_map_event (set[str]): 已处理的地图事件类型集合。
         _solved_fleet_mechanism (bool): 是否已解锁双舰队机关。
     """
+    EXPLORE_SCHEDULING_PHASE_EXPLORE = 'explore'
+    EXPLORE_SCHEDULING_PHASE_CL1 = 'cl1'
+    EXPLORE_SCHEDULING_PHASE_COIN_TASK = 'coin_task'
+    EXPLORE_SCHEDULING_PHASE_COMPLETED = 'completed'
+    EXPLORE_SCHEDULING_STATE_PATH = 'OpsiScheduling.OpsiScheduling.Storage.Storage'
+    EXPLORE_SCHEDULING_MONTH_KEY = 'ExploreSchedulingMonth'
+    EXPLORE_SCHEDULING_PHASE_KEY = 'ExploreSchedulingPhase'
+
+    def _is_explore_scheduling_enabled(self):
+        """判断每月开荒与智能调度闭环是否启用。"""
+        def enabled(keys, default=False):
+            value = self.config.cross_get(keys=keys, default=default)
+            if isinstance(value, list):
+                return any(bool(item) for item in value)
+            return value is True
+
+        return (
+            enabled('OpsiExplore.OpsiExplore.EnableSmartScheduling')
+            and enabled('OpsiScheduling.Scheduler.Enable')
+            and enabled(
+                'OpsiScheduling.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve'
+            )
+        )
+
+    def _explore_scheduling_month(self):
+        """返回当前大世界重置周期的稳定标识。"""
+        return get_os_next_reset().replace(microsecond=0).isoformat()
+
+    def _get_explore_scheduling_state(self):
+        state = self.config.cross_get(keys=self.EXPLORE_SCHEDULING_STATE_PATH, default={})
+        return dict(state) if isinstance(state, dict) else {}
+
+    def _save_explore_scheduling_state(self, state):
+        if hasattr(self.config, 'modified') and callable(getattr(self.config, 'save', None)):
+            self.config.modified[self.EXPLORE_SCHEDULING_STATE_PATH] = state
+            self.config.save()
+        elif hasattr(self.config, 'cross_set'):
+            self.config.cross_set(keys=self.EXPLORE_SCHEDULING_STATE_PATH, value=state)
+        else:
+            self.config._explore_scheduling_state = state
+
+    def _get_explore_scheduling_phase(self):
+        """读取阶段，并在进入新大世界周期时清理旧阶段。"""
+        state = self._get_explore_scheduling_state()
+        month = self._explore_scheduling_month()
+        if state.get(self.EXPLORE_SCHEDULING_MONTH_KEY) != month:
+            state = {
+                self.EXPLORE_SCHEDULING_MONTH_KEY: month,
+                self.EXPLORE_SCHEDULING_PHASE_KEY: self.EXPLORE_SCHEDULING_PHASE_EXPLORE,
+            }
+            self._save_explore_scheduling_state(state)
+            return self.EXPLORE_SCHEDULING_PHASE_EXPLORE
+        phase = state.get(self.EXPLORE_SCHEDULING_PHASE_KEY)
+        if phase not in {
+            self.EXPLORE_SCHEDULING_PHASE_EXPLORE,
+            self.EXPLORE_SCHEDULING_PHASE_CL1,
+            self.EXPLORE_SCHEDULING_PHASE_COIN_TASK,
+            self.EXPLORE_SCHEDULING_PHASE_COMPLETED,
+        }:
+            return self.EXPLORE_SCHEDULING_PHASE_EXPLORE
+        return phase
+
+    def _set_explore_scheduling_phase(self, phase):
+        """持久化闭环阶段，并保留当前周期标识。"""
+        state = self._get_explore_scheduling_state()
+        state[self.EXPLORE_SCHEDULING_MONTH_KEY] = self._explore_scheduling_month()
+        state[self.EXPLORE_SCHEDULING_PHASE_KEY] = phase
+        self._save_explore_scheduling_state(state)
+
     def is_smart_scheduling_enabled(self) -> bool:
         """
         统一判断是否启用了智能调度+（侵蚀1与补黄币任务共享的开关逻辑）。
         """
-        # 检测是否在开荒中，如果是，则停止智能调度+
+        # 开荒阶段阻止普通智能调度；闭环切换到 cl1/coin_task 时允许队列唤起。
         if self.is_in_opsi_explore():
             return False
 

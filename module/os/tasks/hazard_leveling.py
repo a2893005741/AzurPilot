@@ -142,6 +142,15 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
 
     def run_hazard1_leveling_once(self, ap_preserve=None):
         """执行一轮侵蚀 1 练级，由独立任务或 OpsiScheduling 调用。"""
+        if (
+            not self.is_running_smart_scheduling_task()
+            and getattr(self, '_is_explore_scheduling_enabled', lambda: False)()
+            and self._get_explore_scheduling_phase() == self.EXPLORE_SCHEDULING_PHASE_CL1
+        ):
+            logger.info('[大世界-侵蚀1练级] 闭环侵蚀1阶段由智能调度代理，独立任务让位')
+            self.config.task_delay(server_update=True)
+            self.config.task_stop()
+
         # 启用随机事件以获得收益。调度器直接调用单轮时也需要保持该行为。
         self.config.override(
             OpsiGeneral_DoRandomMapEvent=True,

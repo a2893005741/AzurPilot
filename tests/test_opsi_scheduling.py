@@ -244,7 +244,7 @@ class ExploreSchedulingConfig:
         }
 
     def cross_get(self, keys, default=None):
-        if keys == 'OpsiScheduling.OpsiScheduling.Storage.Storage':
+        if keys == 'OpsiScheduling.Storage.Storage':
             return getattr(self, 'storage', default)
         return self.values.get(keys, default)
 
@@ -253,6 +253,12 @@ class ExploreSchedulingConfig:
 
 
 class TestExploreSchedulingEnable(unittest.TestCase):
+    def test_uses_shared_smart_scheduling_storage_path(self):
+        self.assertEqual(
+            OpsiExplore.EXPLORE_SCHEDULING_STATE_PATH,
+            OpsiScheduling.CONFIG_PATH_SMART_STATE,
+        )
+
     def test_requires_all_three_switches(self):
         explore = OpsiExplore.__new__(OpsiExplore)
         for key in ('explore', 'scheduling', 'preserve'):

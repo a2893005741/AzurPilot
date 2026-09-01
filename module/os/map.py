@@ -92,7 +92,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     EXPLORE_SCHEDULING_PHASE_CL1 = 'cl1'
     EXPLORE_SCHEDULING_PHASE_COIN_TASK = 'coin_task'
     EXPLORE_SCHEDULING_PHASE_COMPLETED = 'completed'
-    EXPLORE_SCHEDULING_STATE_PATH = 'OpsiScheduling.OpsiScheduling.Storage.Storage'
+    EXPLORE_SCHEDULING_STATE_PATH = 'OpsiScheduling.Storage.Storage'
     EXPLORE_SCHEDULING_MONTH_KEY = 'ExploreSchedulingMonth'
     EXPLORE_SCHEDULING_PHASE_KEY = 'ExploreSchedulingPhase'
 

@@ -92,14 +92,7 @@ class OpsiExplore(OSMap):
             return False
 
         ap_total = self._get_explore_action_point_total()
-        ap_reserve = self.config.cross_get(
-            keys='OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve',
-            default=200,
-        )
-        try:
-            ap_reserve = int(ap_reserve or 0)
-        except (TypeError, ValueError):
-            ap_reserve = 200
+        ap_reserve = self._get_explore_action_point_reserve()
         if ap_total <= ap_reserve:
             logger.info(
                 f'[大世界-探索] 黄币已达 {coin_upper}，但总行动力 {ap_total} '
@@ -116,6 +109,28 @@ class OpsiExplore(OSMap):
         logger.info('[大世界-探索] 黄币达到智能调度上限，切换侵蚀1')
         self.config.task_stop()
         return True
+
+    def _should_skip_first_auto_search(self):
+        """闭环达到侵蚀1门槛时，避免初始化阶段先清理当前海域。"""
+        if getattr(getattr(self.config, 'task', None), 'command', None) != 'OpsiExplore':
+            return False
+        if not self._is_explore_scheduling_enabled():
+            return False
+        if self._get_explore_scheduling_phase() != self.EXPLORE_SCHEDULING_PHASE_EXPLORE:
+            return False
+        if self.get_yellow_coins() < self._get_explore_coin_upper_bound():
+            return False
+        return self._get_explore_action_point_total() > self._get_explore_action_point_reserve()
+
+    def _get_explore_action_point_reserve(self):
+        value = self.config.cross_get(
+            keys='OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve',
+            default=200,
+        )
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 200
 
     def _finish_explore_scheduling(self):
         """持久化开荒完成阶段，并按黄币余额决定是否唤起补币。"""
@@ -186,8 +201,6 @@ class OpsiExplore(OSMap):
             self.config.task_stop()
 
         logger.hr('大世界-每月开荒+', level=1)
-        # 首次进入开荒前也检查一次，避免已有高额黄币时先进入一个海域。
-        self._switch_to_smart_scheduling_after_zone()
         full_order = [int(f.strip(' \t\r\n')) for f in self.config.OS_EXPLORE_FILTER.split('>')]
         total_zones = len(full_order)
         # 转换用户输入
@@ -216,6 +229,10 @@ class OpsiExplore(OSMap):
 
         if not len(order):
             end()
+            return
+
+        # 首次进入开荒前也检查一次，避免已有高额黄币时先进入一个海域。
+        self._switch_to_smart_scheduling_after_zone()
 
         # 开始探索
         self._os_explore_failed_zone = []

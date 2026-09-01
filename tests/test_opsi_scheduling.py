@@ -253,9 +253,44 @@ class ExploreSchedulingConfig:
 
 
 class TestExploreSchedulingEnable(unittest.TestCase):
+    def test_completed_explore_finalizes_before_startup_coin_switch(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.OS_EXPLORE_FILTER = '1'
+        explore.config.OpsiExplore_LastZone = 1
+        explore.config.OpsiExplore_ExploreProgress = None
+        explore.config.OpsiExplore_SpecialRadar = False
+        explore.config.Scheduler_NextRun = None
+        explore.config.task_delay = lambda *args, **kwargs: None
+        explore.config.task_call = lambda *args, **kwargs: None
+        explore.config.multi_set = lambda: nullcontext()
+        explore.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
+        explore.name_to_zone = lambda zone: SimpleNamespace(zone_id=int(zone))
+        with (
+            patch.object(explore, '_switch_to_smart_scheduling_after_zone') as switch,
+            patch.object(explore, '_finish_explore_scheduling'),
+            patch('module.os.tasks.explore.get_os_next_reset'),
+        ):
+            with self.assertRaises(TaskEnd):
+                explore._os_explore()
+        switch.assert_not_called()
+
+    def test_skips_initial_auto_search_when_coin_threshold_is_reached(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.task = SimpleNamespace(command='OpsiExplore')
+        with (
+            patch.object(explore, '_get_explore_scheduling_phase', return_value=explore.EXPLORE_SCHEDULING_PHASE_EXPLORE),
+            patch.object(explore, 'get_yellow_coins', return_value=50000),
+            patch.object(explore, '_get_explore_action_point_total', return_value=201),
+        ):
+            self.assertTrue(explore._should_skip_first_auto_search())
+
     def test_explore_checks_scheduling_threshold_before_loading_zones(self):
         explore = OpsiExplore.__new__(OpsiExplore)
         explore.config = ExploreSchedulingConfig()
+        explore.config.OS_EXPLORE_FILTER = '1'
+        explore.config.OpsiExplore_LastZone = 0
         with patch.object(
             explore,
             '_switch_to_smart_scheduling_after_zone',

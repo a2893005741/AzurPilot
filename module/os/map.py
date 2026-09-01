@@ -264,8 +264,14 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             )
         ):
             pass
+        elif self._should_skip_first_auto_search():
+            logger.info("当前任务已满足首次自律寻敌跳过条件")
         else:
             self.run_first_auto_search()
+
+    def _should_skip_first_auto_search(self):
+        """判断是否应跳过大世界初始化时的首次自律寻敌。"""
+        return False
 
     def run_first_auto_search(self):
         if self.zone.zone_id == 154:

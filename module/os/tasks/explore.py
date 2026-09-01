@@ -20,6 +20,22 @@ class OpsiExplore(OSMap):
     # 探索失败的区域 ID 列表
     _os_explore_failed_zone = []
 
+    def _delay_explore_for_scheduling_phase(self):
+        """闭环已切离开荒时，阻止开荒任务再次抢占队列。"""
+        if not self._is_explore_scheduling_enabled():
+            return False
+        phase = self._get_explore_scheduling_phase()
+        if phase == self.EXPLORE_SCHEDULING_PHASE_EXPLORE:
+            return False
+
+        next_reset = get_os_next_reset()
+        logger.info(
+            f'[大世界-探索] 闭环阶段为 {phase}，开荒已暂停，延迟到下次重置'
+        )
+        self.config.task_delay(target=next_reset)
+        self.config.task_stop()
+        return True
+
     def _get_explore_coin_preserve(self):
         value = self.config.cross_get(
             keys='OpsiScheduling.OpsiScheduling.OperationCoinsPreserve',
@@ -202,6 +218,7 @@ class OpsiExplore(OSMap):
         # 开始探索
         self._os_explore_failed_zone = []
         for zone in order:
+            self._delay_explore_for_scheduling_phase()
             # 检查区域是否已解锁为安全海域
             if not self.globe_goto(zone, stop_if_safe=True):
                 completed_count += 1
@@ -209,6 +226,7 @@ class OpsiExplore(OSMap):
                     percentage = completed_count / total_zones * 100
                     self.config.OpsiExplore_ExploreProgress = f'已完成百分之{percentage:.2f}'
                 self.config.OpsiExplore_LastZone = zone
+                self._switch_to_smart_scheduling_after_zone()
                 continue
 
             # 运行区域
@@ -246,6 +264,7 @@ class OpsiExplore(OSMap):
             end()
 
     def os_explore(self):
+        self._delay_explore_for_scheduling_phase()
         for _ in range(2):
             try:
                 self._os_explore()

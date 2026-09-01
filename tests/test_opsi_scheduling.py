@@ -253,6 +253,19 @@ class ExploreSchedulingConfig:
 
 
 class TestExploreSchedulingEnable(unittest.TestCase):
+    def test_explore_task_stops_when_phase_is_not_explore(self):
+        explore = OpsiExplore.__new__(OpsiExplore)
+        explore.config = ExploreSchedulingConfig()
+        explore.config.task_delay = lambda *args, **kwargs: None
+        explore.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
+        with patch.object(
+            explore,
+            '_get_explore_scheduling_phase',
+            return_value=explore.EXPLORE_SCHEDULING_PHASE_CL1,
+        ):
+            with self.assertRaises(TaskEnd):
+                explore._delay_explore_for_scheduling_phase()
+
     def test_uses_shared_smart_scheduling_storage_path(self):
         self.assertEqual(
             OpsiExplore.EXPLORE_SCHEDULING_STATE_PATH,

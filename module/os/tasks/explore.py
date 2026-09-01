@@ -186,6 +186,8 @@ class OpsiExplore(OSMap):
             self.config.task_stop()
 
         logger.hr('大世界-每月开荒+', level=1)
+        # 首次进入开荒前也检查一次，避免已有高额黄币时先进入一个海域。
+        self._switch_to_smart_scheduling_after_zone()
         full_order = [int(f.strip(' \t\r\n')) for f in self.config.OS_EXPLORE_FILTER.split('>')]
         total_zones = len(full_order)
         # 转换用户输入

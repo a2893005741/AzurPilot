@@ -1,5 +1,6 @@
 import unittest
 from contextlib import contextmanager, nullcontext
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -268,6 +269,25 @@ class ExploreSchedulingConfig:
 
 
 class TestExploreSchedulingEnable(unittest.TestCase):
+    def test_active_explore_blocks_scheduling_when_closed_loop_is_disabled(self):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = ExploreSchedulingConfig(enable_explore=False)
+        scheduling.config.values['OpsiExplore.Scheduler.Enable'] = True
+        scheduling.config.values['OpsiExplore.Scheduler.NextRun'] = datetime(2026, 9, 1)
+
+        with (
+            patch(
+                'module.os_handler.mission.get_os_next_reset',
+                return_value=datetime(2026, 10, 1),
+            ),
+            patch.object(
+                scheduling,
+                '_get_explore_scheduling_phase',
+                return_value=scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE,
+            ),
+        ):
+            self.assertTrue(scheduling.is_in_opsi_explore())
+
     def test_monthly_explore_is_selected_by_coin_task_priority(self):
         scheduling = OpsiScheduling.__new__(OpsiScheduling)
         scheduling.config = ExploreSchedulingConfig()

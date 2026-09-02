@@ -107,6 +107,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         return (
             enabled('OpsiExplore.OpsiExplore.EnableSmartScheduling')
             and enabled('OpsiScheduling.Scheduler.Enable')
+            and enabled('OpsiScheduling.OpsiScheduling.EnableExplore')
             and enabled(
                 'OpsiScheduling.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve'
             )

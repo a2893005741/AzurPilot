@@ -300,7 +300,7 @@ class MissionHandler(GlobeOperation, ZoneManager):
                     getattr(self, '_smart_scheduling_context', False)
                     or getattr(self.config, '_smart_scheduling_context', False)
                 )
-                if phase in ('cl1', 'coin_task') and (
+                if phase in ('explore', 'cl1', 'coin_task') and (
                     current_task in ('OpsiScheduling', 'OpsiPreventActionPointOverflow')
                     or delegated
                 ):

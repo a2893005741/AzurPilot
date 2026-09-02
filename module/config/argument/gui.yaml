@@ -457,6 +457,7 @@ OpsiScheduling:
   ActionPointPreserve:
 
   OperationCoinsReturnThreshold:
+  EnableExplore:
   EnableMeowfficerFarming:
   EnableObscure:
   EnableAbyssal:

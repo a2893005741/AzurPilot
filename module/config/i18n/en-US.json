@@ -3539,6 +3539,12 @@
       "name": "Return When Supply Coins Below X",
       "help": "During the yellow coin acquisition task, obtain (increase) X Combat Supply Vouchers in total, then return to Corrosion 1 Leveling."
     },
+    "EnableExplore": {
+      "name": "Enable Monthly Exploration",
+      "help": "Use Monthly Exploration as a smart-scheduling task to replenish OpSi coins.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
     "EnableMeowfficerFarming": {
       "name": "Enable Meowfficer Farming",
       "help": "Whether to enable Meowfficer Farming task for yellow coin replenishment in Smart Scheduling",
@@ -6600,6 +6606,7 @@
       "OperationCoinsPreserve": "OpSi Coins Preserve",
       "ActionPointPreserve": "Action Points Preserve",
       "OperationCoinsReturnThreshold": "OpSi Coins Return Threshold",
+      "EnableExplore": "Enable Monthly Exploration",
       "EnableMeowfficerFarming": "Enable Meowfficer Farming",
       "EnableObscure": "Enable Obscure Zones",
       "EnableAbyssal": "Enable Abyssal Zones",

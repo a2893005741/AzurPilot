@@ -682,11 +682,12 @@ class GeneratedConfig:
     OpsiScheduling_OperationCoinsPreserve = 40000
     OpsiScheduling_ActionPointPreserve = 200
     OpsiScheduling_OperationCoinsReturnThreshold = 20000
+    OpsiScheduling_EnableExplore = False  # True, False
     OpsiScheduling_EnableMeowfficerFarming = True  # True, False
     OpsiScheduling_EnableObscure = False  # True, False
     OpsiScheduling_EnableAbyssal = False  # True, False
     OpsiScheduling_EnableStronghold = False  # True, False
-    OpsiScheduling_TaskPriority = 'OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming'
+    OpsiScheduling_TaskPriority = 'OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming'
     OpsiScheduling_MonthEndActionPointCleanupEnable = False  # True, False
     OpsiScheduling_MonthEndActionPointCleanupDays = 0
     OpsiScheduling_MonthEndActionPointPreserve = 0

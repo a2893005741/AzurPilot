@@ -128,6 +128,9 @@ def write_file(file, data):
     print(f'write: {file}')
     if file.endswith('.json'):
         content = json.dumps(data, indent=2, ensure_ascii=False, sort_keys=False, default=str)
+        # 确保文件末尾有换行符，符合 POSIX 标准
+        if not content.endswith('\n'):
+            content += '\n'
         atomic_write(file, content)
     elif file.endswith('.yaml'):
         if isinstance(data, list):

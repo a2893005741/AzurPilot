@@ -26,6 +26,23 @@ class MissionAtCurrentZone(Exception):
 class MissionHandler(GlobeOperation, ZoneManager):
     _os_mission_submitted = False
 
+    def _is_explore_scheduling_enabled(self):
+        """判断每月开荒与智能调度闭环是否启用。"""
+        def enabled(keys, default=False):
+            value = self.config.cross_get(keys=keys, default=default)
+            if isinstance(value, list):
+                return any(bool(item) for item in value)
+            return value is True
+
+        return (
+            enabled('OpsiExplore.OpsiExplore.EnableSmartScheduling')
+            and enabled('OpsiScheduling.Scheduler.Enable')
+            and enabled('OpsiScheduling.OpsiScheduling.EnableExplore')
+            and enabled(
+                'OpsiScheduling.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve'
+            )
+        )
+
     def _os_find_checkout_offset_skip_monthly_boss(self, checkout_offset):
         """
         查找非月度Boss的任务结算行。
@@ -285,22 +302,14 @@ class MissionHandler(GlobeOperation, ZoneManager):
         # 2023-03-14 11:15:28.426 | INFO | 每月开荒+仍在运行，仅接取任务...
         if enable and next_run < next_reset - timedelta(hours=12):
             phase_getter = getattr(self, '_get_explore_scheduling_phase', None)
-            scheduling_enabled = self.config.cross_get(
-                keys='OpsiExplore.OpsiExplore.EnableSmartScheduling',
-                default=False,
-            )
-            if isinstance(scheduling_enabled, list):
-                scheduling_enabled = any(bool(item) for item in scheduling_enabled)
-            else:
-                scheduling_enabled = scheduling_enabled is True
-            if callable(phase_getter) and scheduling_enabled:
+            if callable(phase_getter) and self._is_explore_scheduling_enabled():
                 phase = phase_getter()
                 current_task = getattr(getattr(self.config, 'task', None), 'command', None)
                 delegated = bool(
                     getattr(self, '_smart_scheduling_context', False)
                     or getattr(self.config, '_smart_scheduling_context', False)
                 )
-                if phase in ('cl1', 'coin_task') and (
+                if phase in ('explore', 'cl1', 'coin_task') and (
                     current_task in ('OpsiScheduling', 'OpsiPreventActionPointOverflow')
                     or delegated
                 ):

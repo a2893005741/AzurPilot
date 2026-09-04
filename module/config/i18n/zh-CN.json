@@ -3539,6 +3539,12 @@
       "name": "作战补给凭证低于 X 时返航",
       "help": "在黄币获取任务时 共获取(增加) X 个作战补给凭证后返回侵蚀1练级"
     },
+    "EnableExplore": {
+      "name": "启用每月开荒",
+      "help": "智能调度Plus中是否启用每月开荒任务来补充黄币",
+      "True": "已启用",
+      "False": "未启用"
+    },
     "EnableMeowfficerFarming": {
       "name": "启用耄耋相接",
       "help": "智能调度Plus中是否启用耄耋相接任务来补充黄币",
@@ -6600,6 +6606,7 @@
       "OperationCoinsPreserve": "作战补给凭证保留",
       "ActionPointPreserve": "行动力保留",
       "OperationCoinsReturnThreshold": "作战补给凭证回退阈值",
+      "EnableExplore": "启用每月开荒",
       "EnableMeowfficerFarming": "启用指挥喵刷取",
       "EnableObscure": "启用隐秘海域",
       "EnableAbyssal": "启用深渊坐标",

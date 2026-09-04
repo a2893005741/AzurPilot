@@ -14130,6 +14130,14 @@
         "type": "input",
         "value": 20000
       },
+      "EnableExplore": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
       "EnableMeowfficerFarming": {
         "type": "checkbox",
         "value": true,
@@ -14164,7 +14172,7 @@
       },
       "TaskPriority": {
         "type": "textarea",
-        "value": "OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
+        "value": "OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
       },
       "MonthEndActionPointCleanupEnable": {
         "type": "checkbox",

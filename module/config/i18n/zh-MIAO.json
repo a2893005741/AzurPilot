@@ -3539,6 +3539,12 @@
       "name": "获取 X 个作战补给凭证",
       "help": "黄币获取任务中共获取X个凭证后返回侵蚀1练级喵。 (´・ω・`)"
     },
+    "EnableExplore": {
+      "name": "启用每月开荒喵",
+      "help": "智能调度Plus中是否启用每月开荒任务来补充黄币喵",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
     "EnableMeowfficerFarming": {
       "name": "启用短猫相接",
       "help": "智能调度中是否启用短猫补充黄币。 (´・ω・`)",
@@ -6600,6 +6606,7 @@
       "OperationCoinsPreserve": "侵蚀1保留凭证喵",
       "ActionPointPreserve": "短猫保留行动力喵",
       "OperationCoinsReturnThreshold": "补充凭证至X喵",
+      "EnableExplore": "每月开荒开关喵",
       "EnableMeowfficerFarming": "短猫开关喵",
       "EnableObscure": "隐秘开关喵",
       "EnableAbyssal": "深渊开关喵",

@@ -96,22 +96,6 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     EXPLORE_SCHEDULING_MONTH_KEY = 'ExploreSchedulingMonth'
     EXPLORE_SCHEDULING_PHASE_KEY = 'ExploreSchedulingPhase'
 
-    def _is_explore_scheduling_enabled(self):
-        """判断每月开荒与智能调度闭环是否启用。"""
-        def enabled(keys, default=False):
-            value = self.config.cross_get(keys=keys, default=default)
-            if isinstance(value, list):
-                return any(bool(item) for item in value)
-            return value is True
-
-        return (
-            enabled('OpsiExplore.OpsiExplore.EnableSmartScheduling')
-            and enabled('OpsiScheduling.Scheduler.Enable')
-            and enabled(
-                'OpsiScheduling.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve'
-            )
-        )
-
     def _explore_scheduling_month(self):
         """返回当前大世界重置周期的稳定标识。"""
         return get_os_next_reset().replace(microsecond=0).isoformat()

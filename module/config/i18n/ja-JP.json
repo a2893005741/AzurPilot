@@ -3539,6 +3539,12 @@
       "name": "作戦補給コインがX以下で帰投",
       "help": "黄色のコイン獲得ミッション中に、戦闘補給券を合計 X 枚獲得 (増加) し、レベルを上げるために侵蝕 1 に戻ります。"
     },
+    "EnableExplore": {
+      "name": "毎月の開拓を有効化",
+      "help": "作戦補給コインを補充するスマートスケジューリング対象として毎月の開拓を使用します。",
+      "True": "有効",
+      "False": "無効"
+    },
     "EnableMeowfficerFarming": {
       "name": "短猫相接を有効にする",
       "help": "インテリジェント スケジューリングでショート キャット接続タスクが黄色のコインを補充できるようにするかどうか",
@@ -6600,6 +6606,7 @@
       "OperationCoinsPreserve": "作戦コイン保留",
       "ActionPointPreserve": "行動力保留",
       "OperationCoinsReturnThreshold": "作戦コイン戻り閾値",
+      "EnableExplore": "毎月の開拓を有効化",
       "EnableMeowfficerFarming": "オフニャ収集を有効",
       "EnableObscure": "隠秘海域を有効",
       "EnableAbyssal": "深淵海域を有効",

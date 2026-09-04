@@ -3539,6 +3539,12 @@
       "name": "作戰補給憑證低於 X 時返航",
       "help": "在黃幣獲取任務時 共獲取(增加) X 個作戰補給憑證後返回侵蝕1練級"
     },
+    "EnableExplore": {
+      "name": "啟用每月開荒",
+      "help": "智慧排程Plus中是否啟用每月開荒任務來補充黃幣",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
     "EnableMeowfficerFarming": {
       "name": "啟用短貓相接",
       "help": "智慧排程中是否啟用短貓相接任務來補充黃幣",
@@ -6600,6 +6606,7 @@
       "OperationCoinsPreserve": "作戰補給憑證保留",
       "ActionPointPreserve": "行動力保留",
       "OperationCoinsReturnThreshold": "作戰補給憑證回退閾值",
+      "EnableExplore": "啟用每月開荒",
       "EnableMeowfficerFarming": "啟用指揮喵刷取",
       "EnableObscure": "啟用隱秘海域",
       "EnableAbyssal": "啟用深淵海域",

@@ -137,19 +137,26 @@ class OpsiExplore(OSMap):
         if not self._is_explore_scheduling_enabled():
             return
         yellow_coins = self.get_yellow_coins()
-        if yellow_coins < self._get_explore_coin_preserve():
+        coin_target = self._get_explore_coin_upper_bound()
+        if yellow_coins < coin_target:
             self._clear_smart_scheduling_replenish_state()
             self._set_explore_scheduling_phase(
                 self.EXPLORE_SCHEDULING_PHASE_COIN_TASK
             )
             self.config.task_call('OpsiScheduling', force_call=True)
-            logger.info('[大世界-探索] 开荒完成但黄币不足，进入补黄币阶段')
+            logger.info(
+                f'[大世界-探索] 开荒完成但黄币 {yellow_coins} < 补币目标 '
+                f'{coin_target}，进入补黄币阶段'
+            )
         else:
             self._clear_smart_scheduling_replenish_state()
             self._set_explore_scheduling_phase(
                 self.EXPLORE_SCHEDULING_PHASE_COMPLETED
             )
-            logger.info('[大世界-探索] 开荒完成且黄币充足，闭环完成')
+            logger.info(
+                f'[大世界-探索] 开荒完成且黄币 {yellow_coins} >= 补币目标 '
+                f'{coin_target}，闭环完成'
+            )
 
     def _os_explore_task_delay(self):
         """

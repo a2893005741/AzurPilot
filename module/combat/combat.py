@@ -22,6 +22,7 @@
 
 import numpy as np
 
+from module.base.button import Button
 from module.base.timer import Timer
 from module.base.utils import color_similar, get_color, lower_template_match_similarity
 from module.base.api_client import ApiClient
@@ -39,6 +40,15 @@ from module.retire.retirement import Retirement
 from module.statistics.azurstats import DropImage
 from module.template.assets import TEMPLATE_COMBAT_LOADING
 from module.ui.assets import BACK_ARROW, EXERCISE_CHECK, MUNITIONS_CHECK
+
+
+# 结算页的评价标识和右下角确认按钮位置不同，不能复用 EXP_INFO_* 的检测点击区域。
+COMBAT_RESULT_CONFIRM = Button(
+    area=(1215, 637, 1260, 686),
+    color=(253, 180, 75),
+    button=(1215, 637, 1260, 686),
+    name='COMBAT_RESULT_CONFIRM'
+)
 
 
 class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatManual, AutoSearchHandler):
@@ -591,26 +601,14 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         if self.is_combat_executing():
             return False
         wait_for_transition = not getattr(self, '_withdraw_result_processing', False)
-        if self.appear_then_click(EXP_INFO_S):
-            if wait_for_transition:
-                self.device.sleep((0.25, 0.5))
-            return True
-        if self.appear_then_click(EXP_INFO_A):
-            if wait_for_transition:
-                self.device.sleep((0.25, 0.5))
-            return True
-        if self.appear_then_click(EXP_INFO_B):
-            if wait_for_transition:
-                self.device.sleep((0.25, 0.5))
-            return True
-        if self.appear_then_click(EXP_INFO_C):
-            if wait_for_transition:
-                self.device.sleep((0.25, 0.5))
-            return True
-        if self.appear_then_click(EXP_INFO_D):
-            if wait_for_transition:
-                self.device.sleep((0.25, 0.5))
-            return True
+        for exp_info in (EXP_INFO_S, EXP_INFO_A, EXP_INFO_B, EXP_INFO_C, EXP_INFO_D):
+            if self.appear(exp_info):
+                # EXP_INFO_* 只检测评价文字；确认按钮在结算页右下角。
+                self.device.sleep(0.1)
+                self.device.click(COMBAT_RESULT_CONFIRM)
+                if wait_for_transition:
+                    self.device.sleep((0.25, 0.5))
+                return True
 
         return False
 

@@ -122,14 +122,19 @@ class TestSkillLevelClassify(unittest.TestCase):
         self.assertEqual("upgradable", classify("NEXT:/1D]"))
         self.assertEqual("upgradable", classify("NEX T:/ 14[]]"))
 
-    def test_unrecognizable_text_is_not_treated_as_upgradable(self):
-        """无进度特征的乱码不得兜底为可升级，否则会给满级技能开课浪费教材。"""
+    def test_unrecognizable_text_continues_as_upgradable(self):
+        """无法辨认的等级文本按可升级继续。
+
+        依据游戏行为：该舰娘已无可升级技能时游戏会自行退出技能升级界面，
+        因此界面仍在就说明有技能可练，OCR 读不出只是识别问题。按不可升级
+        处理会直接结束训练，正是本次修复要消除的中断。
+        """
         classify = RewardTacticalClass._classify_skill_level
 
-        self.assertEqual("locked", classify("###"))
-        self.assertEqual("locked", classify("NEXT:"))
-        self.assertEqual("locked", classify("NEXT"))
-        self.assertEqual("locked", classify("%%%%"))
+        self.assertEqual("upgradable", classify("###"))
+        self.assertEqual("upgradable", classify("NEXT:"))
+        self.assertEqual("upgradable", classify("NEXT"))
+        self.assertEqual("upgradable", classify("%%%%"))
 
 
 class TestHasUpgradableSkill(unittest.TestCase):
@@ -237,6 +242,49 @@ class TestSkillConfirmGate(unittest.TestCase):
         self.assertTrue(study_finished)
         handler._tactical_skill_choose.assert_not_called()
         handler.device.click.assert_called_once_with(BACK_ARROW)
+
+
+class TestWaitUntilAppear(unittest.TestCase):
+    """页面等待必须是持续截图循环，不得在循环内休眠。"""
+
+    @staticmethod
+    def _handler(appear_results):
+        handler = object.__new__(RewardTacticalClass)
+        handler.device = Mock()
+        handler.appear = Mock(side_effect=appear_results)
+        return handler
+
+    def test_keeps_screenshotting_until_button_appears(self):
+        # 页面切换慢：前若干次未出现，之后出现 -> 仍应返回 True
+        handler = self._handler([False] * 8 + [True])
+
+        self.assertTrue(
+            handler._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30))
+        )
+
+        self.assertEqual(handler.device.screenshot.call_count, 9)
+
+    def test_does_not_sleep_inside_state_loop(self):
+        # 状态循环内禁止 sleep()，节流由截图本身承担
+        handler = self._handler([False] * 4 + [True])
+
+        handler._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30))
+
+        handler.device.sleep.assert_not_called()
+
+    def test_returns_false_after_timeout(self):
+        handler = self._handler([False] * 200)
+
+        with patch("module.tactical.tactical_class.Timer") as timer_cls:
+            timer = timer_cls.return_value.start.return_value
+            # 前两次未超时，第三次超时
+            timer.reached.side_effect = [False, False, True]
+            self.assertFalse(
+                handler._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30))
+            )
+
+        self.assertEqual(handler.device.screenshot.call_count, 3)
+        handler.device.sleep.assert_not_called()
 
 
 class TestSwitchFailureFallback(unittest.TestCase):

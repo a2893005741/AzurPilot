@@ -319,6 +319,11 @@ class TestWebUIImports(unittest.TestCase):
             check=True,
             capture_output=True,
             text=True,
+            # 中文 Windows 的 text=True 默认按 GBK 解码子进程输出，导入期日志中
+            # 的非 GBK 字节会让读取线程抛 UnicodeDecodeError 并使 stdout 变为
+            # None。固定 UTF-8 并替换非法字节，保证只断言末行的探测结果。
+            encoding="utf-8",
+            errors="replace",
         )
 
         self.assertEqual("0 0 0", result.stdout.strip().splitlines()[-1])

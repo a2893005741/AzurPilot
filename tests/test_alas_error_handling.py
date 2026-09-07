@@ -32,6 +32,9 @@ class TestGameNotRunningErrorHandling(unittest.TestCase):
         script.config_name = 'test'
         script.__dict__['config'] = Mock()
         script.config.cross_get.return_value = False
+        # 该实例绕过 __init__ 构造，需补齐 run() 在分发任务前读取的会话标志，
+        # 置 True 以跳过渠道服悬浮球预处理（本用例只验证异常处理路径）。
+        script._channel_float_done = True
         error = GameNotRunningError('Game not running')
         script.__dict__['commission'] = Mock(side_effect=error)
 
@@ -39,6 +42,9 @@ class TestGameNotRunningErrorHandling(unittest.TestCase):
             patch('alas.logger.error_context') as error_context_mock,
             patch('alas.handle_notify'),
             patch('alas.notify_webui'),
+            patch.object(
+                AzurLaneAutoScript, 'save_error_log', autospec=True
+            ),
         ):
             result = script.run('commission', skip_first_screenshot=True)
 

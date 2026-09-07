@@ -3,7 +3,12 @@ from types import SimpleNamespace
 from unittest.mock import Mock, call, patch
 
 from module.map.map_grids import SelectedGrids
-from module.tactical.assets import OCR_SKILL_EXP, SKILL_CONFIRM, TACTICAL_CLASS_CANCEL
+from module.tactical.assets import (
+    OCR_SKILL_EXP,
+    SKILL_CONFIRM,
+    TACTICAL_CLASS_CANCEL,
+    TACTICAL_CLASS_START,
+)
 from module.tactical.tactical_class import (
     SKILL_GRIDS,
     ExpOnBookSelect,
@@ -35,7 +40,7 @@ class TestTacticalSkillAutoSwitch(unittest.TestCase):
         handler._tactical_book_select = Mock()
         handler._tactical_books_filter_exp = Mock()
         handler._is_current_skill_max = Mock(side_effect=max_states)
-        handler._try_switch_to_next_skill = Mock(return_value=True)
+        handler._try_switch_to_next_skill = Mock(return_value="switched")
         return handler
 
     def test_switches_before_book_fallback_when_current_skill_is_max(self):
@@ -211,6 +216,67 @@ class TestSkillConfirmGate(unittest.TestCase):
         self.assertTrue(study_finished)
         handler._tactical_skill_choose.assert_not_called()
         handler.device.click.assert_called_once_with(BACK_ARROW)
+
+
+class TestSwitchFailureFallback(unittest.TestCase):
+    """切换失败（界面跳转异常）时降级为普通开课，而不是放弃本轮训练。"""
+
+    @staticmethod
+    def _handler(switch_result, max_states):
+        handler = object.__new__(RewardTacticalClass)
+        handler.config = SimpleNamespace(
+            Tactical_SkillAutoSwitch=True,
+            Tactical_TacticalFilter="first",
+        )
+        handler.device = Mock()
+        handler.books = SelectedGrids(
+            [
+                SimpleNamespace(
+                    same_str="unknown",
+                    genre_str="Red",
+                    tier_str="T1",
+                    exp_value=100,
+                )
+            ]
+        )
+        handler._tactical_books_get = Mock(return_value=True)
+        handler._tactical_book_select = Mock()
+        handler._tactical_books_filter_exp = Mock()
+        handler._is_current_skill_max = Mock(side_effect=max_states)
+        handler._try_switch_to_next_skill = Mock(return_value=switch_result)
+        handler._wait_until_appear = Mock(return_value=True)
+        handler.appear = Mock(return_value=False)
+        return handler
+
+    def test_starts_class_after_switch_failure(self):
+        # 满级判断可能来自误读，切换失败不应放弃本轮 -> 仍要点击开始课程
+        handler = self._handler("failed", [True])
+
+        self.assertTrue(handler._tactical_books_choose())
+
+        handler.device.click.assert_any_call(TACTICAL_CLASS_START)
+        # 降级后跳过满级检查，不再重复触发切换
+        handler._try_switch_to_next_skill.assert_called_once_with()
+        self.assertEqual(handler._is_current_skill_max.call_count, 1)
+
+    def test_gives_up_when_cannot_return_to_book_page(self):
+        # 降级前必须确认已回到教材选择界面，否则放弃避免误点
+        handler = self._handler("failed", [True])
+        handler._wait_until_appear = Mock(return_value=False)
+
+        self.assertTrue(handler._tactical_books_choose())
+
+        for recorded in handler.device.click.call_args_list:
+            self.assertNotEqual(recorded, call(TACTICAL_CLASS_START))
+
+    def test_does_not_start_class_when_skills_exhausted(self):
+        # 确无可升级技能时是正常终态，且已返回战术主页，不得再开课
+        handler = self._handler("exhausted", [True])
+
+        self.assertTrue(handler._tactical_books_choose())
+
+        for recorded in handler.device.click.call_args_list:
+            self.assertNotEqual(recorded, call(TACTICAL_CLASS_START))
 
 
 class TestSkillExpInvalidReading(unittest.TestCase):

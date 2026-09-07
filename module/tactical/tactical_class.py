@@ -405,11 +405,17 @@ class RewardTacticalClass(Dock):
         查找下一个未满级技能并确认后返回教材选择界面 (TACTICAL_CLASS_START)。
 
         Returns:
-            bool: 是否成功切换到下一个技能
+            str: 切换结果，取值：
+                'switched'  已切换到下一个可升级技能，当前在教材选择界面
+                'exhausted' 该舰娘已无其他可升级技能，已主动返回战术主页
+                'failed'    界面跳转异常导致切换未完成（可恢复故障）
+
+            必须区分 'exhausted' 与 'failed'：前者是正常终态不应再开课，
+            后者只是界面没跟上，满级判断本身也可能来自误读，应允许降级重试。
 
         Pages:
             in: TACTICAL_CLASS_START (点击取消后进入 SKILL_CONFIRM)
-            out: TACTICAL_CLASS_START (if success) or SKILL_CONFIRM (if no skill found)
+            out: TACTICAL_CLASS_START (if switched) or page_tactical (if exhausted)
         """
         logger.hr('尝试切换到下一个技能', level=2)
         # 取消当前教材选择，回到技能选择界面
@@ -419,14 +425,14 @@ class RewardTacticalClass(Dock):
         # 等待技能选择界面加载
         if not self._wait_until_appear(SKILL_CONFIRM, offset=(20, 20)):
             logger.warning('[战术-切换] 取消后无法返回技能确认界面')
-            return False
+            return 'failed'
 
         # 寻找下一个非满级技能
         selected_skill = self.find_not_full_level_skill(skip_first_screenshot=True)
         if selected_skill is None:
             logger.info('[战术-切换] 该舰娘没有其他非满级技能，返回战术页面')
             self._return_to_tactical_page()
-            return False
+            return 'exhausted'
 
         # 选中并确认新技能
         logger.info('[战术-切换] 切换到下一个非满级技能')
@@ -436,10 +442,10 @@ class RewardTacticalClass(Dock):
         # 等待教材选择界面加载
         if self._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30)):
             logger.info('[战术-切换] 技能切换后进入教材选择界面')
-            return True
+            return 'switched'
         logger.warning('[战术-切换] 技能切换后无法进入教材选择界面')
         self._return_to_tactical_page()
-        return False
+        return 'failed'
 
     def _tactical_books_choose(self):
         """
@@ -454,6 +460,8 @@ class RewardTacticalClass(Dock):
         """
         logger.hr('选择战术教材', level=2)
         MAX_SWITCH_RETRIES = 3
+        # 切换失败降级后跳过满级检查，避免同一误读反复触发取消而空转
+        skip_max_check = False
         for retry in range(MAX_SWITCH_RETRIES + 1):
             if not self._tactical_books_get():
                 return False
@@ -462,16 +470,27 @@ class RewardTacticalClass(Dock):
             # 仅检查过滤结果会掩盖满级状态并直接重复开课。
             # 仅在「确定满级」时切换：读数无效（None）时取消课程会让未满级技能
             # 停训，宁可按普通流程开课，由下一轮 OCR 自行纠正。
-            if self.config.Tactical_SkillAutoSwitch \
+            if self.config.Tactical_SkillAutoSwitch and not skip_max_check \
                     and self._is_current_skill_max(skip_first_screenshot=True) is True:
                 if retry >= MAX_SWITCH_RETRIES:
                     logger.warning('[战术-选择] 达到技能切换最大重试次数')
                     break
                 logger.info('[战术-选择] 当前技能已满级，尝试切换到下一个技能')
-                if self._try_switch_to_next_skill():
+                switch_result = self._try_switch_to_next_skill()
+                if switch_result == 'switched':
                     logger.info('[战术-选择] 已切换到下一个技能，重新进入教材选择')
                     continue
-                break
+                if switch_result == 'exhausted':
+                    # 该舰娘确已无可升级技能，且已返回战术主页，不应再开课
+                    break
+                # 'failed'：界面跳转异常。满级判断可能来自误读（如教材加成未剔除），
+                # 此时放弃本轮会让未满级技能停训，故降级为普通开课流程。
+                logger.warning('[战术-选择] 技能切换失败，降级为按普通流程开课')
+                if not self._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30)):
+                    logger.warning('[战术-选择] 未能回到教材选择界面，放弃本轮')
+                    break
+                skip_max_check = True
+                continue
 
             self.device.click_record_clear()
             # 确保第一本教材被选中

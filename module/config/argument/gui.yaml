@@ -314,6 +314,8 @@ DeploySetting:
   ThemeHelp:
   DpiScaling:
   DpiScalingHelp:
+  ShowUnverifiedWatermark:
+  ShowUnverifiedWatermarkHelp:
   Password:
   PasswordHelp:
   CDN:

@@ -6497,6 +6497,8 @@
       "ThemeHelp": "WebUI 使用的视觉主题喵。",
       "DpiScaling": "跟随系统 DPI 缩放",
       "DpiScalingHelp": "跟随系统 DPI 缩放界面尺寸喵。",
+      "ShowUnverifiedWatermark": "显示未验证版本水印喵",
+      "ShowUnverifiedWatermarkHelp": "使用非 master/main 分支的时候，全屏显示“未经验证的版本”淡灰水印喵～关掉之后就不提示了喵，请自己确认版本风险喵！",
       "Password": "WebUI 密码",
       "PasswordHelp": "访问 WebUI 使用的密码。留空表示不设置密码喵。",
       "CDN": "PyWebIO CDN",

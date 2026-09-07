@@ -6497,6 +6497,8 @@
       "ThemeHelp": "Visual theme used by WebUI.",
       "DpiScaling": "Follow System DPI Scaling",
       "DpiScalingHelp": "Scale the interface with system DPI settings.",
+      "ShowUnverifiedWatermark": "Show unverified version watermark",
+      "ShowUnverifiedWatermarkHelp": "Display a faint full-screen \"unverified version\" watermark when running a branch other than master/main. Turn it off to hide the reminder and accept the version risk yourself.",
       "Password": "WebUI Password",
       "PasswordHelp": "Password used to access WebUI. Leave empty for no password.",
       "CDN": "PyWebIO CDN",

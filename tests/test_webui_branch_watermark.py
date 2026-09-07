@@ -68,5 +68,50 @@ class TestDeployTemplateHasSwitch(unittest.TestCase):
             )
 
 
+class TestDeploySettingExposesSwitch(unittest.TestCase):
+    """确保开关出现在 WebUI 部署设置表单中，用户可在界面直接关闭水印。"""
+
+    def test_switch_is_registered_as_bool_field(self):
+        from module.webui.deploy_settings import DEPLOY_FIELDS
+
+        field = DEPLOY_FIELDS.get("ShowUnverifiedWatermark")
+        self.assertIsNotNone(field, "部署设置未注册 ShowUnverifiedWatermark")
+        self.assertEqual(field.kind, "bool", "开关必须是 bool 才能渲染成开关控件")
+
+    def test_switch_belongs_to_webui_group(self):
+        # 放在 WebUI 分组，与主题、DPI 缩放等界面项同处一屏。
+        from module.webui.deploy_settings import DEPLOY_GROUPS
+
+        groups = dict(DEPLOY_GROUPS)
+        keys = [field.key for field in groups["Webui"]]
+        self.assertIn("ShowUnverifiedWatermark", keys)
+
+    def test_switch_parses_bool_and_rejects_others(self):
+        from module.webui.deploy_settings import DEPLOY_FIELDS, _parse_value
+
+        field = DEPLOY_FIELDS["ShowUnverifiedWatermark"]
+        self.assertIs(_parse_value(field, True), True)
+        self.assertIs(_parse_value(field, False), False)
+        for bad in ["true", 1, None]:
+            with self.assertRaises(ValueError, msg=repr(bad)):
+                _parse_value(field, bad)
+
+    def test_all_languages_translate_switch(self):
+        # 生成器只写入 key 路径占位，必须人工翻译后才算完成。
+        import json
+
+        for lang in ["zh-CN", "zh-TW", "en-US", "ja-JP", "zh-MIAO"]:
+            with open(f"module/config/i18n/{lang}.json", encoding="utf-8") as f:
+                section = json.load(f)["Gui"]["DeploySetting"]
+            for key in ["ShowUnverifiedWatermark", "ShowUnverifiedWatermarkHelp"]:
+                value = section.get(key)
+                self.assertTrue(value, f"{lang} 缺少 {key}")
+                self.assertNotEqual(
+                    value,
+                    f"Gui.DeploySetting.{key}",
+                    f"{lang} 的 {key} 仍是未翻译的 key 占位",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

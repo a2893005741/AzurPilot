@@ -6497,6 +6497,8 @@
       "ThemeHelp": "WebUI 使用的視覺主題。",
       "DpiScaling": "跟隨系統 DPI 縮放",
       "DpiScalingHelp": "跟隨系統 DPI 縮放介面尺寸。",
+      "ShowUnverifiedWatermark": "顯示未驗證版本水印",
+      "ShowUnverifiedWatermarkHelp": "使用非 master/main 分支時，全螢幕顯示「未經驗證的版本」淡灰水印。關閉後不再提示，請自行確認版本風險。",
       "Password": "WebUI 密碼",
       "PasswordHelp": "訪問 WebUI 使用的密碼。留空表示不設定密碼。",
       "CDN": "PyWebIO CDN",

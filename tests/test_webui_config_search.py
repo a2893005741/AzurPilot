@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from module.webui.app_task_config import TaskConfigMixin
 from module.webui.config_search import (
@@ -48,7 +48,7 @@ class TestWebUIConfigSearch(unittest.TestCase):
 
         with patch("module.webui.app_task_config.t", return_value="立即运行"), \
                 patch("module.webui.app_task_config.toast"), \
-                patch("module.webui.app_task_config.pin") as mock_pin, \
+                patch("module.webui.app_task_config.pin", new=MagicMock()) as mock_pin, \
                 patch("module.webui.app_task_config.run_js") as mock_run_js:
             task_config._queue_run_now("OperationHandover")
 

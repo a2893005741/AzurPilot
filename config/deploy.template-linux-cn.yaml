@@ -232,6 +232,13 @@ Deploy:
     # [少数情况] 如果你的屏幕分辨率低但 DPI 缩放高，使用 false 可以让 AzurPilot 显示得更小
     # [In few cases] false to make AzurPilot smaller, if you have a low resolution but high DPI scaling.
     DpiScaling: true
+    # 使用非稳定分支（非 master/main）时显示"未经验证的版本"水印
+    # Show the "unverified version" watermark when on a non-stable branch (not master/main)
+    # [大多数情况] true，保留风险提示
+    # [In most cases] true, keep the risk reminder
+    # [少数情况] false，明确知晓风险的开发者可关闭水印
+    # [In few cases] false, developers who accept the risk can hide the watermark
+    ShowUnverifiedWatermark: true
     # --key. WebUI 密码
     # --key. Password of web ui
     # 将 AzurPilot 暴露到公网时很有用

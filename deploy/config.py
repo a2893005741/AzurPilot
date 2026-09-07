@@ -68,6 +68,7 @@ class ConfigModel:
     Language: str = "en-US"
     Theme: str = "default"
     DpiScaling: bool = True
+    ShowUnverifiedWatermark: bool = True
     Password: Optional[str] = None
     CDN: Union[str, bool] = False
     Run: Optional[str] = None

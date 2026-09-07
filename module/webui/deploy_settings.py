@@ -110,6 +110,7 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
             DeployField("Language", "select", tuple(LANGUAGES)),
             DeployField("Theme", "select", tuple(THEME_OPTIONS)),
             DeployField("DpiScaling", "bool"),
+            DeployField("ShowUnverifiedWatermark", "bool"),
             DeployField("Password", "nullable_string"),
             DeployField("CDN", "cdn"),
             DeployField("WebuiSSLKey", "nullable_string"),

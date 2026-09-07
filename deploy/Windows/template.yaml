@@ -143,6 +143,10 @@ Deploy:
     # [In most cases] true
     # [In few cases] false to make AzurPilot smaller, if you have a low resolution but high DPI scaling.
     DpiScaling: true
+    # Show the "unverified version" watermark when on a non-stable branch (not master/main)
+    # [In most cases] true, keep the risk reminder
+    # [In few cases] false, developers who accept the risk can hide the watermark
+    ShowUnverifiedWatermark: true
     # --key. Password of web ui
     # Useful when expose AzurPilot to the public network
     # WebuiHost 为 0.0.0.0 或 :: 时必须设置密码

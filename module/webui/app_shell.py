@@ -68,6 +68,21 @@ def branch_is_unstable(branch) -> bool:
     return branch not in ("master", "main")
 
 
+def watermark_should_show(branch, enabled=True) -> bool:
+    """综合分支与部署开关，判断是否需要注入未验证版本水印。
+
+    Args:
+        branch: 部署配置中的 Deploy.Git.Branch。
+        enabled: 部署配置中的 ShowUnverifiedWatermark，false 时无条件不显示。
+
+    Returns:
+        bool: True 表示应当注入水印。
+    """
+    if not enabled:
+        return False
+    return branch_is_unstable(branch)
+
+
 # 未验证分支水印的铺排文案，每个元素是水印格内的一行。
 BRANCH_WATERMARK_LINES = ("您正在使用未经验证的版本", "可能存在未知问题")
 
@@ -507,14 +522,19 @@ class AppShellMixin(WebUIMixinBase):
         fixed 全屏层，不属 PyWebIO scope，切换页面不会被清除；方法幂等，
         浏览器刷新重建会话后会先移除旧节点再重建。
 
+        部署配置 `ShowUnverifiedWatermark` 为 false 时跳过注入，供明确知晓
+        风险的开发者在长期使用 dev 等分支时关闭提示。
+
         Pages: 会话外壳（登录后任意主界面）
         """
         try:
             State.deploy_config.read()
             branch = getattr(State.deploy_config, "Branch", "master") or "master"
+            enabled = getattr(State.deploy_config, "ShowUnverifiedWatermark", True)
         except Exception:
             branch = "master"
-        if not branch_is_unstable(branch):
+            enabled = True
+        if not watermark_should_show(branch, enabled):
             return
 
         run_js(f"""

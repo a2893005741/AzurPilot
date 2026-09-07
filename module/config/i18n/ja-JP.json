@@ -6497,6 +6497,8 @@
       "ThemeHelp": "WebUI の見た目のテーマです。",
       "DpiScaling": "システム DPI に追従",
       "DpiScalingHelp": "システム DPI に合わせて画面サイズを調整します。",
+      "ShowUnverifiedWatermark": "未検証バージョンの透かしを表示",
+      "ShowUnverifiedWatermarkHelp": "master/main 以外のブランチを使用している場合、「未検証バージョン」の薄い全画面透かしを表示します。オフにすると警告は表示されません。バージョンのリスクは自己責任でご確認ください。",
       "Password": "WebUI パスワード",
       "PasswordHelp": "WebUI へアクセスするためのパスワードです。空欄なら未設定です。",
       "CDN": "PyWebIO CDN",

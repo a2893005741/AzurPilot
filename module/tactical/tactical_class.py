@@ -951,6 +951,8 @@ class RewardTacticalClass(Dock):
         - 空白 或 `———`：槽位未解锁（受舰船等级或前置技能限制），不可升级
         - `MAX`：已满级，不可升级
         - `x/y`：未满级且可继续升级
+        - 其余无法辨认的文本：按不可升级处理，避免 OCR 乱码被兜底成可升级，
+          给满级技能继续开课而浪费教材
 
         因此「未满级」与「可升级」在本界面上的差别就是：未解锁槽位既不算满级、
         也不可升级。教材数量不参与判定——教材不足由 BOOK_EMPTY_POPUP 单独处理，
@@ -977,7 +979,15 @@ class RewardTacticalClass(Dock):
         # ['NEXT:MA', 'NEX T:/ 14[]]', 'NEXT:MA']（实际：`NEXT:MAX, NEXT:150/1400, NEXT:MAX`）
         if 'MA' in level:
             return 'max'
-        return 'upgradable'
+        # 需要出现「斜杠 + 数字」的进度特征才算可升级，不再把剩余文本一律兜底：
+        # 兜底会让 OCR 乱码把满级技能判成可升级，继续开课浪费教材。
+        # 但只要求特征而非完整的 `\d+/\d+`——上述网格偏移会让进度残缺
+        # （`NEXT:/1D]`、`NEXT:/14[]]` 实为 `0/100`、`150/1400`），
+        # 强行要求完整数字对会把这些真正可升级的技能误判为槽位不可用。
+        if re.search(r'/.*\d|\d.*/', level):
+            return 'upgradable'
+        logger.warning(f'[战术-技能] 无法辨认的技能等级文本，按不可升级处理: {level!r}')
+        return 'locked'
 
     def _get_skill_states(self, skip_first_screenshot=True):
         """

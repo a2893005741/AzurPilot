@@ -110,6 +110,27 @@ class TestSkillLevelClassify(unittest.TestCase):
         self.assertEqual("locked", classify("———l"))
         self.assertEqual("locked", classify("—l"))
 
+    def test_tolerates_truncated_progress_text(self):
+        """网格偏移导致进度残缺时仍须判为可升级。
+
+        代码注释记录的实测样本：`NEXT:/1D]` 实为 `NEXT:0/100`，
+        `NEXT:/14[]]` 实为 `NEXT:150/1400`。若要求完整的 `\\d+/\\d+`，
+        这些真正可升级的技能会被误判为槽位不可用，训练随之提前结束。
+        """
+        classify = RewardTacticalClass._classify_skill_level
+
+        self.assertEqual("upgradable", classify("NEXT:/1D]"))
+        self.assertEqual("upgradable", classify("NEX T:/ 14[]]"))
+
+    def test_unrecognizable_text_is_not_treated_as_upgradable(self):
+        """无进度特征的乱码不得兜底为可升级，否则会给满级技能开课浪费教材。"""
+        classify = RewardTacticalClass._classify_skill_level
+
+        self.assertEqual("locked", classify("###"))
+        self.assertEqual("locked", classify("NEXT:"))
+        self.assertEqual("locked", classify("NEXT"))
+        self.assertEqual("locked", classify("%%%%"))
+
 
 class TestHasUpgradableSkill(unittest.TestCase):
     """升满一个技能后，是否还存在其他可升级技能。"""

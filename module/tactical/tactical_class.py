@@ -73,6 +73,35 @@ class ExpOnBookSelect(DigitCounter):
             return image_left_strip(image, threshold=105, length=55)
         return image_left_strip(image, threshold=105, length=42)
 
+    def ocr(self, image, direct_ocr=False):
+        """识别技能经验计数器，并拦截不可能的读数。
+
+        教材选择界面显示 `NEXT:1900+100/4400`，其中 `+100` 为绿色的本次加成。
+        pre_process 依赖 HSV 把该部分涂黑，一旦漏检（加成为 0、未选中教材、
+        颜色落在阈值边界）就会读成 `19001/4400` 这类畸变值。
+
+        DigitCounter.ocr() 对此会执行 `current = min(current, total)`，把
+        `19001/4400` 钳位成 `4400/4400`——恰好等价于「刚好满级」，从而误触发
+        技能自动切换、取消本轮课程。因此在钳位发生前拦下 current > total。
+
+        Returns:
+            tuple[int, int, int]: (current, remain, total)；读数无效时返回 (0, 0, 0)
+        """
+        # 走 Ocr.ocr() 取文本，绕过 DigitCounter.ocr() 的 min() 钳位
+        result = super(DigitCounter, self).ocr(image, direct_ocr=direct_ocr)
+        text = result[0] if isinstance(result, list) else result
+        matched = re.search(r'(\d+)/(\d+)', str(text))
+        if matched:
+            current, total = int(matched.group(1)), int(matched.group(2))
+            if current > total:
+                logger.warning(
+                    f'[战术-经验] 经验读数无效 current>total: {text}，'
+                    f'疑似教材加成未被剔除，按读数失败处理'
+                )
+                return 0, 0, 0
+
+        return super().ocr(image, direct_ocr=direct_ocr)
+
     def after_process(self, result):
         result = super().after_process(result)
 
@@ -334,30 +363,58 @@ class RewardTacticalClass(Dock):
         方法内部会自行截图，不依赖调用方是否已更新 self.device.image。
 
         Returns:
-            bool: 如果当前技能已满级返回 True
+            bool | None: True 已满级；False 未满级；None 读数无效无法判定。
+
+            必须区分 False 与 None：把「读数无效」当作「未满级」会给满级技能
+            继续开课浪费教材，当作「已满级」则会取消本该进行的训练。
         """
         if not skip_first_screenshot:
             self.device.screenshot()
         try:
             current, _, total = SKILL_EXP.ocr(self.device.image)
-            if total > 0 and current >= total:
-                logger.info(f'[战术-技能] 当前技能已满级: {current}/{total}')
-                return True
         except Exception as e:
             logger.warning(f'[战术-技能] 检查技能满级失败: {e}')
+            return None
+        if total <= 0:
+            # ExpOnBookSelect.ocr() 已把畸变读数归一为 (0, 0, 0)
+            logger.warning('[战术-技能] 技能经验读数无效，无法判定满级状态')
+            return None
+        if current >= total:
+            logger.info(f'[战术-技能] 当前技能已满级: {current}/{total}')
+            return True
+        logger.info(f'[战术-技能] 当前技能未满级: {current}/{total}')
         return False
 
-    def _wait_until_appear(self, button, offset, attempts=5):
-        for _ in range(attempts):
+    def _wait_until_appear(self, button, offset, timeout=5):
+        """
+        持续截图等待某个按钮出现，超时由 Timer 控制。
+
+        用连续截图-检查循环而非「截图-sleep」短轮询：后者在模拟器负载高、
+        页面切换慢时会把正常切换误判为失败，进而触发降级或放弃本轮训练。
+        循环内不休眠，截图本身即是节流（约 350ms/次），超时同时受时间与
+        访问次数约束，慢设备上不会因单次截图偏慢而提前判负。
+
+        Args:
+            button: 目标按钮
+            offset: appear() 的偏移容差
+            timeout (int | float): 超时秒数
+
+        Returns:
+            bool: 是否在超时前出现
+        """
+        # 在函数内构造，避免可变默认参数在多个实例间共享计时状态
+        timer = Timer(timeout, count=int(timeout / 0.5)).start()
+        while 1:
             self.device.screenshot()
             if self.appear(button, offset=offset):
                 return True
-            self.device.sleep((0.3, 0.5))
-        return False
+            if timer.reached():
+                logger.warning(f'[战术-等待] 等待 {button} 出现超时({timeout}s)')
+                return False
 
     def _return_to_tactical_page(self):
+        """点击返回，页面稳定由调用方所在的主状态循环接管。"""
         self.device.click(BACK_ARROW)
-        self.device.sleep((0.3, 0.5))
 
     def _try_switch_to_next_skill(self):
         """
@@ -367,28 +424,35 @@ class RewardTacticalClass(Dock):
         查找下一个未满级技能并确认后返回教材选择界面 (TACTICAL_CLASS_START)。
 
         Returns:
-            bool: 是否成功切换到下一个技能
+            str: 切换结果，取值：
+                'switched'  已切换到下一个可升级技能，当前在教材选择界面
+                'exhausted' 该舰娘已无其他可升级技能，已主动返回战术主页
+                'failed'    界面跳转异常导致切换未完成（可恢复故障）
+
+            必须区分 'exhausted' 与 'failed'：前者是正常终态不应再开课，
+            后者只是界面没跟上，满级判断本身也可能来自误读，应允许降级重试。
 
         Pages:
             in: TACTICAL_CLASS_START (点击取消后进入 SKILL_CONFIRM)
-            out: TACTICAL_CLASS_START (if success) or SKILL_CONFIRM (if no skill found)
+            out: TACTICAL_CLASS_START (if switched) or page_tactical (if exhausted)
         """
         logger.hr('尝试切换到下一个技能', level=2)
         # 取消当前教材选择，回到技能选择界面
+        # 不在点击后休眠：紧随其后的 _wait_until_appear 已是持续截图循环，
+        # 由它承担等待与超时判定
         self.device.click(TACTICAL_CLASS_CANCEL)
-        self.device.sleep((0.5, 1.0))
 
         # 等待技能选择界面加载
         if not self._wait_until_appear(SKILL_CONFIRM, offset=(20, 20)):
             logger.warning('[战术-切换] 取消后无法返回技能确认界面')
-            return False
+            return 'failed'
 
         # 寻找下一个非满级技能
         selected_skill = self.find_not_full_level_skill(skip_first_screenshot=True)
         if selected_skill is None:
             logger.info('[战术-切换] 该舰娘没有其他非满级技能，返回战术页面')
             self._return_to_tactical_page()
-            return False
+            return 'exhausted'
 
         # 选中并确认新技能
         logger.info('[战术-切换] 切换到下一个非满级技能')
@@ -398,10 +462,10 @@ class RewardTacticalClass(Dock):
         # 等待教材选择界面加载
         if self._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30)):
             logger.info('[战术-切换] 技能切换后进入教材选择界面')
-            return True
+            return 'switched'
         logger.warning('[战术-切换] 技能切换后无法进入教材选择界面')
         self._return_to_tactical_page()
-        return False
+        return 'failed'
 
     def _tactical_books_choose(self):
         """
@@ -416,22 +480,37 @@ class RewardTacticalClass(Dock):
         """
         logger.hr('选择战术教材', level=2)
         MAX_SWITCH_RETRIES = 3
+        # 切换失败降级后跳过满级检查，避免同一误读反复触发取消而空转
+        skip_max_check = False
         for retry in range(MAX_SWITCH_RETRIES + 1):
             if not self._tactical_books_get():
                 return False
 
             # 满级技能不应再选择教材；配置过滤器包含 `first` 回退项时，
             # 仅检查过滤结果会掩盖满级状态并直接重复开课。
-            if self.config.Tactical_SkillAutoSwitch \
-                    and self._is_current_skill_max(skip_first_screenshot=True):
+            # 仅在「确定满级」时切换：读数无效（None）时取消课程会让未满级技能
+            # 停训，宁可按普通流程开课，由下一轮 OCR 自行纠正。
+            if self.config.Tactical_SkillAutoSwitch and not skip_max_check \
+                    and self._is_current_skill_max(skip_first_screenshot=True) is True:
                 if retry >= MAX_SWITCH_RETRIES:
                     logger.warning('[战术-选择] 达到技能切换最大重试次数')
                     break
                 logger.info('[战术-选择] 当前技能已满级，尝试切换到下一个技能')
-                if self._try_switch_to_next_skill():
+                switch_result = self._try_switch_to_next_skill()
+                if switch_result == 'switched':
                     logger.info('[战术-选择] 已切换到下一个技能，重新进入教材选择')
                     continue
-                break
+                if switch_result == 'exhausted':
+                    # 该舰娘确已无可升级技能，且已返回战术主页，不应再开课
+                    break
+                # 'failed'：界面跳转异常。满级判断可能来自误读（如教材加成未剔除），
+                # 此时放弃本轮会让未满级技能停训，故降级为普通开课流程。
+                logger.warning('[战术-选择] 技能切换失败，降级为按普通流程开课')
+                if not self._wait_until_appear(TACTICAL_CLASS_START, offset=(30, 30)):
+                    logger.warning('[战术-选择] 未能回到教材选择界面，放弃本轮')
+                    break
+                skip_max_check = True
+                continue
 
             self.device.click_record_clear()
             # 确保第一本教材被选中
@@ -631,7 +710,13 @@ class RewardTacticalClass(Dock):
             return False, False, pending_skill_auto_switch
 
         study_finished = False
-        if pending_skill_auto_switch or self.config.AddNewStudent_Enable:
+        # 开启技能自动切换时，SKILL_CONFIRM 也是「一个技能升满后继续下一个」
+        # 续训链路的正常环节。此前只看 pending_skill_auto_switch 与
+        # AddNewStudent_Enable，而 pending 标志在上一次进入时已被清零，
+        # 默认配置（SkillAutoSwitch=True / AddNewStudent=False）下会误判为
+        # 「不学习技能」并退出，导致技能未满级却中断训练。
+        if pending_skill_auto_switch or self.config.AddNewStudent_Enable \
+                or self.config.Tactical_SkillAutoSwitch:
             pending_skill_auto_switch = False
             if not self._tactical_skill_choose():
                 study_finished = True
@@ -754,17 +839,23 @@ class RewardTacticalClass(Dock):
             skip_first_screenshot (bool): 是否跳过首次截图
         """
         logger.info('[战术-技能] 选择技能')
+        # 用 interval 防连击代替循环内 sleep：状态循环内不得休眠，
+        # 退出条件用正向的 check_skill_selected 判定。
+        # 计时器不 start()，使首次判定即可点击，避免白等一个间隔。
+        click_interval = Timer(0.5, count=2)
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
             else:
                 self.device.screenshot()
 
-            if not self.check_skill_selected(selected_skill, self.device.image):
-                self.device.click(selected_skill)
-                self.device.sleep((0.3, 0.5))
-            else:
+            # 退出条件：已选中
+            if self.check_skill_selected(selected_skill, self.device.image):
                 break
+
+            if click_interval.reached():
+                self.device.click(selected_skill)
+                click_interval.reset()
 
     @staticmethod
     def check_skill_selected(button, image):
@@ -775,10 +866,15 @@ class RewardTacticalClass(Dock):
 
     def _tactical_skill_choose(self):
         """
-        选择一个未满级的技能。
+        选择一个未满级且可升级的技能，对应「升满一个技能后是否继续下一个」的判定。
+
+        游戏在某个技能升满时会弹出中央单按钮提示（由 _handle_tactical_popups 中的
+        handle_urgent_commission 消化），随后回到技能选择界面。此处据实际界面判定：
+        - 还有可升级技能 -> 选中并确认，继续下一轮学习
+        - 已无可升级技能 -> 返回 False，由调用方结束该舰娘的训练
 
         Returns:
-            bool: 是否找到可用技能
+            bool: 是否找到可升级技能并已开始下一轮
 
         Pages:
             in: SKILL_CONFIRM
@@ -787,13 +883,14 @@ class RewardTacticalClass(Dock):
         logger.hr('选择战术技能')
         selected_skill = self.find_not_full_level_skill()
 
-        # 找不到可用技能，认为该舰船无需学习
+        # 该舰娘已无可升级技能（其余槽位为满级或未解锁），无需继续学习
         if selected_skill is None:
-            logger.info('[战术-技能] 没有可用技能可学习')
+            logger.info('[战术-技能] 该舰娘已无可升级技能，结束学习')
             return False
 
         # 选中技能说明未满级，应开始或继续学习
         # 这里需要检查是否已选中
+        logger.info('[战术-技能] 发现可升级技能，继续下一轮学习')
         self._tactical_skill_select(selected_skill)
         self.device.click(SKILL_CONFIRM)
 
@@ -869,39 +966,114 @@ class RewardTacticalClass(Dock):
 
         return True
 
-    def find_not_full_level_skill(self, skip_first_screenshot=True):
+    @staticmethod
+    def _classify_skill_level(level):
         """
-        检查列表中最多三个技能，找到一个未满级的技能。
+        判定单个技能槽位的可升级状态。
+
+        判定依据只有技能列表右侧 `NEXT:` 一行文本，游戏在该处直接给出结论，
+        不需要另算舰船等级 / 教材库存 / 前置条件：
+
+        - 空白 或 `———`：槽位未解锁（受舰船等级或前置技能限制），不可升级
+        - `MAX`：已满级，不可升级
+        - `x/y`：未满级且可继续升级
+        - 其余无法辨认的文本：按可升级处理
+
+        最后一条依据游戏行为：当该舰娘已无可升级技能时，游戏会自行退出技能
+        升级界面。因此只要还停留在技能选择界面，就说明仍有技能可练——此时
+        OCR 读不出等级属于识别问题，不是「没有技能可升级」。按可升级继续，
+        后续 _is_current_skill_max 与教材选择流程仍会再次校验；反之按不可
+        升级处理会直接结束训练，正是本次修复要消除的中断。
+
+        因此「未满级」与「可升级」在本界面上的差别就是：未解锁槽位既不算满级、
+        也不可升级。教材数量不参与判定——教材不足由 BOOK_EMPTY_POPUP 单独处理，
+        且教材是全局共享资源，不属于某个技能的前置条件。
+
+        Args:
+            level (str): 该槽位的 OCR 文本
 
         Returns:
-            选中技能的 Button 对象
+            str: 'upgradable' 可升级 / 'max' 已满级 / 'locked' 槽位不可用
+        """
+        level = str(level).upper().replace(' ', '')
+        # 空技能槽位，可能是因为所有收藏舰娘的技能已满级
+        # '———l', '—l'
+        if not level:
+            return 'locked'
+        if re.search(r'[—\-一]{2,}', level):
+            return 'locked'
+        if re.search(r'[—一]+', level):
+            return 'locked'
+        # 使用 'MA' 作为 `MAX` 的一部分
+        # SKILL_LEVEL_GRIDS 可能因未知原因向下偏移，OCR 结果示例：
+        # ['NEXT:MA', 'NEXT:/1D]', 'NEXT:MA']（实际：`NEXT:MAX, NEXT:0/100, NEXT:MAX`）
+        # ['NEXT:MA', 'NEX T:/ 14[]]', 'NEXT:MA']（实际：`NEXT:MAX, NEXT:150/1400, NEXT:MAX`）
+        if 'MA' in level:
+            return 'max'
+        # 有明确进度特征，正常可升级。只要求「斜杠 + 数字」而非完整的
+        # `\d+/\d+`：上述网格偏移会让进度残缺（`NEXT:/1D]`、`NEXT:/14[]]`
+        # 实为 `0/100`、`150/1400`），强行要求完整数字对会误判为不可升级。
+        if re.search(r'/.*\d|\d.*/', level):
+            return 'upgradable'
+        # 无进度特征也无满级标记：识别质量问题。界面仍在即说明有技能可练，
+        # 按可升级继续，避免因一次 OCR 失败中断整轮训练。
+        logger.warning(f'[战术-技能] 技能等级无法辨认，按可升级继续: {level!r}')
+        return 'upgradable'
+
+    def _get_skill_states(self, skip_first_screenshot=True):
+        """
+        读取技能列表中三个槽位的可升级状态。
+
+        Returns:
+            list[tuple[Button, str]]: [(技能按钮, 状态), ...]，状态见 _classify_skill_level
 
         Pages:
             in: SKILL_CONFIRM
-            out: SKILL_CONFIRM
         """
-
         if not skip_first_screenshot:
             self.device.screenshot()
 
         skill_level_ocr = ExpOnSkillSelect(buttons=SKILL_LEVEL_GRIDS.buttons, lang='cnocr', name='SKILL_LEVEL')
         skill_level_list = skill_level_ocr.ocr(self.device.image)
-        for skill_button, skill_level in list(zip(SKILL_GRIDS.buttons, skill_level_list)):
-            level = skill_level.upper().replace(' ', '')
-            # 空技能槽位，可能是因为所有收藏舰娘的技能已满级
-            # '———l', '—l'
-            if not level:
-                continue
-            if re.search(r'[—\-一]{2,}', level):
-                continue
-            if re.search(r'[—一]+', level):
-                continue
-            # 使用 'MA' 作为 `MAX` 的一部分
-            # SKILL_LEVEL_GRIDS 可能因未知原因向下偏移，OCR 结果示例：
-            # ['NEXT:MA', 'NEXT:/1D]', 'NEXT:MA']（实际：`NEXT:MAX, NEXT:0/100, NEXT:MAX`）
-            # ['NEXT:MA', 'NEX T:/ 14[]]', 'NEXT:MA']（实际：`NEXT:MAX, NEXT:150/1400, NEXT:MAX`）
-            if 'MA' not in level:
-                logger.attr('等级', 'EMPTY' if len(level) == 0 else level)
+        states = []
+        for skill_button, skill_level in zip(SKILL_GRIDS.buttons, skill_level_list):
+            state = self._classify_skill_level(skill_level)
+            states.append((skill_button, state))
+        logger.info(f'[战术-技能] 技能槽位状态: {[state for _, state in states]}')
+        return states
+
+    def has_upgradable_skill(self, skip_first_screenshot=True):
+        """
+        当前舰娘是否还存在其他可升级（未满级且槽位已解锁）的技能。
+
+        用于「一个技能刚升满级」后决定是否继续下一轮：存在可升级技能才继续，
+        否则该舰娘已无可练技能，直接结束。
+
+        Returns:
+            bool: 是否存在可升级技能
+
+        Pages:
+            in: SKILL_CONFIRM
+        """
+        states = self._get_skill_states(skip_first_screenshot=skip_first_screenshot)
+        return any(state == 'upgradable' for _, state in states)
+
+    def find_not_full_level_skill(self, skip_first_screenshot=True):
+        """
+        检查列表中最多三个技能，找到一个未满级且可升级的技能。
+
+        多个可升级技能时按技能槽自上而下的顺序取第一个（SKILL_GRIDS 顺序），
+        与玩家手动操作时的默认视觉顺序一致。
+
+        Returns:
+            Button | None: 选中技能的 Button 对象；无可升级技能时为 None
+
+        Pages:
+            in: SKILL_CONFIRM
+            out: SKILL_CONFIRM
+        """
+        for skill_button, state in self._get_skill_states(skip_first_screenshot=skip_first_screenshot):
+            if state == 'upgradable':
                 return skill_button
 
         return None

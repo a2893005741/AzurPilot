@@ -315,3 +315,15 @@ cursor-helper/**/review/reports/files/
 AGENTS.md
 RTK.md
 /低心情撤退修复补丁/
+
+# Codex 任务规划文件（仅本地使用）
+/findings.md
+/progress.md
+/task_plan.md
+
+# AI 工具本地缓存目录（视觉路由等运行时产物，仅本地使用）
+/.dsh-vision-router/
+
+# 排查时遗留在仓库根目录的调试截图与错误快照
+/codex_*.png
+/_err_*.png

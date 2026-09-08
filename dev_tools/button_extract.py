@@ -219,7 +219,10 @@ class AssetExtractor:
         modules = [m for m in os.listdir(AzurLaneConfig.ASSETS_FOLDER + '/cn')
                    if os.path.isdir(os.path.join(AzurLaneConfig.ASSETS_FOLDER + '/cn', m))]
 
-        process_map(worker, modules)
+        # 串行生成，避免并行 worker 在生成文件时相互覆盖或吞掉异常，
+        # 并确保任一模块失败时 CI 能直接报告真实错误。
+        for module in modules:
+            worker(module)
 
 
 if __name__ == '__main__':

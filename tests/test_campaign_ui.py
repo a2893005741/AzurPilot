@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from module.base.button import Button
 from module.campaign.assets import (
     EVENT_20260908_STAGE_DETAIL_CLOSE,
+    EVENT_20260908_STAGE_MODE_HARD,
     EVENT_20260908_STAGE_MODE_NORMAL,
 )
 from module.campaign.campaign_ui import CampaignUI
@@ -75,3 +76,31 @@ class TestCampaignUI(unittest.TestCase):
 
         self.assertTrue(ui.handle_campaign_ui_additional())
         ui.device.click.assert_called_once_with(EVENT_20260908_STAGE_DETAIL_CLOSE)
+
+    def test_hard_stage_uses_selector_when_target_template_misses(self):
+        ui = object.__new__(CampaignUI)
+        ui.config = Mock(MAP_CHAPTER_SWITCH_20241219=True, MAP_HAS_MODE_SWITCH=False)
+        entrance = Button(area=(100, 100, 120, 120), color=(1, 1, 1), button=(100, 100, 120, 120), name='a3')
+        ui.stage_entrance = {'a3': entrance}
+        ui.device = Mock()
+        detail_close_calls = 0
+
+        def appear(button, **kwargs):
+            nonlocal detail_close_calls
+            if button is EVENT_20260908_STAGE_DETAIL_CLOSE:
+                detail_close_calls += 1
+                return detail_close_calls < 3
+            return button is EVENT_20260908_STAGE_MODE_NORMAL
+
+        ui.appear = Mock(side_effect=appear)
+
+        def refresh_stage_entrance(image):
+            entrance.name = 'c3'
+            ui.stage_entrance = {'c3': entrance}
+
+        ui._get_stage_name = Mock(side_effect=refresh_stage_entrance)
+
+        result = ui.campaign_switch_stage_mode('c3')
+
+        self.assertIs(result, entrance)
+        self.assertEqual(ui.device.click.call_args_list[1].args, (EVENT_20260908_STAGE_MODE_HARD,))

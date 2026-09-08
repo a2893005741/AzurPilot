@@ -342,6 +342,7 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
             return None
 
         entrance = self.stage_entrance[counterpart]
+        self._stage_mode_switch_attempted = True
         logger.info(f'[战役-UI] {name.upper()} 未显示，打开 {counterpart.upper()} 详情切换模式')
         self.device.click(entrance)
 
@@ -354,9 +355,17 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
                 return None
 
         target = EVENT_20260908_STAGE_MODE_HARD if self._campaign_name_is_hard(name) else EVENT_20260908_STAGE_MODE_NORMAL
+        other = EVENT_20260908_STAGE_MODE_NORMAL if target is EVENT_20260908_STAGE_MODE_HARD else EVENT_20260908_STAGE_MODE_HARD
         mode_timeout = Timer(2).start()
         while 1:
             if self.appear(target, offset=True, similarity=0.8):
+                self.device.click(target)
+                break
+            # 当前模式按钮可能因活动关卡背景/动画差异导致模板相似度不足。
+            # 只要另一模式按钮已被模板识别，就确认详情页的模式选择器存在，
+            # 仍通过目标按钮的固定点击区域执行切换，不使用颜色判断。
+            if self.appear(other, offset=True, similarity=0.8):
+                logger.info(f'[战役-UI] {name.upper()} 目标按钮模板未命中，已确认模式选择器')
                 self.device.click(target)
                 break
             if mode_timeout.reached():
@@ -668,6 +677,7 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
             ScriptEnd: 重试后仍切换失败时抛出。
         """
         timeout = Timer(5, count=20).start()
+        self._stage_mode_switch_attempted = False
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
@@ -686,6 +696,8 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
                 self.ENTRANCE = self.campaign_switch_stage_mode(name)
                 if self.ENTRANCE is not None:
                     return True
+                if self._stage_mode_switch_attempted:
+                    raise ScriptEnd(f'无法切换活动关卡模式: {name.upper()}')
                 raise CampaignNameError
             except CampaignNameError:
                 pass

@@ -124,7 +124,7 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             logger.attr('加载进度', f'{int(loading * 100)}%')
             return True
         if self.is_combat_executing():
-            logger.warning('[战斗-加载] 检测到战斗状态但未检测到加载条')
+            logger.debug('[战斗-加载] 检测到战斗状态但未检测到加载条')
             return True
         return False
 

@@ -144,7 +144,8 @@ class Camera(MapOperation):
                     and not self.is_in_strategy_submarine_move() \
                     and not self.is_in_strategy_mob_move() \
                     and not self.is_in_strategy_air_strike():
-                logger.warning('[地图-摄像机] 待检测图像不在地图中')
+                # 关卡详情直达地图时，加载和画面切换期间短暂无法识别地图。
+                # 这属于正常过渡，不应在每帧输出告警；由 update() 负责超时判定。
                 raise MapDetectionError('Image to detect is not in_map')
             self.view.load(self.device.image)
         except MapDetectionError as e:
@@ -289,6 +290,10 @@ class Camera(MapOperation):
             allow_error (bool): 为 True 时遇到检测错误则退出。
         """
         error_confirm = Timer(5, count=10).start()
+        # 从关卡详情直接进入地图时，战斗加载可能持续超过普通地图识别超时。
+        # 单独限制加载等待，避免把真正卡死的画面无限期吞掉。
+        combat_loading_timeout = Timer(15).start()
+        combat_loading_seen = False
         swipe_wait_timeout = Timer(0.35, count=1).start()
         # 假设已经滑动过
         swiped = True
@@ -356,10 +361,16 @@ class Camera(MapOperation):
             except MapDetectionError:
                 if allow_error:
                     break
-                elif error_confirm.reached():
+                if hasattr(self, 'is_combat_loading'):
+                    if self.is_combat_loading():
+                        combat_loading_seen = True
+                    if combat_loading_seen and not combat_loading_timeout.reached():
+                        error_confirm.reset()
+                        continue
+                if error_confirm.reached():
+                    logger.warning('[地图-摄像机] 地图识别超时，当前画面不在地图中')
                     raise
-                else:
-                    continue
+                continue
 
         # 计算视图数据
         self._update_view_data()

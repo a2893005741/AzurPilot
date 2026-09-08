@@ -310,6 +310,91 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
         entrance.name = entrance_name
         return entrance
 
+    def campaign_switch_stage_mode(self, name):
+        """通过同编号关卡详情切换活动普通/困难模式。
+
+        新版活动列表可能只显示 A/C 或 B/D 中的一种入口。此时先打开已显示的
+        同编号关卡，在详情弹窗中切换模式；返回原入口供 enter_map() 继续处理。
+
+        Args:
+            name (str): 目标关卡名称，如 ``b1`` 或 ``d1``。
+
+        Returns:
+            Button | None: 切换成功后的详情入口，无法切换时返回 None。
+        """
+        event_layout_enabled = any(
+            getattr(self.config, option, False)
+            for option in (
+                'MAP_CHAPTER_SWITCH_20241219',
+                'MAP_CHAPTER_SWITCH_20241219_SP',
+                'MAP_CHAPTER_SWITCH_20241219_SPEX',
+            )
+        )
+        if not (event_layout_enabled and not getattr(self.config, 'MAP_HAS_MODE_SWITCH', False)):
+            return None
+
+        mode_names = self.campaign_get_mode_names(name)
+        if len(mode_names) != 2 or name in self.stage_entrance:
+            return None
+
+        counterpart = next((item for item in mode_names if item != name and item in self.stage_entrance), None)
+        if counterpart is None:
+            return None
+
+        entrance = self.stage_entrance[counterpart]
+        logger.info(f'[战役-UI] {name.upper()} 未显示，打开 {counterpart.upper()} 详情切换模式')
+        self.device.click(entrance)
+
+        detail_timeout = Timer(3).start()
+        while 1:
+            self.device.screenshot()
+            if self.appear(EVENT_20260908_STAGE_DETAIL_CLOSE, offset=True, similarity=0.8):
+                break
+            if detail_timeout.reached():
+                return None
+
+        target = EVENT_20260908_STAGE_MODE_HARD if self._campaign_name_is_hard(name) else EVENT_20260908_STAGE_MODE_NORMAL
+        mode_timeout = Timer(2).start()
+        while 1:
+            if self.appear(target, offset=True, similarity=0.8):
+                self.device.click(target)
+                break
+            if mode_timeout.reached():
+                logger.warning(f'[战役-UI] {name.upper()} 详情页未识别目标模式按钮')
+                return None
+            self.device.screenshot()
+
+        # 模式按钮点击后详情弹窗仍可能保留，必须关闭后再重新识别入口。
+        close_timeout = Timer(2).start()
+        close_clicked = False
+        while 1:
+            self.device.screenshot()
+            if not self.appear(EVENT_20260908_STAGE_DETAIL_CLOSE, offset=True, similarity=0.8):
+                break
+            if close_timeout.reached():
+                logger.warning(f'[战役-UI] {name.upper()} 详情弹窗关闭超时')
+                return None
+            if not close_clicked:
+                self.device.click(EVENT_20260908_STAGE_DETAIL_CLOSE)
+                close_clicked = True
+
+        # 模式切换会改变关卡入口的图标和颜色，不能继续复用切换前的 OCR 按钮。
+        # 重新识别当前画面，确保 enter_map() 使用当前模式的入口属性。
+        entrance_timeout = Timer(3).start()
+        while 1:
+            self.device.screenshot()
+            try:
+                self._get_stage_name(self.device.image)
+            except (IndexError, CampaignNameError):
+                pass
+            else:
+                if name in self.stage_entrance:
+                    logger.info(f'[战役-UI] 详情模式已切换为 {name.upper()}，已重新识别入口')
+                    return self.stage_entrance[name]
+            if entrance_timeout.reached():
+                logger.warning(f'[战役-UI] {name.upper()} 切换后未识别到关卡入口')
+                return None
+
     def campaign_set_chapter_main(self, chapter, mode='normal'):
         """
         设置主线战役章节。
@@ -401,8 +486,9 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
             bool: True 表示成功设置，False 表示不适用此版本。
         """
         if self.config.MAP_CHAPTER_SWITCH_20241219:
-            if self._campaign_name_is_hard(f'{chapter}{stage}'):
-                self.config.override(Campaign_Mode='hard')
+            if mode != 'story' and chapter not in ['ex_sp', 'ex_ex']:
+                target_mode = 'hard' if self._campaign_name_is_hard(f'{chapter}{stage}') else 'normal'
+                self.config.override(Campaign_Mode=target_mode)
             # part1、part2、sp、ex
             if mode == 'story':
                 self.campaign_ensure_mode_20241219('story')
@@ -439,8 +525,9 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
                 self.campaign_ensure_chapter(chapter)
                 return True
         if self.config.MAP_CHAPTER_SWITCH_20241219_SP:
-            if self._campaign_name_is_hard(f'{chapter}{stage}'):
-                self.config.override(Campaign_Mode='hard')
+            if mode != 'story' and chapter not in ['ex_sp']:
+                target_mode = 'hard' if self._campaign_name_is_hard(f'{chapter}{stage}') else 'normal'
+                self.config.override(Campaign_Mode=target_mode)
             # (空)、normal、sp、(空)
             if chapter in ['sp', 't', 'ht']:
                 self.ui_goto_event()
@@ -456,8 +543,9 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
                 self.campaign_ensure_chapter(chapter)
                 return True
         if self.config.MAP_CHAPTER_SWITCH_20241219_SPEX:
-            if self._campaign_name_is_hard(f'{chapter}{stage}'):
-                self.config.override(Campaign_Mode='hard')
+            if mode != 'story' and chapter not in ['ex_sp']:
+                target_mode = 'hard' if self._campaign_name_is_hard(f'{chapter}{stage}') else 'normal'
+                self.config.override(Campaign_Mode=target_mode)
             # normal、sp、ex
             try:
                 ASIDE_SWITCH_20241219.offset = area_offset((-20, -20, 20, 20), (0, -37))
@@ -561,6 +649,10 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
             except CampaignEnd:
                 pass
             return True
+        if self.appear(EVENT_20260908_STAGE_DETAIL_CLOSE, offset=True, similarity=0.8):
+            logger.info('[战役-UI] 关闭关卡详情弹窗')
+            self.device.click(EVENT_20260908_STAGE_DETAIL_CLOSE)
+            return True
         return False
 
     def ensure_campaign_ui(self, name, mode='normal', skip_first_screenshot=True):
@@ -584,10 +676,17 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
 
             if timeout.reached():
                 break
+            if self.handle_campaign_ui_additional():
+                continue
             try:
                 self.campaign_set_chapter(name, mode)
-                self.ENTRANCE = self.campaign_get_entrance(name=name)
-                return True
+                if name in self.stage_entrance:
+                    self.ENTRANCE = self.campaign_get_entrance(name=name)
+                    return True
+                self.ENTRANCE = self.campaign_switch_stage_mode(name)
+                if self.ENTRANCE is not None:
+                    return True
+                raise CampaignNameError
             except CampaignNameError:
                 pass
 

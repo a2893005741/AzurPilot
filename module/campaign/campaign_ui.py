@@ -310,11 +310,16 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
         entrance.name = entrance_name
         return entrance
 
+    def _appear_event_stage_mode_button(self, button):
+        """匹配模式按钮文字形状，忽略选中态底色和奖励倍率图标。"""
+        self.device.stuck_record_add(button)
+        return button.match_luma(self.device.image, offset=(5, 5), similarity=0.85)
+
     def campaign_switch_stage_mode(self, name):
         """通过同编号关卡详情切换活动普通/困难模式。
 
         新版活动列表可能只显示 A/C 或 B/D 中的一种入口。此时先打开已显示的
-        同编号关卡，在详情弹窗中切换模式；返回原入口供 enter_map() 继续处理。
+        同编号关卡，在详情弹窗中切换模式；重新识别目标入口供 enter_map() 使用。
 
         Args:
             name (str): 目标关卡名称，如 ``b1`` 或 ``d1``。
@@ -355,17 +360,9 @@ class CampaignUI(MapOperation, CampaignEvent, CampaignOcr):
                 return None
 
         target = EVENT_20260908_STAGE_MODE_HARD if self._campaign_name_is_hard(name) else EVENT_20260908_STAGE_MODE_NORMAL
-        other = EVENT_20260908_STAGE_MODE_NORMAL if target is EVENT_20260908_STAGE_MODE_HARD else EVENT_20260908_STAGE_MODE_HARD
         mode_timeout = Timer(2).start()
         while 1:
-            if self.appear(target, offset=True, similarity=0.8):
-                self.device.click(target)
-                break
-            # 当前模式按钮可能因活动关卡背景/动画差异导致模板相似度不足。
-            # 只要另一模式按钮已被模板识别，就确认详情页的模式选择器存在，
-            # 仍通过目标按钮的固定点击区域执行切换，不使用颜色判断。
-            if self.appear(other, offset=True, similarity=0.8):
-                logger.info(f'[战役-UI] {name.upper()} 目标按钮模板未命中，已确认模式选择器')
+            if self._appear_event_stage_mode_button(target):
                 self.device.click(target)
                 break
             if mode_timeout.reached():

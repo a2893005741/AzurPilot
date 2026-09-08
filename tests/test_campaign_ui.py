@@ -1,7 +1,11 @@
 import unittest
-from unittest.mock import Mock
+from pathlib import Path
+from unittest.mock import Mock, call, patch
+
+import numpy as np
 
 from module.base.button import Button
+from module.base.utils import load_image
 from module.campaign.assets import (
     EVENT_20260908_STAGE_DETAIL_CLOSE,
     EVENT_20260908_STAGE_MODE_HARD,
@@ -59,6 +63,7 @@ class TestCampaignUI(unittest.TestCase):
             return button is EVENT_20260908_STAGE_MODE_NORMAL
 
         ui.appear = Mock(side_effect=appear)
+        ui._appear_event_stage_mode_button = Mock(return_value=True)
 
         result = ui.campaign_switch_stage_mode('b1')
 
@@ -77,30 +82,63 @@ class TestCampaignUI(unittest.TestCase):
         self.assertTrue(ui.handle_campaign_ui_additional())
         ui.device.click.assert_called_once_with(EVENT_20260908_STAGE_DETAIL_CLOSE)
 
-    def test_hard_stage_uses_selector_when_target_template_misses(self):
+    def _fixture(self, name):
+        return load_image(str(Path(__file__).parent / 'fixtures' / 'campaign_mode' / f'{name}.png'))
+
+    def _image_ui(self, image):
         ui = object.__new__(CampaignUI)
-        ui.config = Mock(MAP_CHAPTER_SWITCH_20241219=True, MAP_HAS_MODE_SWITCH=False)
-        entrance = Button(area=(100, 100, 120, 120), color=(1, 1, 1), button=(100, 100, 120, 120), name='a3')
-        ui.stage_entrance = {'a3': entrance}
-        ui.device = Mock()
-        detail_close_calls = 0
+        ui.config = Mock(MAP_CHAPTER_SWITCH_20241219=True, MAP_HAS_MODE_SWITCH=False, BUTTON_OFFSET=(5, 5))
+        ui.device = Mock(image=image)
+        return ui
 
-        def appear(button, **kwargs):
-            nonlocal detail_close_calls
-            if button is EVENT_20260908_STAGE_DETAIL_CLOSE:
-                detail_close_calls += 1
-                return detail_close_calls < 3
-            return button is EVENT_20260908_STAGE_MODE_NORMAL
+    def test_mode_buttons_match_selected_unselected_and_bonus_states(self):
+        for name in ('a3', 'b3', 'd3', 'c2_bonus'):
+            for button in (EVENT_20260908_STAGE_MODE_NORMAL, EVENT_20260908_STAGE_MODE_HARD):
+                with self.subTest(frame=name, button=button.name):
+                    ui = self._image_ui(self._fixture(name))
+                    self.assertTrue(ui._appear_event_stage_mode_button(button))
+                    # 点击必须落在对应模式按钮内，不能复用失败匹配留下的偏移。
+                    left, top, right, bottom = button.button
+                    bound = (150, 575, 274, 622) if button is EVENT_20260908_STAGE_MODE_NORMAL else (274, 575, 400, 622)
+                    self.assertTrue(bound[0] <= left < right <= bound[2])
+                    self.assertTrue(bound[1] <= top < bottom <= bound[3])
 
-        ui.appear = Mock(side_effect=appear)
+    def test_mode_buttons_reject_stage_list_and_empty_image(self):
+        for image in (self._fixture('stage_list'), np.zeros((720, 1280, 3), dtype=np.uint8)):
+            ui = self._image_ui(image)
+            for button in (EVENT_20260908_STAGE_MODE_NORMAL, EVENT_20260908_STAGE_MODE_HARD):
+                self.assertFalse(ui._appear_event_stage_mode_button(button))
 
-        def refresh_stage_entrance(image):
-            entrance.name = 'c3'
-            ui.stage_entrance = {'c3': entrance}
+    def test_mode_switch_replays_both_directions_and_returns_fresh_entrance(self):
+        for source, target, frame, switched in (('a3', 'c3', 'a3', 'd3'), ('d3', 'b3', 'd3', 'b3')):
+            with self.subTest(target=target):
+                ui = self._image_ui(self._fixture('stage_list'))
+                old = Button(area=(800, 300, 860, 330), color=(), button=(800, 300, 860, 330), name=source)
+                fresh = Button(area=(810, 300, 870, 330), color=(), button=(810, 300, 870, 330), name=target)
+                ui.stage_entrance = {source: old}
+                # 模式按钮点击后弹窗仍在；关闭后才允许更新 OCR 入口。
+                frames = iter([self._fixture(frame), self._fixture(switched), self._fixture('stage_list'), self._fixture('stage_list')])
+                def screenshot():
+                    ui.device.image = next(frames)
+                def refresh(image):
+                    np.testing.assert_array_equal(image, self._fixture('stage_list'))
+                    ui.stage_entrance = {target: fresh}
+                ui.device.screenshot.side_effect = screenshot
+                ui._get_stage_name = Mock(side_effect=refresh)
 
-        ui._get_stage_name = Mock(side_effect=refresh_stage_entrance)
+                self.assertIs(ui.campaign_switch_stage_mode(target), fresh)
+                mode = EVENT_20260908_STAGE_MODE_HARD if target == 'c3' else EVENT_20260908_STAGE_MODE_NORMAL
+                self.assertEqual([call.args[0] for call in ui.device.click.call_args_list],
+                                 [old, mode, EVENT_20260908_STAGE_DETAIL_CLOSE])
+                ui._get_stage_name.assert_called_once()
 
-        result = ui.campaign_switch_stage_mode('c3')
-
-        self.assertIs(result, entrance)
-        self.assertEqual(ui.device.click.call_args_list[1].args, (EVENT_20260908_STAGE_MODE_HARD,))
+    def test_missing_mode_button_does_not_click_guessed_position(self):
+        image = self._fixture('a3')
+        image[565:630, 140:425] = 0
+        ui = self._image_ui(image)
+        old = Button(area=(800, 300, 860, 330), color=(), button=(800, 300, 860, 330), name='a3')
+        ui.stage_entrance = {'a3': old}
+        with patch('module.campaign.campaign_ui.Timer') as timer:
+            timer.return_value.start.return_value.reached.return_value = True
+            self.assertIsNone(ui.campaign_switch_stage_mode('c3'))
+        ui.device.click.assert_called_once_with(old)

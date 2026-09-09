@@ -16,7 +16,7 @@ import importlib
 import os
 import random
 
-from module.base.emotion import EMOTION_ROTATION_TASKS
+from module.base.emotion import EMOTION_ROTATION_TASKS, fleet_battle_counts
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.campaign_event import CampaignEvent
 from module.shop.shop_status import ShopStatus
@@ -484,11 +484,12 @@ class CampaignRun(CampaignEvent, ShopStatus):
             public_fleet = getattr(emotion, 'public_fleet', None)
             fleets = [public_fleet] if public_fleet is not None else []
         else:
-            # 初次出击时地图还未初始化，无法可靠判断是哪一队触发弹窗。
-            # 双舰队配置下保守地延后两队，避免按错误舰队提前重试。
-            fleets = list(getattr(emotion, 'fleets', []))
-            if not self.config.FLEET_2:
-                fleets = fleets[:1]
+            # 复用预检的出战分配规则。单队全清不应清零备用队；
+            # 双队交替作战且无法确定触发队时，仍保守地重置两支参战队。
+            counts = fleet_battle_counts(
+                2, emotion.config.Fleet_FleetOrder, emotion.config.Fleet_Fleet2
+            )
+            fleets = [fleet for fleet, count in zip(getattr(emotion, 'fleets', []), counts) if count]
 
         if not fleets:
             logger.critical('[低心情] 未找到舰队心情记录，无法安全延后当前任务')

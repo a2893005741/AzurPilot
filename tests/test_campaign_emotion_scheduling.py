@@ -208,6 +208,85 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
                 emotion.wait(1)
         sleep.assert_not_called()
 
+    def test_low_emotion_withdrawal_preserves_standby_fleet(self):
+        for order, active, standby in [('fleet1_all_fleet2_standby', 1, 2),
+                                        ('fleet1_standby_fleet2_all', 2, 1)]:
+            with self.subTest(order=order):
+                store = {'Event': self.task('Event', 75, fleet2=2, value2=75, order=order)}
+                store['Event']['Emotion'][f'Fleet{standby}Record'] -= timedelta(minutes=4)
+                runner = self.runner(store)
+                runner.campaign.low_emotion_withdrawn = True
+                self.assertTrue(runner.handle_low_emotion_withdrawal())
+                group = store['Event']['Emotion']
+                self.assertEqual(group[f'Fleet{active}Value'], 0)
+                self.assertEqual(group[f'Fleet{standby}Value'], 76)
+                self.assertEqual(group[f'Fleet{standby}Record'], self.now - timedelta(minutes=1))
+                self.assertEqual(store['Event']['Scheduler']['NextRun'], self.now + timedelta(minutes=156))
+
+    def test_low_emotion_withdrawal_uses_effective_campaign_fleet_setting(self):
+        store = {'Event': self.task('Event', 75, fleet2=2, value2=75,
+                                   order='fleet1_mob_fleet2_boss')}
+        runner = self.runner(store)
+        runner.campaign.config.override(Fleet_Fleet2=0)
+        runner.campaign.low_emotion_withdrawn = True
+        self.assertTrue(runner.handle_low_emotion_withdrawal())
+        self.assertEqual(store['Event']['Emotion']['Fleet1Value'], 0)
+        self.assertEqual(store['Event']['Emotion']['Fleet2Value'], 75)
+
+    def test_low_emotion_withdrawal_keeps_dual_fleet_fallback(self):
+        for order in ('fleet1_mob_fleet2_boss', 'fleet1_boss_fleet2_mob'):
+            with self.subTest(order=order):
+                store = {'Event': self.task('Event', 75, fleet2=2, value2=75, order=order)}
+                runner = self.runner(store)
+                runner.campaign.low_emotion_withdrawn = True
+                self.assertTrue(runner.handle_low_emotion_withdrawal())
+                self.assertEqual(store['Event']['Emotion']['Fleet1Value'], 0)
+                self.assertEqual(store['Event']['Emotion']['Fleet2Value'], 0)
+
+    def test_low_emotion_withdrawal_resets_only_public_record_when_shared(self):
+        store = {'Event': self.task('Event', 75, fleet2=2, value2=75),
+                 'General': {'PublicEmotion': {'Enable': True, 'Tasks': 'Event',
+                     'FleetValue': 75, 'FleetRecord': self.now, 'FleetControl': 'prevent_green_face',
+                     'FleetRecover': 'dormitory_floor_1', 'FleetOath': False, 'FleetOnsen': False}}}
+        runner = self.runner(store)
+        runner.campaign.low_emotion_withdrawn = True
+        self.assertTrue(runner.handle_low_emotion_withdrawal())
+        self.assertEqual(store['General']['PublicEmotion']['FleetValue'], 0)
+        self.assertEqual(store['Event']['Emotion']['Fleet1Value'], 75)
+        self.assertEqual(store['Event']['Emotion']['Fleet2Value'], 75)
+
+    def test_normal_battle_only_deducts_from_participating_fleet(self):
+        for order, active, standby in [('fleet1_all_fleet2_standby', 1, 2),
+                                        ('fleet1_standby_fleet2_all', 2, 1)]:
+            with self.subTest(order=order):
+                store = {'Event': self.task('Event', 75, fleet2=2, value2=75, order=order)}
+                emotion = self.runner(store).campaign.emotion
+                for _ in range(6):
+                    emotion.reduce(active)
+                self.assertEqual(store['Event']['Emotion'][f'Fleet{active}Value'], 63)
+                self.assertEqual(store['Event']['Emotion'][f'Fleet{standby}Value'], 75)
+
+    def test_auto_search_uses_config_fleet_not_reversed_role(self):
+        for order, shown, role in [('fleet1_all_fleet2_standby', 1, 1),
+                                    ('fleet1_standby_fleet2_all', 2, 1)]:
+            with self.subTest(order=order):
+                store = {'Event': self.task('Event', 75, fleet2=2, value2=75, order=order)}
+                campaign = object.__new__(CampaignBase)
+                campaign.config = self.config(store)
+                campaign.battle_count = 0
+                campaign._map_battle = 6
+                campaign.fleet_show_index = shown
+                campaign.fleet_current_index = role
+                campaign.auto_search_moving = Mock()
+
+                def combat(fleet_index, battle):
+                    campaign.emotion.reduce(fleet_index)
+
+                campaign.auto_search_combat = Mock(side_effect=combat)
+                campaign.auto_search_execute_a_battle()
+                self.assertEqual(store['Event']['Emotion'][f'Fleet{shown}Value'], 73)
+                self.assertEqual(store['Event']['Emotion'][f'Fleet{3 - shown}Value'], 75)
+
     def test_sp_waits_mid_map_and_only_schedules_tomorrow_after_completion(self):
         store = {'EventSp': self.task('EventSp', 40)}
         runner = object.__new__(CampaignSP)

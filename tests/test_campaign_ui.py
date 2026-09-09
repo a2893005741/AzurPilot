@@ -15,6 +15,15 @@ from module.campaign.campaign_ui import CampaignUI
 
 
 class TestCampaignUI(unittest.TestCase):
+    def _finish_switch(self, ui, name):
+        result = ui.campaign_switch_stage_mode(name)
+        for _ in range(8):
+            if result is not None:
+                return result
+            ui.device.screenshot()
+            result = ui.campaign_switch_stage_mode(name)
+        self.fail('模式切换未完成')
+
     def _make_ui(self):
         ui = object.__new__(CampaignUI)
         ui.config = Mock(MAP_CHAPTER_SWITCH_20241219=True)
@@ -59,13 +68,13 @@ class TestCampaignUI(unittest.TestCase):
             nonlocal detail_close_calls
             if button is EVENT_20260908_STAGE_DETAIL_CLOSE:
                 detail_close_calls += 1
-                return detail_close_calls < 3
+                return detail_close_calls < 4
             return button is EVENT_20260908_STAGE_MODE_NORMAL
 
         ui.appear = Mock(side_effect=appear)
         ui._appear_event_stage_mode_button = Mock(return_value=True)
 
-        result = ui.campaign_switch_stage_mode('b1')
+        result = self._finish_switch(ui, 'b1')
 
         self.assertIs(result, entrance)
         self.assertEqual(result.name, 'b1')
@@ -89,6 +98,7 @@ class TestCampaignUI(unittest.TestCase):
         ui = object.__new__(CampaignUI)
         ui.config = Mock(MAP_CHAPTER_SWITCH_20241219=True, MAP_HAS_MODE_SWITCH=False, BUTTON_OFFSET=(5, 5))
         ui.device = Mock(image=image)
+        ui.interval_timer = {}
         return ui
 
     def test_mode_buttons_match_selected_unselected_and_bonus_states(self):
@@ -126,7 +136,7 @@ class TestCampaignUI(unittest.TestCase):
                 ui.device.screenshot.side_effect = screenshot
                 ui._get_stage_name = Mock(side_effect=refresh)
 
-                self.assertIs(ui.campaign_switch_stage_mode(target), fresh)
+                self.assertIs(self._finish_switch(ui, target), fresh)
                 mode = EVENT_20260908_STAGE_MODE_HARD if target == 'c3' else EVENT_20260908_STAGE_MODE_NORMAL
                 self.assertEqual([call.args[0] for call in ui.device.click.call_args_list],
                                  [old, mode, EVENT_20260908_STAGE_DETAIL_CLOSE])
@@ -141,4 +151,51 @@ class TestCampaignUI(unittest.TestCase):
         with patch('module.campaign.campaign_ui.Timer') as timer:
             timer.return_value.start.return_value.reached.return_value = True
             self.assertIsNone(ui.campaign_switch_stage_mode('c3'))
+            self.assertIsNone(ui.campaign_switch_stage_mode('c3'))
         ui.device.click.assert_called_once_with(old)
+        ui.device.screenshot.assert_not_called()
+
+    def test_d3_3_reuses_d3_entry_for_mode_switch(self):
+        ui = object.__new__(CampaignUI)
+        ui.config = Mock(MAP_HAS_MODE_SWITCH=False)
+        entrance = Button(area=(100, 100, 120, 120), color=(1, 1, 1), button=(100, 100, 120, 120), name='d3')
+        ui.stage_entrance = {'d3': entrance}
+        self.assertEqual(ui.campaign_stage_ui_name('d3_3'), 'd3')
+        self.assertIs(ui.campaign_get_entrance('d3_3'), entrance)
+        self.assertEqual(entrance.name, 'd3_3')
+
+    def test_ensure_campaign_ui_accepts_d3_alias_with_legacy_mode_switch(self):
+        ui = self._image_ui(self._fixture('stage_list'))
+        ui.config.MAP_HAS_MODE_SWITCH = True
+        entrance = Button(area=(100, 100, 120, 120), color=(), button=(100, 100, 120, 120), name='d3')
+        ui.stage_entrance = {'d3': entrance}
+        ui.campaign_set_chapter = Mock()
+        ui.handle_campaign_ui_additional = Mock(return_value=False)
+        self.assertTrue(ui.ensure_campaign_ui('d3_3'))
+        self.assertIs(ui.ENTRANCE, entrance)
+        self.assertEqual(entrance.name, 'd3_3')
+
+    def test_parent_loop_handles_popup_during_detail_switch_and_preserves_alias(self):
+        ui = self._image_ui(self._fixture('stage_list'))
+        old = Button(area=(800, 300, 860, 330), color=(), button=(800, 300, 860, 330), name='b3')
+        fresh = Button(area=(810, 300, 870, 330), color=(), button=(810, 300, 870, 330), name='d3')
+        ui.stage_entrance = {'b3': old}
+        ui.campaign_set_chapter = Mock()
+        ui.handle_campaign_ui_additional = Mock(return_value=False)
+        ui.ui_additional = Mock(side_effect=[True, False, False, False])
+        frames = iter([self._fixture('b3'), self._fixture('b3'), self._fixture('d3'), self._fixture('stage_list')])
+        ui.device.screenshot.side_effect = lambda: setattr(ui.device, 'image', next(frames))
+        ui._get_stage_name = Mock(side_effect=lambda image: setattr(ui, 'stage_entrance', {'d3': fresh}))
+        self.assertTrue(ui.ensure_campaign_ui('d3_3'))
+        self.assertIs(ui.ENTRANCE, fresh)
+        self.assertEqual(fresh.name, 'd3_3')
+        ui.campaign_set_chapter.assert_called_once()
+        self.assertEqual(ui.ui_additional.call_count, 4)
+        self.assertEqual([item.args[0] for item in ui.device.click.call_args_list],
+                         [old, EVENT_20260908_STAGE_MODE_HARD, EVENT_20260908_STAGE_DETAIL_CLOSE])
+
+    def test_additional_handler_leaves_owned_detail_open(self):
+        ui = self._image_ui(self._fixture('b3'))
+        ui._stage_mode_switch_phase = 'mode'
+        self.assertFalse(ui.handle_campaign_ui_additional())
+        ui.device.click.assert_not_called()

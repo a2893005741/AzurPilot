@@ -2,11 +2,11 @@
 
 追踪和管理舰队的情绪值（心情值）。碧蓝航线中，舰船在战斗中会消耗情绪，
 情绪过低会导致经验加成失效、出现负面表情等。情绪通过以下方式恢复：
-- 港区休息（不在后宅）：每 6 分钟恢复 20 点
-- 后宅一楼：每 6 分钟恢复 40 点
-- 后宅二楼：每 6 分钟恢复 50 点
-- 誓约加成：额外 +10 点/6分钟
-- 温泉加成：额外 +10 点/6分钟
+- 港区休息（不在后宅）：每 6 分钟恢复 2 点
+- 后宅一楼：每 6 分钟恢复 4 点
+- 后宅二楼：每 6 分钟恢复 5 点
+- 誓约加成：额外 +1 点/6分钟
+- 温泉加成：额外 +1 点/6分钟
 
 情绪控制策略：
 - 保持开心加成（>120）：最大化经验加成
@@ -17,30 +17,30 @@
 游戏客户端存在已知 bug：长时间运行后情绪计算不准确，需要定期重启。
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from math import ceil
 from time import sleep
-
-import numpy as np
 
 from module.base.decorator import cached_property
 from module.base.emotion import (
+    DIC_LIMIT,
     DIC_RECOVER_MAX,
+    EMOTION_ROTATION_TASKS,
     SECONDS_PER_TICK,
     calculate_emotion_recovery,
     emotion_recovery_speed,
+    fleet_battle_counts,
 )
 from module.base.utils import random_normal_distribution_int
 from module.config.time_source import now as current_time
 from module.exception import ScriptEnd, ScriptError, RequestHumanTakeover
 from module.logger import logger
 
-# 情绪控制阈值：当情绪低于此值时触发等待/延迟
-DIC_LIMIT = {
-    'keep_exp_bonus': 120,     # 保持经验加成（心情开心）
-    'prevent_green_face': 40,  # 防止绿脸
-    'prevent_yellow_face': 30, # 防止黄脸
-    'prevent_red_face': 2,     # 防止红脸
-}
+
+class EmotionRecoveryRequired(ScriptEnd):
+    """战役中途心情不足，由运行器撤退并让出调度。"""
+
+
 class FleetEmotion:
     """单个舰队的情绪追踪器。
 
@@ -193,8 +193,11 @@ class FleetEmotion:
         if emotion_needed <= 0:
             return current_time()
         # speed 为每个恢复周期的恢复量，换算恢复所需秒数
-        seconds_needed = emotion_needed * SECONDS_PER_TICK / self.speed
-        return current_time() + timedelta(seconds=seconds_needed)
+        fractional = getattr(self, '_fractional_seconds', 0)
+        seconds_needed = (emotion_needed - fractional) * SECONDS_PER_TICK / self.speed
+        now = current_time()
+        start = max(now.timestamp(), self.record.timestamp())
+        return datetime.fromtimestamp(ceil(start + seconds_needed), tz=now.tzinfo)
 
 class Emotion:
     """情绪管理主类。
@@ -334,22 +337,13 @@ class Emotion:
             logger.info(f'[情绪-检查] 预期情绪扣减: {reduce}')
             return self.public_fleet.get_recovered(reduce)
 
-        method = self.config.Fleet_FleetOrder
-
-        if method == 'fleet1_mob_fleet2_boss':
-            battle = (battle - 1, 1)
-        elif method == 'fleet1_boss_fleet2_mob':
-            battle = (1, battle - 1)
-        elif method == 'fleet1_all_fleet2_standby':
-            battle = (battle, 0)
-        elif method == 'fleet1_standby_fleet2_all':
-            battle = (0, battle)
-        else:
-            raise ScriptError(f'Unknown fleet order: {method}')
-
-        battle = tuple(np.array(battle) * self.reduce_per_battle_before_entering)
+        try:
+            counts = fleet_battle_counts(battle, self.config.Fleet_FleetOrder, self.config.Fleet_Fleet2)
+        except ValueError as exc:
+            raise ScriptError(str(exc)) from exc
+        battle = tuple(count * self.reduce_per_battle_before_entering for count in counts)
         logger.info(f'[情绪-检查] 预期情绪扣减: {battle}')
-        return max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
+        return max((f.get_recovered(b) for f, b in zip(self.fleets, battle) if b), default=current_time())
 
     def _check_reduce(self, battle):
         """检查战斗带来的情绪减少。"""
@@ -378,10 +372,16 @@ class Emotion:
             raise ScriptEnd('[情绪-延迟] 情绪控制')
 
     def wait(self, fleet_index):
-        """等待指定舰队的情绪恢复。应在进入任何战斗之前调用。
+        """战前检查指定舰队心情，普通任务等待恢复，重复活动图交回调度。
+
+        Event、Event2、Event3 心情不足时抛出 EmotionRecoveryRequired，
+        由 CampaignRun 撤退并按下一轮需求延期；每日 SP 和活动开图继续原地等待。
 
         Args:
             fleet_index (int): 舰队编号，1 或 2。
+
+        Raises:
+            EmotionRecoveryRequired: 重复活动图心情不足，调用方须先撤退再延期。
         """
         self.update()
         self.record()
@@ -393,6 +393,9 @@ class Emotion:
 
         recovered = fleet.get_recovered(expected_reduce=self.reduce_per_battle)
         if recovered > current_time():
+            task = self.config.task.command
+            if task in EMOTION_ROTATION_TASKS:
+                raise EmotionRecoveryRequired('[情绪-延迟] 活动图战斗中心情不足')
             logger.hr('情绪等待')
             if self.using_public:
                 logger.info(f'[情绪-等待] 公海舰队情绪将恢复到 {fleet.limit}，时间 {recovered}')

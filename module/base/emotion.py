@@ -2,6 +2,9 @@
 
 SECONDS_PER_TICK = 6 * 60
 
+# 仅重复刷图任务参与心情轮转，限次 SP 与活动开图保留各自的完成判定。
+EMOTION_ROTATION_TASKS = ('Event', 'Event2', 'Event3')
+
 DIC_RECOVER = {
     'not_in_dormitory': 20,
     'dormitory_floor_1': 40,
@@ -14,6 +17,28 @@ DIC_RECOVER_MAX = {
 }
 OATH_RECOVER = 10
 ONSEN_RECOVER = 10
+
+DIC_LIMIT = {
+    'keep_exp_bonus': 120,
+    'prevent_green_face': 40,
+    'prevent_yellow_face': 30,
+    'prevent_red_face': 2,
+}
+
+
+def fleet_battle_counts(battle, order, fleet2):
+    """按出战顺序分配战斗次数，未启用的第二舰队不参与。"""
+    if not fleet2:
+        return battle, 0
+    if order == 'fleet1_mob_fleet2_boss':
+        return max(battle - 1, 0), min(battle, 1)
+    if order == 'fleet1_boss_fleet2_mob':
+        return min(battle, 1), max(battle - 1, 0)
+    if order == 'fleet1_all_fleet2_standby':
+        return battle, 0
+    if order == 'fleet1_standby_fleet2_all':
+        return 0, battle
+    raise ValueError(f'Unknown fleet order: {order}')
 
 
 def emotion_recovery_speed(recover, oath=False, onsen=False):

@@ -157,6 +157,21 @@ class TestMapPreparation(unittest.TestCase):
         operation.appear.assert_any_call(MAP_PREPARATION, offset=(20, 20))
         operation.appear.assert_any_call(MAP_PREPARATION_FALLBACK, threshold=20)
 
+    def test_immediate_start_inherits_auto_search_mode(self):
+        operation = object.__new__(MapOperation)
+        operation.config = Mock(
+            Campaign_UseAutoSearch=True,
+            Campaign_UseClearMode=False,
+            MAP_CLEAR_ALL_THIS_TIME=False,
+        )
+        operation.map_is_auto_search = False
+        operation.appear = Mock(return_value=True)
+        operation.device = Mock()
+
+        self.assertTrue(operation.handle_map_detail())
+        self.assertTrue(operation.map_is_auto_search)
+        operation.device.click.assert_called_once_with(MAP_DETAIL_IMMEDIATE_START)
+
     def test_hard_preparation_returns_hard_button(self):
         operation = object.__new__(MapOperation)
         operation.config = Mock(MAP_HAS_CLEAR_PERCENTAGE=False)

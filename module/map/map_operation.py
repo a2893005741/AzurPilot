@@ -330,11 +330,11 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                         logger.info('[地图-操作] 自动搜索运行中出现')
                         break
                     if hasattr(self, 'is_combat_loading') and self.is_combat_loading():
-                        logger.warning('[地图-操作] 进入地图时战斗加载画面出现')
+                        logger.info('[地图-操作] 进入地图时检测到战斗加载画面')
                         break
                 else:
                     if hasattr(self, 'is_combat_loading') and self.is_combat_loading():
-                        logger.warning('[地图-操作] 进入地图时战斗加载画面出现')
+                        logger.info('[地图-操作] 进入地图时检测到战斗加载画面')
                         break
                     if self.handle_in_map_with_enemy_searching():
                         # self.handle_map_after_combat_story()
@@ -590,6 +590,13 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         if not self.appear(MAP_DETAIL_IMMEDIATE_START, interval=2):
             return False
         logger.info(f'{MAP_DETAIL_IMMEDIATE_START} -> 进入地图')
+        # 新版客户端会从详情页直接进入战斗加载，跳过地图准备页。
+        # 提前继承自动搜索状态，避免加载画面被当作普通地图初始化入口。
+        config = getattr(self, 'config', None)
+        if config and getattr(config, 'Campaign_UseAutoSearch', False) and not (
+                getattr(config, 'Campaign_UseClearMode', False)
+                and getattr(config, 'MAP_CLEAR_ALL_THIS_TIME', False)):
+            self.map_is_auto_search = True
         self.device.click(MAP_DETAIL_IMMEDIATE_START)
         return True
 

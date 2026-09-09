@@ -18,8 +18,9 @@ import pywebio
 from module.base.filter import Filter
 from module.config.config_generated import GeneratedConfig
 from module.config.config_manual import ManualConfig, OutputConfig
-from module.config.config_updater import ConfigUpdater, ensure_time, get_server_next_update, nearest_future
+from module.config.config_updater import EVENTS, ConfigUpdater, ensure_time, get_server_next_update, nearest_future
 from module.config.deep import deep_get, deep_set
+from module.config.emotion_recovery import campaign_emotion_score
 from module.config.time_source import now as current_time
 from module.config.utils import DEFAULT_TIME, dict_to_kv, filepath_config, get_os_reset_remain, path_to_arg, is_good_gpu
 from module.config.watcher import ConfigWatcher
@@ -332,6 +333,17 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         f.load(self.SCHEDULER_PRIORITY)
         if pending:
             pending = f.apply(pending)
+            # 只重排活动图的原有位置，保留重启、委托等任务的优先级。
+            # 无心情记录或忽略心情的任务保持原位。
+            campaign_tasks = [task for task in pending if task.command in EVENTS]
+            if len(campaign_tasks) > 1:
+                scores = {task.command: campaign_emotion_score(self.data, task.command, current_time())
+                          for task in campaign_tasks}
+                campaign_tasks = [task for task in campaign_tasks if scores[task.command] is not None]
+                campaign_tasks.sort(key=lambda task: scores[task.command], reverse=True)
+                campaign_ids = {id(task) for task in campaign_tasks}
+                ordered = iter(campaign_tasks)
+                pending = [next(ordered) if id(task) in campaign_ids else task for task in pending]
         if waiting:
             waiting = f.apply(waiting)
             waiting = sorted(waiting, key=operator.attrgetter("next_run"))

@@ -20,7 +20,9 @@ from module.campaign.campaign_base import CampaignBase
 from module.campaign.campaign_event import CampaignEvent
 from module.shop.shop_status import ShopStatus
 from module.campaign.campaign_ui import MODE_SWITCH_1
+from module.combat.emotion import EmotionRecoveryRequired
 from module.config.config import AzurLaneConfig
+from module.config.config_updater import EVENTS
 from module.config.task_priority import parse_task_priority
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import map_files, to_map_file_name
@@ -130,6 +132,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
                 title=f"AzurPilot <{self.config.config_name}> campaign finished",
                 content=f"<{self.config.config_name}> {self.name} reached level limit"
             )
+            return True
+        # 活动图心情不足时，先按恢复时间延期，避免被石油或任务均衡器的延期覆盖。
+        if self.delay_event_for_emotion(refresh_map=oil_check):
             return True
         # 石油限制
         if oil_check:
@@ -419,6 +424,24 @@ class CampaignRun(CampaignEvent, ShopStatus):
         """单次战役完成后的扩展钩子。"""
         pass
 
+    def delay_event_for_emotion(self, refresh_map=False):
+        """按下一轮实际消耗延期活动图，将后续任务留给调度器选择。"""
+        task = self.config.task.command
+        if task not in EVENTS:
+            return False
+        if not self.campaign.emotion.is_calculate:
+            return False
+        if refresh_map:
+            self.campaign.map_get_info()
+            self.campaign.__dict__.pop('_map_battle', None)
+        try:
+            self.campaign.emotion.check_reduce(self.campaign._map_battle)
+        except ScriptEnd:
+            # 战役持有独立配置副本，同步延期，避免运行器随后保存旧状态。
+            self.config.update()
+            return True
+        return False
+
     def get_low_emotion_next_campaign_tasks(self, task):
         """从任务优先级配置中获取当前战役系列的后续任务。"""
         task_prefix = next(
@@ -475,6 +498,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
         # 不能继续用过高的旧值（例如 75）计算，否则会把当前任务排回现在。
         for fleet in fleets:
             fleet.current = 0
+            fleet._fractional_seconds = 0
         emotion.record()
         emotion.show()
         recovered = emotion.get_recovered_for_battle(self.campaign._map_battle)
@@ -487,7 +511,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
 
         # 后继同系列战役图由用户的任务优先级配置决定，跳过用户禁用的任务。
         # 所有后继图不可调用时，最后一张图交由调度器处理。
-        for next_task in self.get_low_emotion_next_campaign_tasks(task):
+        # 活动图保留其他任务的 NextRun，防止唤醒仍在恢复的图形成空转。
+        next_tasks = [] if task in EVENTS else self.get_low_emotion_next_campaign_tasks(task)
+        for next_task in next_tasks:
             if self.config.task_call(next_task, force_call=False):
                 logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_task}')
                 self.config.update()
@@ -592,6 +618,14 @@ class CampaignRun(CampaignEvent, ShopStatus):
             except CampaignEnd:
                 if not getattr(self.campaign, 'low_emotion_withdrawn', False):
                     raise
+            except EmotionRecoveryRequired:
+                # 战前心情不足时已位于地图/准备页，退出后才能交给其他任务。
+                try:
+                    self.campaign.withdraw(skip_first_screenshot=False)
+                except CampaignEnd:
+                    pass
+                self.delay_event_for_emotion()
+                break
             except ScriptEnd as e:
                 logger.hr('脚本结束')
                 logger.info(str(e))

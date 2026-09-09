@@ -3,12 +3,40 @@
 from datetime import datetime, timedelta
 
 from module.base.emotion import (
+    DIC_LIMIT,
     DIC_RECOVER,
     DIC_RECOVER_MAX,
     SECONDS_PER_TICK,
     calculate_emotion_recovery,
     emotion_recovery_speed,
+    fleet_battle_counts,
 )
+from module.config.deep import deep_get
+
+
+def campaign_emotion_score(data, task, now):
+    """以实际出战队的最低心情余量排序，不改写持久化记录。"""
+    emotion = deep_get(data, f'{task}.Emotion', default={})
+    if 'calculate' not in emotion.get('Mode', 'calculate'):
+        return None
+    public = deep_get(data, 'General.PublicEmotion', default={})
+    public_tasks = [name.strip() for name in (public.get('Tasks') or '').split(',')]
+    if public.get('Enable') and task in public_tasks:
+        groups = [(public, 'Fleet')]
+    else:
+        fleet = deep_get(data, f'{task}.Fleet', default={})
+        counts = fleet_battle_counts(2, fleet.get('FleetOrder', 'fleet1_mob_fleet2_boss'),
+                                    fleet.get('Fleet2', 0))
+        groups = [(emotion, f'Fleet{i}') for i, count in enumerate(counts, 1) if count]
+    margins = []
+    for group, prefix in groups:
+        group = group.copy()
+        _recover_fleet(group, prefix, now)
+        value = group.get(f'{prefix}Value')
+        if not isinstance(value, (int, float)):
+            return None
+        margins.append(value - DIC_LIMIT[group.get(f'{prefix}Control', 'prevent_green_face')])
+    return min(margins) if margins else None
 
 
 def _recover_fleet(group, prefix, now):

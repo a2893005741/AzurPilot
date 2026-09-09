@@ -13,6 +13,7 @@ from module.combat.emotion import Emotion, EmotionRecoveryRequired
 from module.config.config import AzurLaneConfig, name_to_function
 from module.config.emotion_recovery import campaign_emotion_score, recover_emotion_config
 from module.exception import CampaignEnd, ScriptEnd
+from module.event.campaign_sp import CampaignSP
 
 
 class MemoryConfig(AzurLaneConfig):
@@ -206,6 +207,47 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
             with self.assertRaises(EmotionRecoveryRequired):
                 emotion.wait(1)
         sleep.assert_not_called()
+
+    def test_sp_waits_mid_map_and_only_schedules_tomorrow_after_completion(self):
+        store = {'EventSp': self.task('EventSp', 40)}
+        runner = object.__new__(CampaignSP)
+        runner.config = self.config(store, 'EventSp')
+        runner.config.task_delay = Mock()
+        emotion = Emotion(runner.config)
+
+        def sleep(seconds):
+            runner.config.task_delay.assert_not_called()
+            self.now += timedelta(seconds=seconds)
+
+        def run_campaign(**kwargs):
+            runner.run_count = 0
+            emotion.wait(1)
+            runner.config.task_delay.assert_not_called()
+            runner.run_count = 1
+
+        with patch('module.event.campaign_sp.os.path.exists', return_value=True), \
+                patch('module.event.campaign_sp.EventBase.run', side_effect=run_campaign), \
+                patch('module.combat.emotion.sleep', side_effect=sleep) as wait:
+            runner.run()
+        self.assertGreater(wait.call_count, 0)
+        self.assertEqual(runner.run_count, 1)
+        runner.config.task_delay.assert_called_once_with(server_update=True)
+
+    def test_sp_and_event_unlock_do_not_use_rotation_preflight(self):
+        for task in ('EventSp', 'EventA', 'EventB', 'EventC', 'EventD'):
+            with self.subTest(task=task):
+                store = {task: self.task(task, 0)}
+                expected = store[task]['Scheduler']['NextRun']
+                runner = self.runner(store, task)
+                self.assertFalse(runner.delay_event_for_emotion())
+                self.assertEqual(store[task]['Scheduler']['NextRun'], expected)
+
+    def test_higher_margin_wins_between_runnable_events(self):
+        store = {'Event': self.task('Event', 60), 'Event2': self.task('Event2', 80)}
+        queue = self.config(store)
+        self.assertEqual(queue.get_next().command, 'Event2')
+        self.assertFalse(self.runner(store).delay_event_for_emotion())
+        self.assertFalse(self.runner(store, 'Event2').delay_event_for_emotion())
 
     def test_mid_map_recovery_exits_run_without_counting_a_clear(self):
         store = {'Event': self.task('Event', 40), 'Event2': self.task('Event2', 60)}

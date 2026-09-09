@@ -2,6 +2,9 @@
 
 SECONDS_PER_TICK = 6 * 60
 
+# 仅重复刷图任务参与心情轮转，限次 SP 与活动开图保留各自的完成判定。
+EMOTION_ROTATION_TASKS = ('Event', 'Event2', 'Event3')
+
 DIC_RECOVER = {
     'not_in_dormitory': 20,
     'dormitory_floor_1': 40,

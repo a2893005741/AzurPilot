@@ -16,13 +16,13 @@ import importlib
 import os
 import random
 
+from module.base.emotion import EMOTION_ROTATION_TASKS
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.campaign_event import CampaignEvent
 from module.shop.shop_status import ShopStatus
 from module.campaign.campaign_ui import MODE_SWITCH_1
 from module.combat.emotion import EmotionRecoveryRequired
 from module.config.config import AzurLaneConfig
-from module.config.config_updater import EVENTS
 from module.config.task_priority import parse_task_priority
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import map_files, to_map_file_name
@@ -427,7 +427,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
     def delay_event_for_emotion(self, refresh_map=False):
         """按下一轮实际消耗延期活动图，将后续任务留给调度器选择。"""
         task = self.config.task.command
-        if task not in EVENTS:
+        if task not in EMOTION_ROTATION_TASKS:
             return False
         if not self.campaign.emotion.is_calculate:
             return False
@@ -512,7 +512,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
         # 后继同系列战役图由用户的任务优先级配置决定，跳过用户禁用的任务。
         # 所有后继图不可调用时，最后一张图交由调度器处理。
         # 活动图保留其他任务的 NextRun，防止唤醒仍在恢复的图形成空转。
-        next_tasks = [] if task in EVENTS else self.get_low_emotion_next_campaign_tasks(task)
+        next_tasks = [] if task in EMOTION_ROTATION_TASKS else self.get_low_emotion_next_campaign_tasks(task)
         for next_task in next_tasks:
             if self.config.task_call(next_task, force_call=False):
                 logger.info(f'[低心情] {task} 已撤退，立即切换到 {next_task}')

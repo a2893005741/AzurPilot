@@ -25,6 +25,7 @@ from module.base.decorator import cached_property
 from module.base.emotion import (
     DIC_LIMIT,
     DIC_RECOVER_MAX,
+    EMOTION_ROTATION_TASKS,
     SECONDS_PER_TICK,
     calculate_emotion_recovery,
     emotion_recovery_speed,
@@ -32,7 +33,6 @@ from module.base.emotion import (
 )
 from module.base.utils import random_normal_distribution_int
 from module.config.time_source import now as current_time
-from module.config.config_updater import EVENTS
 from module.exception import ScriptEnd, ScriptError, RequestHumanTakeover
 from module.logger import logger
 
@@ -372,10 +372,16 @@ class Emotion:
             raise ScriptEnd('[情绪-延迟] 情绪控制')
 
     def wait(self, fleet_index):
-        """等待指定舰队的情绪恢复。应在进入任何战斗之前调用。
+        """战前检查指定舰队心情，普通任务等待恢复，重复活动图交回调度。
+
+        Event、Event2、Event3 心情不足时抛出 EmotionRecoveryRequired，
+        由 CampaignRun 撤退并按下一轮需求延期；每日 SP 和活动开图继续原地等待。
 
         Args:
             fleet_index (int): 舰队编号，1 或 2。
+
+        Raises:
+            EmotionRecoveryRequired: 重复活动图心情不足，调用方须先撤退再延期。
         """
         self.update()
         self.record()
@@ -388,7 +394,7 @@ class Emotion:
         recovered = fleet.get_recovered(expected_reduce=self.reduce_per_battle)
         if recovered > current_time():
             task = self.config.task.command
-            if task in EVENTS:
+            if task in EMOTION_ROTATION_TASKS:
                 raise EmotionRecoveryRequired('[情绪-延迟] 活动图战斗中心情不足')
             logger.hr('情绪等待')
             if self.using_public:

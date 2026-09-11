@@ -2331,6 +2331,173 @@
       }
     }
   },
+  "OperationHandover": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "OperationHandover",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": "30-60",
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": "30-60",
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
+    "Campaign": {
+      "Name": {
+        "type": "input",
+        "value": "12-4"
+      },
+      "Event": {
+        "type": "select",
+        "value": "campaign_main",
+        "option": [
+          "campaign_main",
+          "event_20260813_cn",
+          "event_20260908_cn"
+        ],
+        "option_cn": [
+          "event_20260908_cn"
+        ],
+        "option_en": [
+          "event_20260908_cn"
+        ],
+        "option_jp": [
+          "event_20260908_cn"
+        ],
+        "option_tw": [
+          "event_20260813_cn"
+        ],
+        "option_bold": [
+          "campaign_main",
+          "event_20260813_cn",
+          "event_20260908_cn"
+        ]
+      },
+      "Mode": {
+        "type": "select",
+        "value": "normal",
+        "option": [
+          "normal",
+          "hard"
+        ]
+      },
+      "UseClearMode": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "UseFleetLock": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "UseAutoSearch": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "Use2xBook": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "AmbushEvade": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "UseRecommendFleet": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "DefeatWithdraw": {
+        "type": "select",
+        "value": "withdraw_stop",
+        "option": [
+          "withdraw_continue",
+          "switch_fleet",
+          "withdraw_stop"
+        ],
+        "display": "hide"
+      }
+    },
+    "OperationHandover": {
+      "BattleCount": {
+        "type": "input",
+        "value": 1,
+        "validate": [
+          1,
+          15
+        ]
+      },
+      "FullDelegationBookCount": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          15
+        ]
+      },
+      "AutoSupplementTime": {
+        "type": "checkbox",
+        "value": false
+      },
+      "UseHandoverBook": {
+        "type": "checkbox",
+        "value": false
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
   "GemsFarming": {
     "Scheduler": {
       "Enable": {
@@ -3894,165 +4061,6 @@
       "Fleet2Onsen": {
         "type": "checkbox",
         "value": false
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "OperationHandover": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "PushNotification": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "input",
-        "value": "OperationHandover",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": "30-60",
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": "30-60",
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      },
-      "Sensitive": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      }
-    },
-    "Campaign": {
-      "Name": {
-        "type": "input",
-        "value": "12-4"
-      },
-      "Event": {
-        "type": "select",
-        "value": "campaign_main",
-        "option": [
-          "campaign_main",
-          "event_20260813_cn",
-          "event_20260908_cn"
-        ],
-        "option_cn": [
-          "event_20260908_cn"
-        ],
-        "option_en": [
-          "event_20260908_cn"
-        ],
-        "option_jp": [
-          "event_20260908_cn"
-        ],
-        "option_tw": [
-          "event_20260813_cn"
-        ],
-        "option_bold": [
-          "campaign_main",
-          "event_20260813_cn",
-          "event_20260908_cn"
-        ]
-      },
-      "Mode": {
-        "type": "select",
-        "value": "normal",
-        "option": [
-          "normal",
-          "hard"
-        ]
-      },
-      "UseClearMode": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "UseFleetLock": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "UseAutoSearch": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "Use2xBook": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "AmbushEvade": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "UseRecommendFleet": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "DefeatWithdraw": {
-        "type": "select",
-        "value": "withdraw_stop",
-        "option": [
-          "withdraw_continue",
-          "switch_fleet",
-          "withdraw_stop"
-        ],
-        "display": "hide"
-      }
-    },
-    "OperationHandover": {
-      "BattleCount": {
-        "type": "input",
-        "value": 1,
-        "validate": [
-          1,
-          15
-        ]
-      },
-      "FullDelegationBookCount": {
-        "type": "input",
-        "value": 0,
-        "validate": [
-          0,
-          15
-        ]
       }
     },
     "Storage": {

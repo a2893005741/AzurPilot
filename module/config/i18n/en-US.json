@@ -66,6 +66,10 @@
       "name": "Main Campaign-3 Plus",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "Operation Handover Plus",
+      "help": "Runs operational handover on the selected stage without starting regular sorties."
+    },
     "GemsFarming": {
       "name": "Urgent Commission Plus",
       "help": ""
@@ -77,10 +81,6 @@
     "Ambush11": {
       "name": "Ambush 1-1",
       "help": ""
-    },
-    "OperationHandover": {
-      "name": "Operation Handover Plus",
-      "help": "Runs operational handover on the selected stage without starting regular sorties."
     },
     "EventGeneral": {
       "name": "Event General",
@@ -1358,6 +1358,14 @@
     "FullDelegationBookCount": {
       "name": "Full delegation books",
       "help": "Number of full delegation books to use in one batch."
+    },
+    "AutoSupplementTime": {
+      "name": "Auto Supplement Time",
+      "help": "Exchange Handover Books for available time when remaining time is insufficient (1 book = 1 hour)."
+    },
+    "UseHandoverBook": {
+      "name": "Maximize Handover Books",
+      "help": "Max out invested Handover Books before starting; overrides fixed book count when enabled."
     }
   },
   "StopCondition": {

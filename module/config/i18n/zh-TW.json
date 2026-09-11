@@ -66,6 +66,10 @@
       "name": "主線圖-3Plus",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "作戰委託Plus",
+      "help": "進入指定關卡執行作戰委託，作戰期間不進行普通出擊。"
+    },
     "GemsFarming": {
       "name": "緊急委託Plus",
       "help": ""
@@ -77,10 +81,6 @@
     "Ambush11": {
       "name": "1-1刷伏擊(測試中)",
       "help": "在1-1不打boss刷伏擊獲得物資等，支援按緊急委託流程自動換船。"
-    },
-    "OperationHandover": {
-      "name": "作戰委託Plus",
-      "help": "進入指定關卡執行作戰委託，作戰期間不進行普通出擊。"
     },
     "EventGeneral": {
       "name": "活動通用",
@@ -1358,6 +1358,14 @@
     "FullDelegationBookCount": {
       "name": "全權委託書數量",
       "help": "每批使用的作戰全權委託書數量。"
+    },
+    "AutoSupplementTime": {
+      "name": "自動補充時間",
+      "help": "剩餘可用時間不足以完成委託時，用作戰全權委託書兌換可用時間（1 本 = 1 小時）"
+    },
+    "UseHandoverBook": {
+      "name": "最大投入委託書",
+      "help": "開始委託前把作戰全權委託書的投入量拉到最大；開啟時忽略固定數量。"
     }
   },
   "StopCondition": {

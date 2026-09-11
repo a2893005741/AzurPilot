@@ -11,6 +11,7 @@ from module.campaign.operation_handover import (
     DELEGATION_SHIP_SKIP,
     DELEGATION_TOTAL_LEAVE,
     OperationHandover,
+    HANDOVER_STOP_CHECK,
 )
 
 
@@ -21,14 +22,25 @@ class TestOperationHandover(unittest.TestCase):
         operation.config = Mock()
         operation.config.OperationHandover_BattleCount = 2
         operation.config.OperationHandover_FullDelegationBookCount = 1
+        operation.config.OperationHandover_AutoSupplementTime = False
+        operation.config.OperationHandover_UseHandoverBook = False
         operation.config.task_delay = Mock()
         operation._handover_finished = False
         operation.appear = Mock(return_value=False)
         operation.handle_popup_confirm = Mock(return_value=False)
+        operation.appear_then_click = Mock(side_effect=lambda button, **kw: (
+            operation.device.click(button) or True) if operation.appear(button, **kw) else False)
         return operation
+
+    def prepare_batch(self, operation):
+        for _ in range(5):
+            operation.handle_handover_panel()
+            if operation._handover_finished or getattr(operation, '_handover_start_pending', False):
+                break
 
     def test_idle_starts_configured_batch(self):
         operation = self.make_operation()
+        operation._set_handover_value = Mock(return_value=True)
         operation._set_handover_amount = Mock(return_value=True)
         operation._read_handover_duration = Mock(return_value=timedelta(minutes=12))
         operation._read_handover_remaining = Mock(return_value=timedelta(minutes=48))
@@ -36,13 +48,13 @@ class TestOperationHandover(unittest.TestCase):
 
         def visible(button, **kwargs):
             if getattr(operation, '_handover_start_pending', False):
-                return button is DELEGATION_DETAIL_CLOSE
+                return button in (DELEGATION_DETAIL_CLOSE, HANDOVER_STOP_CHECK)
             return button is DELEGATION_HANDOVER_START
 
         operation.appear = Mock(side_effect=visible)
 
-        self.assertTrue(operation.handle_handover_panel())
-        operation._set_handover_amount.assert_called_once_with(2, 1)
+        self.prepare_batch(operation)
+        operation._set_handover_value.assert_called()
         operation.device.click.assert_called_once_with(DELEGATION_HANDOVER_START)
         operation.config.task_delay.assert_not_called()
 
@@ -136,6 +148,7 @@ class TestOperationHandover(unittest.TestCase):
 
     def test_start_requires_running_state_confirmation(self):
         operation = self.make_operation()
+        operation._set_handover_value = Mock(return_value=True)
         operation._set_handover_amount = Mock(return_value=True)
         operation._read_handover_duration = Mock(return_value=timedelta(minutes=12))
         operation._read_handover_remaining = Mock(return_value=timedelta(minutes=48))
@@ -143,11 +156,11 @@ class TestOperationHandover(unittest.TestCase):
 
         def visible(button, **kwargs):
             if getattr(operation, '_handover_start_pending', False):
-                return button is DELEGATION_DETAIL_CLOSE
+                return button in (DELEGATION_DETAIL_CLOSE, HANDOVER_STOP_CHECK)
             return button is DELEGATION_HANDOVER_START
 
         operation.appear = Mock(side_effect=visible)
-        self.assertTrue(operation.handle_handover_panel())
+        self.prepare_batch(operation)
         self.assertFalse(operation._handover_finished)
         operation.device.click.assert_called_once_with(DELEGATION_HANDOVER_START)
         operation.config.task_delay.assert_not_called()
@@ -162,18 +175,36 @@ class TestOperationHandover(unittest.TestCase):
 
     def test_duration_is_read_after_amount_configuration(self):
         operation = self.make_operation()
+        operation._set_handover_value = Mock(return_value=True)
         events = []
         operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_HANDOVER_START)
-        operation._set_handover_amount = Mock(side_effect=lambda *_: events.append('set') or True)
+        operation._set_handover_value = Mock(side_effect=lambda *_: events.append('set') or True)
+        operation._set_handover_amount = Mock(return_value=True)
         operation._read_handover_duration = Mock(
             side_effect=lambda: events.append('duration') or timedelta(minutes=12))
         operation._read_handover_remaining = Mock(
             side_effect=lambda: events.append('remaining') or timedelta(minutes=48))
         operation._read_available_books = Mock(return_value=3)
 
-        self.assertTrue(operation.handle_handover_panel())
+        self.prepare_batch(operation)
         self.assertLess(events.index('set'), events.index('duration'))
         self.assertLess(events.index('set'), events.index('remaining'))
+
+    def test_close_button_alone_does_not_confirm_start(self):
+        operation = self.make_operation()
+        operation._handover_start_pending = True
+        operation.appear = Mock(side_effect=lambda button, **kw: button is DELEGATION_DETAIL_CLOSE)
+        self.assertFalse(operation.handle_handover_panel())
+        operation.device.click.assert_not_called()
+        operation.config.task_delay.assert_not_called()
+
+    def test_start_confirmation_popup_is_handled_before_running_check(self):
+        operation = self.make_operation()
+        operation._handover_start_pending = True
+        operation.handle_popup_confirm.return_value = True
+        self.assertTrue(operation.handle_handover_panel())
+        operation.handle_popup_confirm.assert_called_once_with('HANDOVER_START')
+        operation.config.task_delay.assert_not_called()
 
     def test_insufficient_time_does_not_start(self):
         operation = self.make_operation()
@@ -181,10 +212,12 @@ class TestOperationHandover(unittest.TestCase):
         operation._read_handover_duration = Mock(return_value=timedelta(minutes=12))
         operation._read_handover_remaining = Mock(return_value=timedelta(minutes=5))
         operation._read_available_books = Mock(return_value=3)
+        operation._set_handover_value = Mock(return_value=True)
         operation._set_handover_amount = Mock(return_value=True)
 
-        self.assertTrue(operation.handle_handover_panel())
-        operation._set_handover_amount.assert_called_once_with(2, 1)
+        self.prepare_batch(operation)
+        operation._set_handover_value.assert_called()
+        operation._set_handover_amount.assert_not_called()
         self.assertNotIn(DELEGATION_HANDOVER_START, [item.args[0] for item in operation.device.click.call_args_list])
 
     def test_insufficient_books_does_not_start(self):
@@ -193,9 +226,11 @@ class TestOperationHandover(unittest.TestCase):
         operation._read_handover_duration = Mock(return_value=timedelta(minutes=12))
         operation._read_handover_remaining = Mock(return_value=timedelta(minutes=48))
         operation._read_available_books = Mock(return_value=0)
+        operation._set_handover_value = Mock()
         operation._set_handover_amount = Mock()
 
-        self.assertTrue(operation.handle_handover_panel())
+        self.prepare_batch(operation)
+        operation._set_handover_value.assert_called_once()
         operation._set_handover_amount.assert_not_called()
         self.assertNotIn(DELEGATION_HANDOVER_START, [item.args[0] for item in operation.device.click.call_args_list])
 

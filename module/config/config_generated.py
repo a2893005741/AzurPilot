@@ -218,6 +218,8 @@ class GeneratedConfig:
     # 配置组 `OperationHandover`
     OperationHandover_BattleCount = 1
     OperationHandover_FullDelegationBookCount = 0
+    OperationHandover_AutoSupplementTime = False
+    OperationHandover_UseHandoverBook = False
 
     # 配置组 `StopCondition`
     StopCondition_OilLimit = 1000

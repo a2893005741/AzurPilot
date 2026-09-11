@@ -66,6 +66,10 @@
       "name": "主线图-3冲锋喵！",
       "help": "第三章挑战，雪风会保护大家的喵！( •̀ ω •́ )✧"
     },
+    "OperationHandover": {
+      "name": "作战委托Plus喵",
+      "help": "进入指定关卡执行作战委托，期间不进行普通出击喵。"
+    },
     "GemsFarming": {
       "name": "紧急委托喵赚！",
       "help": "通过紧急委托攒点零花钱喵，钻石亮闪闪 ✧٩(ˊωˋ*)و✧"
@@ -77,10 +81,6 @@
     "Ambush11": {
       "name": "1-1刷伏击喵",
       "help": "在1-1不碰boss刷伏击捞物资喵，还能自动换船~ 暂时不太完善"
-    },
-    "OperationHandover": {
-      "name": "作战委托Plus喵",
-      "help": "进入指定关卡执行作战委托，期间不进行普通出击喵。"
     },
     "EventGeneral": {
       "name": "活动通用守则喵",
@@ -1358,6 +1358,14 @@
     "FullDelegationBookCount": {
       "name": "全权委托书数量喵",
       "help": "每批使用的作战全权委托书数量喵。"
+    },
+    "AutoSupplementTime": {
+      "name": "自动补充时间喵",
+      "help": "时间不够就用委托书换喵，一本换一小时喵 (=^･ω･^=)"
+    },
+    "UseHandoverBook": {
+      "name": "最大投入委托书喵",
+      "help": "开打之前把委托书塞满喵！开启时无视固定数量喵～"
     }
   },
   "StopCondition": {

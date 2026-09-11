@@ -406,6 +406,8 @@ OperationHandover:
     type: input
     value: 0
     validate: [0, 15]
+  AutoSupplementTime: false
+  UseHandoverBook: false
 StopCondition:
   OilLimit: 1000
   CoinLimit: 0

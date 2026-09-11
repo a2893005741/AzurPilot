@@ -66,6 +66,10 @@
       "name": "主线图-3Plus",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "作战委托Plus",
+      "help": "进入指定关卡执行作战委托，作战期间不进行普通出击。"
+    },
     "GemsFarming": {
       "name": "紧急委托Plus",
       "help": ""
@@ -77,10 +81,6 @@
     "Ambush11": {
       "name": "1-1刷伏击(尚不完善)",
       "help": "在1-1不打boss刷伏击获得物资等，支持按紧急委托流程自动换船。"
-    },
-    "OperationHandover": {
-      "name": "作战委托Plus",
-      "help": "进入指定关卡执行作战委托，作战期间不进行普通出击。"
     },
     "EventGeneral": {
       "name": "活动通用设置",
@@ -1358,6 +1358,14 @@
     "FullDelegationBookCount": {
       "name": "全权委托书数量",
       "help": "每批使用的作战全权委托书数量。"
+    },
+    "AutoSupplementTime": {
+      "name": "自动补充时间",
+      "help": "剩余可用时间不足以完成委托时，用作战全权委托书兑换可用时间（1 本 = 1 小时）"
+    },
+    "UseHandoverBook": {
+      "name": "最大投入委托书",
+      "help": "开始委托前把作战全权委托书的投入量拉到最大；开启时忽略固定数量。"
     }
   },
   "StopCondition": {

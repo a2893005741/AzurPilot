@@ -17,29 +17,6 @@ Restart:
 
 # ==================== Farm ====================
 
-OperationHandover:
-  Campaign:
-    UseAutoSearch:
-      display: hide
-      value: false
-    UseClearMode:
-      display: hide
-      value: false
-    UseFleetLock:
-      display: hide
-      value: false
-    Use2xBook:
-      display: hide
-      value: false
-    AmbushEvade:
-      display: hide
-      value: false
-    UseRecommendFleet:
-      display: hide
-      value: false
-    DefeatWithdraw:
-      display: hide
-      value: withdraw_stop
 Main:
   Campaign:
     Event: campaign_main
@@ -545,6 +522,29 @@ WarArchives:
   Campaign:
     Mode: normal
     AmbushEvade: true
+OperationHandover:
+  Campaign:
+    UseClearMode:
+      display: hide
+      value: false
+    UseFleetLock:
+      display: hide
+      value: false
+    UseAutoSearch:
+      display: hide
+      value: false
+    Use2xBook:
+      display: hide
+      value: false
+    AmbushEvade:
+      display: hide
+      value: false
+    UseRecommendFleet:
+      display: hide
+      value: false
+    DefeatWithdraw:
+      display: hide
+      value: withdraw_stop
 
 # ==================== Opsi ====================
 

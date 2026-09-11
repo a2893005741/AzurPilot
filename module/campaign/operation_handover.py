@@ -24,8 +24,15 @@ from module.campaign.assets import (
     OPERATION_HANDOVER_ENTRY,
     OPERATION_HANDOVER_PANEL_CLOSE,
 )
+from module.campaign.handover_preparation import HandoverPreparation
 from module.campaign.run import CampaignRun
 from module.config.time_source import now as current_time
+from module.map.assets import (
+    HANDOVER_BOOK_AMOUNT_OCR,
+    HANDOVER_STOP_CHECK,
+    HANDOVER_TIME_NEEDED_OCR,
+    HANDOVER_TIME_REMAINING_OCR,
+)
 from module.logger import logger
 from module.ocr.ocr import Ocr
 
@@ -36,13 +43,9 @@ OCR_DELEGATION_BATTLE_COUNT = Button(
 OCR_DELEGATION_BOOK_COUNT = Button(
     area=(808, 244, 902, 283), color=(45, 45, 52), button=(),
     name='OCR_DELEGATION_BOOK_COUNT')
-OCR_DELEGATION_REQUIRED_TIME = Button(
-    area=(520, 321, 611, 348), color=(45, 45, 52), button=(),
-    name='OCR_DELEGATION_REQUIRED_TIME')
-OCR_DELEGATION_REMAINING_TIME = Button(
-    area=(520, 362, 611, 389), color=(45, 145, 66), button=(),
-    name='OCR_DELEGATION_REMAINING_TIME')
-# 面板右上角的委托书图标计数，用于防止库存不足时部分启动。
+OCR_DELEGATION_REQUIRED_TIME = HANDOVER_TIME_NEEDED_OCR
+OCR_DELEGATION_REMAINING_TIME = HANDOVER_TIME_REMAINING_OCR
+# 面板库存与兑换弹窗库存分别读取。
 OCR_DELEGATION_BOOK_STOCK = Button(
     area=(1170, 12, 1250, 62), color=(120, 129, 149), button=(),
     name='OCR_DELEGATION_BOOK_STOCK')
@@ -54,9 +57,10 @@ _OCR_REQUIRED_TIME = Ocr(
 _OCR_REMAINING_TIME = Ocr(
     OCR_DELEGATION_REMAINING_TIME,
     # 界面中的剩余时间使用绿色字体；OCR 预处理按截图的 BGR 字色提取。
-    letter=(47, 180, 108), threshold=128,
+    letter=(110, 184, 48), threshold=128,
     alphabet='0123456789:', name='OCR_DELEGATION_REMAINING_TIME')
 _OCR_BOOK_STOCK = Ocr(OCR_DELEGATION_BOOK_STOCK, alphabet='0123456789', name='OCR_DELEGATION_BOOK_STOCK')
+_OCR_EXCHANGE_BOOKS = Ocr(HANDOVER_BOOK_AMOUNT_OCR, alphabet='0123456789', name='OCR_EXCHANGE_BOOKS')
 
 _HANDOVER_MAX_COUNT = 15
 _HANDOVER_ADJUST_LIMIT = 5
@@ -68,14 +72,16 @@ def _parse_count(value):
 
 
 def _parse_duration(value):
-    match = re.search(r'(\d{1,2}):?(\d{2}):?(\d{2})', str(value or ''))
+    match = re.fullmatch(r'(\d{1,3}):?(\d{2}):?(\d{2})', str(value or '').strip())
     if not match:
         return None
     hours, minutes, seconds = (int(item) for item in match.groups())
+    if minutes >= 60 or seconds >= 60:
+        return None
     return timedelta(hours=hours, minutes=minutes, seconds=seconds)
 
 
-class OperationHandover(CampaignRun):
+class OperationHandover(HandoverPreparation, CampaignRun):
     """只处理作战委托面板的独立任务。"""
 
     _HANDOVER_PANEL_MARKERS = (
@@ -138,6 +144,8 @@ class OperationHandover(CampaignRun):
             logger.info('[作战委托] 已在作战委托详情页，跳过战役导航')
 
         self._handover_finished = False
+        self._handover_preparing = None
+        self._handover_start_pending = False
         for _ in self.loop(skip_first=False, timeout=90):
             if self.handle_handover_panel():
                 if self._handover_finished:
@@ -172,6 +180,29 @@ class OperationHandover(CampaignRun):
             return self._read_count(_OCR_BOOK_STOCK)
         except Exception:
             return None
+
+    def _read_exchange_books(self):
+        return self._read_count(_OCR_EXCHANGE_BOOKS)
+
+    def _read_selected_books(self):
+        return self._read_count(_OCR_BOOK_COUNT)
+
+    def _set_fixed_handover_books(self, count):
+        return self._set_handover_value(
+            _OCR_BOOK_COUNT, count, DELEGATION_BOOK_PLUS, DELEGATION_BOOK_MINUS,
+            _HANDOVER_MAX_COUNT, '全权委托书数量', DELEGATION_BOOK_MAX)
+
+    def _delay_server_update(self, reason):
+        logger.warning(f'[作战委托] {reason}，延后到日更')
+        self.config.task_delay(server_update=True)
+        self._handover_finished = True
+        return True
+
+    def _delay_retry(self, reason):
+        logger.warning(f'[作战委托] {reason}，延后 30 分钟')
+        self.config.task_delay(minute=30)
+        self._handover_finished = True
+        return True
 
     def _set_handover_value(self, ocr, target, plus, minus, maximum, label, max_button):
         """通过 OCR 设置单项数量，并限制连续点击次数避免误触保护。"""
@@ -237,6 +268,10 @@ class OperationHandover(CampaignRun):
     def handle_handover_panel(self):
         """处理面板当前可确认的一步，返回是否完成了一次操作。"""
         if getattr(self, '_handover_start_pending', False):
+            if self.handle_popup_confirm('HANDOVER_START'):
+                return True
+            if not self.appear(HANDOVER_STOP_CHECK, offset=(20, 20)):
+                return False
             for close_button in (OPERATION_HANDOVER_PANEL_CLOSE, DELEGATION_DETAIL_CLOSE):
                 if self.appear(close_button, offset=(20, 20), interval=1):
                     logger.info('[作战委托] 已确认作战启动，关闭详情并等待')
@@ -266,33 +301,16 @@ class OperationHandover(CampaignRun):
             self._reward_flow = True
             return True
 
+        if getattr(self, '_handover_preparing', None):
+            return self._prepare_handover()
+
         if self.appear(DELEGATION_HANDOVER_START, offset=(20, 20), interval=1):
-            battle_count = max(1, int(self.config.OperationHandover_BattleCount))
-            book_count = max(0, int(self.config.OperationHandover_FullDelegationBookCount))
-            stock = self._read_available_books() if book_count else 0
-            if book_count and (stock is None or stock < book_count):
-                logger.warning('[作战委托] 全权委托书库存不足，不启动本批次')
-                self.config.task_delay(server_update=True)
-                self._handover_finished = True
-                return True
-            if not self._set_handover_amount(battle_count, book_count):
-                self.config.task_delay(minute=30)
-                self._handover_finished = True
-                return True
-
-            # 数量变化会改变委托耗时，必须在刷新截图后重新 OCR 时间。
-            self.device.screenshot()
-            required = self._read_handover_duration()
-            available = self._read_handover_remaining()
-            if required is None or available is None or available < required:
-                logger.warning('[作战委托] 可用时间不足或 OCR 失败，不启动本批次')
-                self.config.task_delay(server_update=True)
-                self._handover_finished = True
-                return True
-
-            self.device.click(DELEGATION_HANDOVER_START)
-            self._handover_start_duration = required
-            self._handover_start_pending = True
+            if not self._set_handover_value(
+                    _OCR_COUNT, self.config.OperationHandover_BattleCount,
+                    DELEGATION_BATTLE_PLUS, DELEGATION_BATTLE_MINUS,
+                    _HANDOVER_MAX_COUNT, '作战次数', DELEGATION_BATTLE_MAX):
+                return self._delay_retry('作战次数调整未确认')
+            self._begin_handover_preparation()
             return True
 
         for close_button in (DELEGATION_DETAIL_CLOSE, OPERATION_HANDOVER_PANEL_CLOSE):

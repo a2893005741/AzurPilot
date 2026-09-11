@@ -24,6 +24,9 @@ class TestHandoverPreparation(unittest.TestCase):
         self.assertEqual(result['OperationHandover'], {
             'BattleCount': 7, 'FullDelegationBookCount': 3,
             'AutoSupplementTime': False, 'UseHandoverBook': False,
+            'ConsumeAllBook': False, 'ConsumeAllBookWeekday': 'sun',
+            'ConsumeAllBookTime': '00:00', 'ConsumeAllBookRecord': None,
+            'MaintainOverride': False, 'OilLimit': 1000,
         })
         self.assertEqual(result['Scheduler']['SuccessInterval'], '30-60')
         self.assertFalse(result['Campaign']['UseAutoSearch'])
@@ -40,6 +43,9 @@ class TestHandoverPreparation(unittest.TestCase):
             OperationHandover_UseHandoverBook=maximum,
             OperationHandover_AutoSupplementTime=auto)
         runner._handover_finished = False
+        runner._close_handover_panel = Mock()
+        runner._check_handover_oil = Mock(return_value=True)
+        runner.config.OperationHandover_ConsumeAllBook = False
         runner._read_available_books = Mock(return_value=stock)
         runner._read_exchange_books = Mock(return_value=stock)
         runner._read_selected_books = Mock(return_value=0)

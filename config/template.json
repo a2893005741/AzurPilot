@@ -465,39 +465,6 @@
       "Storage": {}
     }
   },
-  "OperationHandover": {
-    "Scheduler": {
-      "Enable": false,
-      "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
-      "Command": "OperationHandover",
-      "SuccessInterval": "30-60",
-      "FailureInterval": "30-60",
-      "ServerUpdate": "00:00",
-      "Sensitive": false
-    },
-    "Campaign": {
-      "Name": "12-4",
-      "Event": "campaign_main",
-      "Mode": "normal",
-      "UseClearMode": false,
-      "UseFleetLock": false,
-      "UseAutoSearch": false,
-      "Use2xBook": false,
-      "AmbushEvade": false,
-      "UseRecommendFleet": false,
-      "DefeatWithdraw": "withdraw_stop"
-    },
-    "OperationHandover": {
-      "BattleCount": 1,
-      "FullDelegationBookCount": 0,
-      "AutoSupplementTime": false,
-      "UseHandoverBook": false
-    },
-    "Storage": {
-      "Storage": {}
-    }
-  },
   "GemsFarming": {
     "Scheduler": {
       "Enable": false,
@@ -2189,6 +2156,45 @@
     "Awaken": {
       "LevelCap": "level120",
       "Favourite": false
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "OperationHandover": {
+    "Scheduler": {
+      "Enable": false,
+      "PushNotification": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "OperationHandover",
+      "SuccessInterval": "30-60",
+      "FailureInterval": "30-60",
+      "ServerUpdate": "00:00",
+      "Sensitive": false
+    },
+    "Campaign": {
+      "Name": "12-4",
+      "Event": "campaign_main",
+      "Mode": "normal",
+      "UseClearMode": false,
+      "UseFleetLock": false,
+      "UseAutoSearch": false,
+      "Use2xBook": false,
+      "AmbushEvade": false,
+      "UseRecommendFleet": false,
+      "DefeatWithdraw": "withdraw_stop"
+    },
+    "OperationHandover": {
+      "BattleCount": 1,
+      "FullDelegationBookCount": 0,
+      "AutoSupplementTime": false,
+      "UseHandoverBook": false,
+      "ConsumeAllBook": false,
+      "ConsumeAllBookWeekday": "sun",
+      "ConsumeAllBookTime": "00:00",
+      "MaintainOverride": false,
+      "OilLimit": 1000,
+      "ConsumeAllBookRecord": null
     },
     "Storage": {
       "Storage": {}

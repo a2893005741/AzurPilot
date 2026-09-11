@@ -729,6 +729,10 @@ class ConfigUpdater:
             更新后的配置字典。
         """
         new = {}
+        old = deepcopy(old)
+        handover = deep_get(old, 'OperationHandover.OperationHandover', default={})
+        if isinstance(handover, dict) and 'BattleCount' not in handover and 'Count' in handover:
+            handover['BattleCount'] = handover['Count']
 
         for keys, data in deep_iter(self.args, depth=3):
             # 跳过非字典项（叶子值，如字符串、数字等）

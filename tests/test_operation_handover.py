@@ -24,6 +24,13 @@ class TestOperationHandover(unittest.TestCase):
         operation.config.OperationHandover_FullDelegationBookCount = 1
         operation.config.OperationHandover_AutoSupplementTime = False
         operation.config.OperationHandover_UseHandoverBook = False
+        operation.config.OperationHandover_ConsumeAllBook = False
+        operation.config.OperationHandover_MaintainOverride = False
+        operation.config.OperationHandover_OilLimit = 1000
+        operation._handover_oil = 5000
+        operation._read_current_oil = Mock(return_value=5000)
+        operation._check_handover_oil = Mock(return_value=True)
+        operation._close_handover_panel = Mock()
         operation.config.task_delay = Mock()
         operation._handover_finished = False
         operation.appear = Mock(return_value=False)
@@ -100,15 +107,13 @@ class TestOperationHandover(unittest.TestCase):
         operation.device.click.assert_called_once_with(DELEGATION_DETAIL_CLOSE)
         operation.config.task_delay.assert_called_once()
 
-    def test_max_buttons_avoid_repeated_increment_clicks(self):
+    def test_large_battle_count_uses_verified_input(self):
         operation = self.make_operation()
-        operation._read_count = Mock(side_effect=[1, 15, 0, 15])
-
-        self.assertTrue(operation._set_handover_amount(15, 15))
-        self.assertEqual(
-            [call.args[0] for call in operation.device.click.call_args_list],
-            [DELEGATION_BATTLE_MAX, DELEGATION_BOOK_MAX],
-        )
+        operation._read_count = Mock(side_effect=[1, 0])
+        operation._input_battle_count = Mock(return_value=True)
+        self.assertTrue(operation._set_handover_amount(999, 0))
+        operation._input_battle_count.assert_called_once_with(999)
+        operation.device.click.assert_not_called()
 
     def test_reward_page_waits_one_frame_after_state_probe(self):
         operation = self.make_operation()

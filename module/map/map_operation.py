@@ -14,6 +14,8 @@
 和 ``FastForwardHandler``（快进处理），组合了进入地图所需的全部子流程。
 """
 
+from datetime import timedelta
+
 import cv2
 
 from module.base.button import Button
@@ -31,6 +33,7 @@ from module.campaign.assets import (
 )
 from module.combat.assets import BATTLE_PREPARATION, GET_SHIP
 from module.config import server
+from module.config.time_source import now as current_time
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
@@ -53,6 +56,8 @@ MAP_PREPARATION_FALLBACK = Button(
     button=(960, 487, 1172, 558),
     name='MAP_PREPARATION_FALLBACK',
 )
+# 读不到作战委托结束时间时的兜底重试间隔（分钟）
+HANDOVER_CONFLICT_RETRY_MINUTES = 15
 
 
 class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
@@ -166,6 +171,26 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                 continue
 
         return count > 0
+
+    def handle_handover_conflict(self):
+        """联动入口与普通出击共用同一套委托处理流程。"""
+        return self.handle_delegation_popup()
+
+    def handover_conflict_delay(self):
+        """只使用当前详情中的剩余时间，不把任务预约当成委托结束时间。"""
+        from module.campaign.operation_handover import _OCR_RUNNING_TIME, _parse_duration
+
+        remaining = None
+        if self.appear(HANDOVER_STOP_CHECK, offset=(20, 20)):
+            try:
+                remaining = _parse_duration(_OCR_RUNNING_TIME.ocr(self.device.image))
+            except Exception:
+                pass
+        now = current_time()
+        target = now + (remaining + timedelta(minutes=1) if remaining is not None
+                        else timedelta(minutes=HANDOVER_CONFLICT_RETRY_MINUTES))
+        self.config.task_delay(target=target)
+        return target
 
     def enter_map(self, button, mode='normal', skip_first_screenshot=True):
         """
@@ -512,8 +537,9 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         Raises:
             TaskEnd: 详情页仍在进行中且没有领取按钮时，延后任务重试。
         """
-        if self.appear(DELEGATION_POPUP_CHECK, offset=(20, 20)) \
-                and self.appear(DELEGATION_POPUP_CANCEL, offset=(20, 20), interval=2):
+        if (self.appear(DELEGATION_POPUP_CHECK, offset=(20, 20))
+                and self.appear(DELEGATION_POPUP_CANCEL, offset=(20, 20), interval=2)
+                or self.appear(HANDOVER_CONFLICT_CHECK, offset=(20, 20), interval=2)):
             logger.hr('进入作战委托详情')
             self.device.click(DELEGATION_POPUP_CHECK)
             self._delegation_detail_open = True
@@ -521,7 +547,8 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             self._delegation_termination_pending = False
             return True
 
-        if self.appear(DELEGATION_DETAIL_CLAIM, offset=(20, 20), interval=1):
+        if (self.appear(DELEGATION_DETAIL_CLAIM, offset=(20, 20), interval=1)
+                or self.appear(HANDOVER_PASS_CLICK, offset=(20, 20), interval=1)):
             logger.info(f'{DELEGATION_DETAIL_CLAIM} -> 领取奖励')
             self.device.click(DELEGATION_DETAIL_CLAIM)
             self._delegation_detail_open = False
@@ -529,22 +556,6 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             self._delegation_termination_pending = False
             return True
 
-        if getattr(self, '_delegation_detail_open', False) \
-                and self.appear(DELEGATION_DETAIL_TERMINATE, offset=(20, 20), interval=1):
-            logger.info(f'{DELEGATION_DETAIL_TERMINATE} -> 终止作战')
-            self.device.click(DELEGATION_DETAIL_TERMINATE)
-            self._delegation_detail_open = False
-            self._delegation_reward_flow = True
-            self._delegation_termination_pending = True
-            return True
-
-        # 终止确认弹窗使用截图中明确的蓝色确认按钮。
-        if getattr(self, '_delegation_termination_pending', False) \
-                and self.appear(DELEGATION_TERMINATE_CONFIRM, offset=(20, 20), interval=1):
-            logger.info(f'{DELEGATION_TERMINATE_CONFIRM} -> 确定终止作战')
-            self.device.click(DELEGATION_TERMINATE_CONFIRM)
-            self._delegation_termination_pending = False
-            return True
 
         # 领取时的熟练度溢出确认，沿用通用信息弹窗处理器。
         if getattr(self, '_delegation_reward_flow', False) \
@@ -573,14 +584,20 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             return True
 
         # 未完成详情页没有可验证的领取按钮，只能安全退出并延后下次检查。
-        if getattr(self, '_delegation_detail_open', False) \
-                and self.appear(DELEGATION_DETAIL_CLOSE, offset=(20, 20), interval=2):
+        close_button = None
+        if (getattr(self, '_delegation_detail_open', False)
+                or self.appear(HANDOVER_STOP_CHECK, offset=(20, 20))):
+            for candidate in (DELEGATION_DETAIL_CLOSE, HANDOVER_DIALOG_CLOSE):
+                if self.appear(candidate, offset=(20, 20), interval=2):
+                    close_button = candidate
+                    break
+        if close_button is not None:
             logger.warning('[作战委托] 详情仍在进行中，暂时无法领取，延后重试')
-            self.device.click(DELEGATION_DETAIL_CLOSE)
+            self.handover_conflict_delay()
+            self.device.click(close_button)
             self._delegation_detail_open = False
             self._delegation_reward_flow = False
             self._delegation_termination_pending = False
-            self.config.task_delay(minute=(30, 60))
             self.config.task_stop('Delegation is still running')
 
         return False

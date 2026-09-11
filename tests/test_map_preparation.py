@@ -50,19 +50,17 @@ class TestMapPreparation(unittest.TestCase):
         self.assertFalse(operation.handle_delegation_popup())
         operation.handle_popup_confirm.assert_not_called()
 
-    def test_delegation_in_progress_terminates_instead_of_closing_details(self):
+    def test_delegation_never_clicks_terminate(self):
         operation = object.__new__(MapOperation)
         operation.device = Mock()
         operation._delegation_detail_open = True
         operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_DETAIL_TERMINATE)
         operation.handle_popup_confirm = Mock(return_value=False)
 
-        self.assertTrue(operation.handle_delegation_popup())
-        operation.device.click.assert_called_once_with(DELEGATION_DETAIL_TERMINATE)
-        self.assertTrue(operation._delegation_reward_flow)
-        self.assertFalse(operation._delegation_detail_open)
+        self.assertFalse(operation.handle_delegation_popup())
+        operation.device.click.assert_not_called()
 
-    def test_delegation_termination_confirmation_clicks_confirm_button(self):
+    def test_delegation_never_confirms_termination(self):
         operation = object.__new__(MapOperation)
         operation.device = Mock()
         operation._delegation_termination_pending = True
@@ -70,9 +68,8 @@ class TestMapPreparation(unittest.TestCase):
         operation.appear = Mock(side_effect=lambda button, **kwargs: button is DELEGATION_TERMINATE_CONFIRM)
         operation.handle_popup_confirm = Mock(return_value=False)
 
-        self.assertTrue(operation.handle_delegation_popup())
-        operation.device.click.assert_called_once_with(DELEGATION_TERMINATE_CONFIRM)
-        self.assertFalse(operation._delegation_termination_pending)
+        self.assertFalse(operation.handle_delegation_popup())
+        operation.device.click.assert_not_called()
 
     def test_delegation_in_progress_closes_and_delays(self):
         operation = object.__new__(MapOperation)
@@ -85,7 +82,8 @@ class TestMapPreparation(unittest.TestCase):
 
         self.assertRaises(RuntimeError, operation.handle_delegation_popup)
         operation.device.click.assert_called_once_with(DELEGATION_DETAIL_CLOSE)
-        operation.config.task_delay.assert_called_once_with(minute=(30, 60))
+        operation.config.task_delay.assert_called_once()
+        self.assertIn('target', operation.config.task_delay.call_args.kwargs)
         operation.config.task_stop.assert_called_once_with('Delegation is still running')
 
     def test_delegation_reward_flow_skips_ship_then_confirms_total(self):

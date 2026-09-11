@@ -436,6 +436,10 @@ class CoalitionUI(Combat):
             if self.handle_guild_popup_cancel():
                 continue
 
+            # 作战委托进行中，出击会被游戏阻止
+            if self.handle_handover_conflict():
+                continue
+
             # Enter campaign
             if campaign_timer.reached() and self.in_coalition():
                 self.device.click(button)

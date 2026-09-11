@@ -15,9 +15,10 @@ class HandoverPreparation:
     """每次调用至多发出一次兑换或 MAX 操作，不自行启动截图循环。"""
 
     def _begin_handover_preparation(self):
-        self._handover_preparing = 'time'
+        self._handover_preparing = 'books' if self._handover_consume_all else 'time'
+        self._handover_consume_count_ready = False
         self._handover_fixed_books = self.config.OperationHandover_FullDelegationBookCount
-        self._handover_use_max = self.config.OperationHandover_UseHandoverBook
+        self._handover_use_max = self.config.OperationHandover_UseHandoverBook or self._handover_consume_all
         self._handover_auto_time = self.config.OperationHandover_AutoSupplementTime
 
     def _prepare_handover(self):
@@ -40,7 +41,8 @@ class HandoverPreparation:
                     return self._delay_server_update('库存不足以同时补时和固定投入')
             self._handover_required = required
             self._handover_available = available
-            self._handover_preparing = 'exchange_open' if need else 'books'
+            self._handover_preparing = ('exchange_open' if need else
+                                       'final' if self._handover_consume_count_ready else 'books')
             return True
 
         if phase == 'exchange_open':
@@ -76,6 +78,10 @@ class HandoverPreparation:
                 available = self._read_handover_remaining()
                 if available is not None and available >= self._handover_available + timedelta(seconds=3590):
                     self._handover_available = available
+                    if self._handover_consume_all:
+                        self._handover_consume_count_ready = False
+                        self._handover_preparing = 'books'
+                        return True
                     self._handover_preparing = (
                         'exchange_open' if available < self._handover_required else 'books')
                     return True
@@ -101,6 +107,8 @@ class HandoverPreparation:
             if count is None or stock is None:
                 return self._delay_retry('无法确认最大投入数量或库存')
             if stock == 0 and count == 0:
+                if self._handover_consume_all:
+                    return self._delay_retry('没有可投入的委托书')
                 self._handover_preparing = 'final'
                 return True
             # 已经最大时 MAX 不改变数字；先减一本再 MAX，必须观察到真实变化。
@@ -143,10 +151,18 @@ class HandoverPreparation:
                 return True
             if self._handover_observe_timer.reached():
                 if count > self._handover_max_before:
-                    self._handover_preparing = 'final'
+                    self._handover_preparing = 'consume_count' if self._handover_consume_all else 'final'
                     return True
                 return self._delay_retry('MAX 操作未生效')
             return False
+
+        if phase == 'consume_count':
+            count = self._read_selected_books()
+            if count is None or count <= 0 or not self._input_battle_count(count):
+                return self._delay_retry('清书次数输入未确认')
+            self._handover_consume_count_ready = True
+            self._handover_preparing = 'time'
+            return True
 
         if phase == 'final':
             required = self._read_handover_duration()
@@ -158,6 +174,13 @@ class HandoverPreparation:
                     self._handover_preparing = 'time'
                     return True
                 return self._delay_server_update('最终耗时超过可用时间')
+            if self._handover_consume_all:
+                count = self._read_selected_books()
+                stock = self._read_available_books()
+                if count is None or stock is None or count <= 0 or count > stock:
+                    return self._delay_retry('清书投入量或剩余库存无法确认')
+            if not self._check_handover_oil():
+                return self._delay_retry('石油不足或预计消耗无法确认')
             if self.appear_then_click(DELEGATION_HANDOVER_START, offset=(20, 20), interval=2):
                 self._handover_start_duration = required
                 self._handover_start_pending = True

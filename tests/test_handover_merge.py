@@ -36,6 +36,7 @@ class TestHandoverMerge(unittest.TestCase):
         r.appear = Mock(return_value=False)
         r.appear_then_click = Mock(return_value=True)
         r.handle_popup_confirm = Mock(return_value=False)
+        r.handle_urgent_commission = Mock(return_value=False)
         r._close_handover_panel = Mock()
         r._handover_finished = False
         r._read_handover_duration = Mock(return_value=timedelta(minutes=30))
@@ -43,6 +44,34 @@ class TestHandoverMerge(unittest.TestCase):
         r._read_available_books = Mock(return_value=10)
         r._read_selected_books = Mock(return_value=10)
         return r
+
+    def test_weekly_record_survives_config_round_trip(self):
+        from module.config.utils import parse_value
+
+        r = self.runner()
+        r.config.OperationHandover_ConsumeAllBook = True
+        args = json.loads(Path('module/config/argument/args.json').read_text(encoding='utf-8'))
+        data = args['OperationHandover']['OperationHandover']['ConsumeAllBookRecord']
+        record = parse_value('2026W37', data=data)
+        for value in ('2026W37', record):
+            with self.subTest(record=value):
+                r.config.OperationHandover_ConsumeAllBookRecord = value
+                with patch('module.campaign.handover_schedule.current_time',
+                           return_value=datetime(2026, 9, 13, 12)):
+                    self.assertFalse(r.handover_consume_all_book_state()[0])
+                    self.assertFalse(r.handover_consume_all_book_waiting())
+
+    def test_reward_flow_handles_urgent_and_new_ship(self):
+        from module.handler.assets import NEW_SHIP_SKIP
+
+        r = self.runner()
+        r.handle_urgent_commission.return_value = True
+        self.assertTrue(r._handle_reward_flow())
+        r.device.click.assert_not_called()
+        r.handle_urgent_commission.return_value = False
+        r.appear.side_effect = lambda button, **kw: button is NEW_SHIP_SKIP
+        self.assertTrue(r._handle_reward_flow())
+        r.device.click.assert_called_once_with(NEW_SHIP_SKIP)
 
     def test_configuration_migration_preserves_explicit_values(self):
         updater = ConfigUpdater.__new__(ConfigUpdater)

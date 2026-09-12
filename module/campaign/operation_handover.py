@@ -31,6 +31,7 @@ from module.campaign.handover_schedule import HandoverSchedule
 from module.campaign.run import CampaignRun
 from module.config.time_source import now as current_time
 from module.exception import RequestHumanTakeover
+from module.handler.assets import NEW_SHIP_SKIP
 from module.map.assets import (
     HANDOVER_BOOK_AMOUNT_OCR,
     HANDOVER_COUNT_INPUT,
@@ -372,6 +373,11 @@ class OperationHandover(HandoverSchedule, HandoverPreparation, CampaignRun):
 
     def _handle_reward_flow(self):
         if self.handle_popup_confirm(name='DELEGATION_REWARD_OVERFLOW'):
+            return True
+        if self.handle_urgent_commission():
+            return True
+        if self.appear(NEW_SHIP_SKIP, offset=(20, 20), interval=1):
+            self.device.click(NEW_SHIP_SKIP)
             return True
         if self.appear(DELEGATION_SHIP_SKIP, offset=(20, 20), interval=1):
             self.device.click(DELEGATION_SHIP_SKIP)

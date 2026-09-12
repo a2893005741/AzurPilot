@@ -208,7 +208,7 @@ class HandoverSchedule:
             return False, '开关未开启'
 
         now = current_time()
-        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(now):
+        if self.handover_consume_all_book_record_key() == self.handover_week_key(now):
             return False, '本周已触发过'
 
         trigger = self.handover_consume_all_book_trigger()
@@ -241,7 +241,7 @@ class HandoverSchedule:
             return False
 
         now = current_time()
-        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(now):
+        if self.handover_consume_all_book_record_key() == self.handover_week_key(now):
             return False
 
         trigger = self.handover_consume_all_book_trigger()
@@ -275,3 +275,8 @@ class HandoverSchedule:
         week = self.handover_week_key(current_time())
         self.config.OperationHandover_ConsumeAllBookRecord = week
         logger.info(f'[作战委托] 本周已触发一键消耗委托书，记录 {week}')
+
+    def handover_consume_all_book_record_key(self):
+        """配置加载可能将 ISO 周字符串解析成该周周一，需要还原周标识。"""
+        record = self.config.OperationHandover_ConsumeAllBookRecord
+        return self.handover_week_key(record) if isinstance(record, datetime) else record

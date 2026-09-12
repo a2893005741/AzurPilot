@@ -35,6 +35,7 @@ class TestOperationHandover(unittest.TestCase):
         operation._handover_finished = False
         operation.appear = Mock(return_value=False)
         operation.handle_popup_confirm = Mock(return_value=False)
+        operation.handle_urgent_commission = Mock(return_value=False)
         operation.appear_then_click = Mock(side_effect=lambda button, **kw: (
             operation.device.click(button) or True) if operation.appear(button, **kw) else False)
         return operation

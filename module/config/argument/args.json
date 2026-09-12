@@ -7388,6 +7388,28 @@
         "type": "input",
         "value": 0
       },
+      "AutoClear": {
+        "type": "checkbox",
+        "value": false
+      },
+      "AutoSelectEvent": {
+        "type": "checkbox",
+        "value": false
+      },
+      "AutoClearTarget": {
+        "type": "select",
+        "value": "three_star",
+        "option": [
+          "normal_3_star",
+          "three_star",
+          "clear_100"
+        ]
+      },
+      "AutoClearProgress": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
+      },
       "DailyRunCountRemain": {
         "type": "stored",
         "value": 0,
@@ -10686,6 +10708,23 @@
       "CommissionNotifyRewardStatistics": {
         "type": "checkbox",
         "value": true
+      },
+      "GemNotify": {
+        "type": "checkbox",
+        "value": true
+      },
+      "GemStatistics": {
+        "type": "checkbox",
+        "value": false
+      },
+      "GemStatisticsPeriod": {
+        "type": "select",
+        "value": "month",
+        "option": [
+          "today",
+          "week",
+          "month"
+        ]
       }
     },
     "Storage": {
@@ -11408,6 +11447,98 @@
       "Favourite": {
         "type": "checkbox",
         "value": false
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "Secretary": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "Secretary",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
+    "Secretary": {
+      "CustomFilter": {
+        "type": "textarea",
+        "value": "ultra > super_rare > elite > rare > common"
+      },
+      "LowFavorabilityPriority": {
+        "type": "checkbox",
+        "value": false
+      },
+      "FavouriteOnly": {
+        "type": "checkbox",
+        "value": true
+      },
+      "BackupEnable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "CheckInterval": {
+        "type": "input",
+        "value": 0
+      },
+      "Notify": {
+        "type": "checkbox",
+        "value": true
+      },
+      "OnePushConfig": {
+        "type": "textarea",
+        "value": "provider: null",
+        "mode": "yaml"
       }
     },
     "Storage": {

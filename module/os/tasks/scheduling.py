@@ -871,7 +871,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self._smart_scheduling_first_auto_search_pending = False
 
         if not run:
-            logger.info("智能调度+接下来执行侵蚀 1，跳过初始化自律寻敌")
+            logger.info("智能调度+跳过初始化自律寻敌")
             return
 
         self.run_first_auto_search()
@@ -1288,7 +1288,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         coin_task_initialized = False
         for task_name in all_coin_tasks:
             if task_name != self.TASK_NAME_EXPLORE and not coin_task_initialized:
-                self.handle_first_auto_search(run=True)
+                # 补币任务自行检索事件，跳过初始化重扫；开荒仍直接交接任务队列。
+                self.handle_first_auto_search(run=False)
                 coin_task_initialized = True
             if self._run_scheduled_coin_task_once(task_name, meow_ap_preserve):
                 self._notify_coin_task_proxy(

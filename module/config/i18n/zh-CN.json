@@ -372,7 +372,7 @@
     },
     "IslandPearlSell": {
       "name": "每周珍珠采购与售卖",
-      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先采购本周珍珠，再售卖已有珍珠。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错."
+      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先采购本周珍珠，再售卖已有珍珠。金币一定要够购买200x220个，这是最低要求，能一次买光本周珍珠，否则可能会报错。"
     },
     "FleetScan": {
       "name": "舰队扫描",
@@ -431,13 +431,13 @@
     "Enable": {
       "name": "启用该功能",
       "help": "将这个任务加入调度器\n委托、科研、收获任务是强制打开的",
-      "True": "已启用",
+      "True": "开启",
       "False": "关闭"
     },
     "PushNotification": {
       "name": "推送通知",
       "help": "启用后，任务完成时会通过 OnePush 推送成功或失败通知",
-      "True": "已启用",
+      "True": "开启",
       "False": "关闭"
     },
     "NextRun": {
@@ -463,8 +463,8 @@
     "Sensitive": {
       "name": "敏感任务",
       "help": "出错时禁止重启游戏，直接停止 AzurPilot 运行。适用于跨月每日、隐秘海域、深渊坐标等关键时刻任务。",
-      "True": "是",
-      "False": "否"
+      "True": "开启",
+      "False": "关闭"
     }
   },
   "Restart": {
@@ -626,12 +626,13 @@
     },
     "ControlMethod": {
       "name": "选择控制方案",
-      "help": "速度: minitouch > Hermit >>> uiautomator2 ~= ADB\n建议选minitouch，不建议选Hermit除非在vmos下",
+      "help": "点击/滑动的注入方式。速度: minitouch ≈ MaaTouch > ADB >>> uiautomator2，推荐 MaaTouch（minitouch 在部分新安卓设备上不稳定）。\n⚠️ nemu_ipc 需与截图方式配套使用（截图选 nemu_ipc 时启动会自动联动）：其触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形，调用偶发挂死会丢失点击；滑动或拖拽异常时请改回 minitouch / MaaTouch。",
       "ADB": "ADB",
       "uiautomator2": "uiautomator2",
       "minitouch": "minitouch",
       "Hermit": "Hermit",
-      "MaaTouch": "MaaTouch"
+      "MaaTouch": "MaaTouch",
+      "nemu_ipc": "nemu_ipc"
     },
     "GameSettings": {
       "name": "自动应用推荐游戏设置",
@@ -839,8 +840,8 @@
     "OcrWindowsMlVendorEp": {
       "name": "自动安装并使用厂商 EP",
       "help": "允许 Windows ML 通过 Windows Update 下载并使用 QNN/OpenVINO 厂商 EP。",
-      "True": "启用",
-      "False": "禁用"
+      "True": "开启",
+      "False": "关闭"
     },
     "OcrModelVersionEnglish": {
       "name": "OCR英文模型版本",
@@ -891,8 +892,8 @@
     "CloseEmulatorDuringLongWait": {
       "name": "长时间等待时关闭模拟器",
       "help": "当下一个任务超过 3 小时后运行时，等待期间关闭模拟器以节省内存和 CPU。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "WhenTaskQueueEmpty": {
       "name": "当任务队列清空后",
@@ -912,8 +913,8 @@
     "WarmupEnable": {
       "name": "在任务开始前预热启动模拟器与游戏",
       "help": "开启后，若在等待期间关闭了模拟器/游戏（长时间等待关闭模拟器，或任务队列清空后关闭游戏），会在任务开始前提前启动模拟器与游戏并登录到主界面，任务到点即可直接执行，不再因冷启动而延误。预热开启时，不足『提前量』的短等待不会再关闭游戏。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "WarmupMinutes": {
       "name": "在任务开始前 X 分钟预热启动模拟器与游戏",
@@ -985,11 +986,11 @@
     },
     "TelemetryReport": {
       "name": "遥测数据上报",
-      "help": "启用后将定期向服务器匿名上报 CL1 统计数据（战斗次数、明石遇见概率等匿名数据）ID生成详见源码，统计信息 https://alas.nanoda.work/"
+      "help": "启用后将定期向服务器匿名上报 CL1 统计数据（战斗次数、明石遇见概率等匿名数据）。ID 生成详见源码，统计信息见 https://alas.nanoda.work/"
     },
     "BugReport": {
       "name": "Bug 日志上报",
-      "help": "启用后将在遇到异常时向服务器匿名上报 Bug 日志以帮助改进ID生成详见源码"
+      "help": "启用后将在遇到异常时向服务器匿名上报 Bug 日志以帮助改进。ID 生成详见源码"
     }
   },
   "Log": {
@@ -1374,7 +1375,7 @@
     "ConsumeAllBook": {
       "name": "一键消耗作战全权委托书",
       "help": "每周定时触发一次：作战次数拉满 → 使用委托书拉满 → 按委托书数量设置作战次数，\n把仓库里的作战全权委托书一次用光。\n开启后，触发当天会忽略「委托次数」的设置；委托次数为 0 时，本任务只在触发时间运行",
-      "True": "已启用",
+      "True": "开启",
       "False": "关闭"
     },
     "ConsumeAllBookWeekday": {
@@ -1395,7 +1396,7 @@
     "MaintainOverride": {
       "name": "维护当天作战委托",
       "help": "开启后每天查一次停服维护公告：维护就在今天且还没开始时，本次运行会推迟到维护前 10 分钟，\n到点把作战次数拉满跑最后一次（受「使用作战全权委托书」「自动补充时间」影响）。\n维护时间已经过去、或者不是今天，都按正常流程走。\n数据来自 api-blhx-maintain，按当前游戏服务器取对应公告，时间已换算成本机时间",
-      "True": "已启用",
+      "True": "开启",
       "False": "关闭"
     },
     "OilLimit": {
@@ -2137,6 +2138,12 @@
     "CommissionNotifyRewardStatistics": {
       "name": "推送包含统计信息",
       "help": "在通知中显示今日/本周/本月累计钻石数量"
+    },
+    "DetectShipDrop": {
+      "name": "检测舰船掉落",
+      "help": "领取委托奖励后检测「获得舰船」画面并关闭。若不做会掉落舰船的委托，可关闭以避免识别错误。",
+      "True": "开启",
+      "False": "关闭"
     },
     "GemNotify": {
       "name": "钻石委托执行通知",
@@ -3297,7 +3304,7 @@
     },
     "EnsureFullyCollected": {
       "name": "保证收集满每日200信标数据",
-      "help": "在收集满为前，暂时无视保留行动力设置，需要同时开启 \"耄耋相接\""
+      "help": "在收集满之前，暂时无视保留行动力设置，需要同时开启 \"耄耋相接\""
     },
     "AutoCollectShip": {
       "name": "自动获取新META舰船",
@@ -3371,7 +3378,7 @@
     },
     "PresetFilter": {
       "name": "港口商店过滤器",
-      "help": "一般默认即可，白票溢出建议选 \"高价值物品与META材料\"，萌新建议选 \"不购买META材料\"，这会买除了META材料以外的所有东西。\n高价值物品为行动力、坐标和金或者更高级別的商品；META材料为META通用战术教材和4种强化材料。",
+      "help": "一般默认即可，白票溢出建议选 \"高价值物品与META材料\"，萌新建议选 \"不购买META材料\"，这会买除了META材料以外的所有东西。\n高价值物品为行动力、坐标和金或者更高级别的商品；META材料为META通用战术教材和4种强化材料。",
       "max_benefit": "高价值物品",
       "max_benefit_meta": "高价值物品与META材料",
       "no_meta": "不购买META材料",
@@ -3640,8 +3647,8 @@
     "EnableCustomCheck": {
       "name": "启用自定义舰船检测",
       "help": "启用后仅检测指定的舰船是否达到目标等级，而非全部舰船",
-      "True": "已启用",
-      "False": "未启用"
+      "True": "开启",
+      "False": "关闭"
     },
     "CustomCheckPositions": {
       "name": "自定义检测舰位",
@@ -3660,8 +3667,8 @@
     "Enable": {
       "name": "启用自动配队",
       "help": "开启后将自动更换已满经验的舰船",
-      "True": "已启用",
-      "False": "未启用"
+      "True": "开启",
+      "False": "关闭"
     },
     "CooldownHours": {
       "name": "冷却时间(小时)",
@@ -3708,26 +3715,26 @@
     "EnableMeowfficerFarming": {
       "name": "启用耄耋相接",
       "help": "智能调度Plus中是否启用耄耋相接任务来补充黄币",
-      "True": "已启用",
-      "False": "未启用"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableObscure": {
       "name": "启用隐秘海域",
       "help": "智能调度Plus中是否启用隐秘海域任务来补充黄币",
-      "True": "已启用",
-      "False": "未启用"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableAbyssal": {
       "name": "启用深渊坐标",
       "help": "智能调度Plus中是否启用深渊坐标任务来补充黄币",
-      "True": "已启用",
-      "False": "未启用"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableStronghold": {
       "name": "启用塞壬要塞",
       "help": "智能调度Plus中是否启用塞壬要塞任务来补充黄币",
-      "True": "已启用",
-      "False": "未启用"
+      "True": "开启",
+      "False": "关闭"
     },
     "TaskPriority": {
       "name": "补充黄币任务优先级",
@@ -3736,8 +3743,8 @@
     "MonthEndActionPointCleanupEnable": {
       "name": "启用月末清理行动力",
       "help": "是否启用月末清理行动力功能。开启后，当距大世界重置剩余天数小于等于\"月末清理行动力天数\"时，启动月末清理模式消耗行动力。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "MonthEndActionPointCleanupDays": {
       "name": "月末清理行动力天数",
@@ -3750,8 +3757,8 @@
     "MonthEndShopPurchase": {
       "name": "月末清理商店购买",
       "help": "月末清理行动力时是否执行大世界商店购买。关闭后月末清理循环将跳过商店购买步骤。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -4103,7 +4110,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4126,7 +4133,7 @@
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4149,7 +4156,7 @@
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4172,7 +4179,7 @@
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4195,7 +4202,7 @@
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4218,7 +4225,7 @@
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4241,7 +4248,7 @@
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4264,7 +4271,7 @@
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4293,7 +4300,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "None",
+      "None": "无",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4332,7 +4339,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4353,7 +4360,7 @@
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4374,7 +4381,7 @@
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4395,7 +4402,7 @@
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4416,7 +4423,7 @@
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4437,7 +4444,7 @@
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4458,7 +4465,7 @@
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4479,7 +4486,7 @@
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4506,7 +4513,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "None",
+      "None": "无",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4539,7 +4546,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4556,7 +4563,7 @@
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4573,7 +4580,7 @@
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4590,7 +4597,7 @@
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4607,7 +4614,7 @@
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4624,7 +4631,7 @@
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4641,7 +4648,7 @@
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4658,7 +4665,7 @@
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4681,7 +4688,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4710,7 +4717,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4729,7 +4736,7 @@
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4748,7 +4755,7 @@
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4767,7 +4774,7 @@
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4786,7 +4793,7 @@
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4805,7 +4812,7 @@
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4824,7 +4831,7 @@
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4843,7 +4850,7 @@
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4868,7 +4875,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "None",
+      "None": "无",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4903,7 +4910,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -4921,7 +4928,7 @@
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -4939,7 +4946,7 @@
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -4957,7 +4964,7 @@
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -4975,7 +4982,7 @@
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -4993,7 +5000,7 @@
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5011,7 +5018,7 @@
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5029,7 +5036,7 @@
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5053,7 +5060,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "None",
+      "None": "无",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5164,7 +5171,7 @@
   "IslandPearlSell": {
     "_info": {
       "name": "每周珍珠采购与售卖",
-      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先按最高采购价采购本周珍珠，再按最低售卖价售卖已有珍珠。其他未完成流程会延迟到次日 01:00 重试。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错."
+      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先按最高采购价采购本周珍珠，再按最低售卖价售卖已有珍珠。其他未完成流程会延迟到次日 01:00 重试。金币一定要够购买200x220个，这是最低要求，能一次买光本周珍珠，否则可能会报错。"
     },
     "BuyPrice": {
       "name": "最高采购价格",
@@ -5205,8 +5212,8 @@
     "BatchEnabled": {
       "name": "启用分批经营",
       "help": "将5个商店分成两批执行，避免共用经营人员的商店同批派出",
-      "True": "启用",
-      "False": "禁用"
+      "True": "开启",
+      "False": "关闭"
     },
     "Batch1Shops": {
       "name": "第一批经营商店",
@@ -5229,8 +5236,8 @@
     "SeasonalReplaceEnabled": {
       "name": "启用季节限定替换",
       "help": "季节限定商品库存不足时自动替换为备用商品",
-      "True": "启用",
-      "False": "禁用"
+      "True": "开启",
+      "False": "关闭"
     },
     "SeasonalThreshold": {
       "name": "季节限定商品数量低于 X 时替换",
@@ -5245,7 +5252,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5285,7 +5292,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5325,7 +5332,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5338,7 +5345,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5351,7 +5358,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5364,7 +5371,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5377,7 +5384,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5413,7 +5420,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5453,7 +5460,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5493,7 +5500,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5508,7 +5515,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5523,7 +5530,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5538,7 +5545,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5553,7 +5560,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5568,7 +5575,7 @@
     "SeasonalFallback": {
       "name": "季节饮品备用饮品",
       "help": "白熊饮品当前季节饮品库存不足时替换成该饮品",
-      "None": "None",
+      "None": "无",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5593,7 +5600,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5633,7 +5640,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5673,7 +5680,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5683,7 +5690,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5693,7 +5700,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5703,7 +5710,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5713,7 +5720,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5733,7 +5740,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5773,7 +5780,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5813,7 +5820,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -5824,7 +5831,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -5835,7 +5842,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -5846,7 +5853,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -5857,7 +5864,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -5878,7 +5885,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5918,7 +5925,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5958,7 +5965,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "None",
+      "None": "无",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -5969,7 +5976,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "None",
+      "None": "无",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -5980,7 +5987,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "None",
+      "None": "无",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -5991,7 +5998,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "None",
+      "None": "无",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6002,7 +6009,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "None",
+      "None": "无",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6061,7 +6068,7 @@
     "SkipBattle": {
       "name": "杀游戏跳过战斗",
       "help": "",
-      "True": "已启用",
+      "True": "开启",
       "False": "关闭"
     }
   },
@@ -6107,32 +6114,32 @@
     "EnableSlot1": {
       "name": "更换第 1 个装备",
       "help": "启用后，仅当第 1 个装备位为空时尝试自动装备。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableSlot2": {
       "name": "更换第 2 个装备",
       "help": "启用后，仅当第 2 个装备位为空时尝试自动装备。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableSlot3": {
       "name": "更换第 3 个装备",
       "help": "启用后，仅当第 3 个装备位为空时尝试自动装备。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableSlot4": {
       "name": "更换第 4 个装备",
       "help": "启用后，仅当第 4 个装备位为空时尝试自动装备。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableSlot5": {
       "name": "更换第 5 个装备",
       "help": "启用后，仅当第 5 个装备位为空时尝试自动装备。",
-      "True": "True",
-      "False": "False"
+      "True": "开启",
+      "False": "关闭"
     }
   },
   "Benchmark": {

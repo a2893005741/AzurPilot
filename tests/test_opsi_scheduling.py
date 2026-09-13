@@ -479,6 +479,30 @@ class TestExploreSchedulingEnable(unittest.TestCase):
 
         auto_search.assert_not_called()
 
+    def test_coin_task_dispatch_skips_initial_auto_search(self):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = ExploreSchedulingConfig()
+        scheduling._smart_scheduling_first_auto_search_pending = True
+
+        with (
+            patch.object(
+                scheduling,
+                '_get_enabled_coin_tasks',
+                return_value=['OpsiExplore', 'OpsiMeowfficerFarming'],
+            ),
+            patch.object(scheduling, 'run_first_auto_search') as auto_search,
+            patch.object(
+                scheduling,
+                '_run_scheduled_coin_task_once',
+                side_effect=[False, True],
+            ),
+            patch.object(scheduling, '_notify_coin_task_proxy'),
+        ):
+            scheduling._dispatch_coin_task(10000, 1000, 50000, 200)
+
+        auto_search.assert_not_called()
+        self.assertFalse(scheduling._smart_scheduling_first_auto_search_pending)
+
     def test_completed_explore_finalizes_before_startup_coin_switch(self):
         explore = OpsiExplore.__new__(OpsiExplore)
         explore.config = ExploreSchedulingConfig()

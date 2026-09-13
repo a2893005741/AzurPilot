@@ -35,6 +35,9 @@ class TestGameNotRunningErrorHandling(unittest.TestCase):
         # 该实例绕过 __init__ 构造，需补齐 run() 在分发任务前读取的会话标志，
         # 置 True 以跳过渠道服悬浮球预处理（本用例只验证异常处理路径）。
         script._channel_float_done = True
+        # 上游渠道服悬浮球检查需要的字段：空配置与最小 device 桩
+        script.config.data = {}
+        script.__dict__['device'] = Mock()
         error = GameNotRunningError('Game not running')
         script.__dict__['commission'] = Mock(side_effect=error)
 

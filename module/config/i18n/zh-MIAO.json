@@ -626,12 +626,13 @@
     },
     "ControlMethod": {
       "name": "模拟器控制手势",
-      "help": "速度 minitouch > Hermit > uiautomator2 ~= ADB 推荐 minitouch，VMOS下用 Hermit 喵~",
+      "help": "点击/滑动的注入方式喵。速度: minitouch ≈ MaaTouch > ADB >>> uiautomator2，推荐 MaaTouch 喵（minitouch 在部分新安卓设备上不稳定喵）。\n⚠️ nemu_ipc 要和截图方式配套使用喵（截图选 nemu_ipc 时启动会自动联动喵）：触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形喵，偶发挂死会丢点击喵；滑动异常请改回 minitouch / MaaTouch 喵。",
       "ADB": "ADB喵",
       "uiautomator2": "uiautomator2喵",
       "minitouch": "minitouch喵",
       "Hermit": "Hermit喵",
-      "MaaTouch": "MaaTouch喵"
+      "MaaTouch": "MaaTouch喵",
+      "nemu_ipc": "nemu_ipc"
     },
     "GameSettings": {
       "name": "自动应用推荐游戏设置",
@@ -2137,6 +2138,12 @@
     "CommissionNotifyRewardStatistics": {
       "name": "推送含统计信息喵~",
       "help": "通知里会显示今日/本周/本月累计钻石数量喵！"
+    },
+    "DetectShipDrop": {
+      "name": "检测舰船掉落喵",
+      "help": "领取委托奖励后检测「获得舰船」画面并关闭喵。若不做会掉落舰船的委托，可关闭以避免识别错误喵。",
+      "True": "True",
+      "False": "False"
     },
     "GemNotify": {
       "name": "钻石委托执行通知喵",

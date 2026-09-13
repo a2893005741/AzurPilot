@@ -7,9 +7,13 @@ from module.webui.app_shell import (
     BRANCH_WATERMARK_MAX_MESSAGE_LEN,
     BRANCH_WATERMARK_NOTICE,
     BRANCH_WATERMARK_NOTICE_EN,
+    BRANCH_WATERMARK_UNKNOWN_BRANCH,
     branch_is_unstable,
+    branch_needs_watermark,
+    branch_watermark_disabled,
     build_branch_watermark_lines,
     watermark_should_show,
+    resolve_watermark_branch,
 )
 
 
@@ -256,11 +260,13 @@ class TestWatermarkInjection(unittest.TestCase):
             patch("module.webui.app_shell.State.deploy_config", config),
             patch("module.webui.app_shell.updater.get_commit") as get_commit,
             patch("module.webui.app_shell.run_js") as run_js,
+            patch.object(AppShellMixin, '_remove_branch_watermark') as remove,
         ):
-            AppShellMixin._inject_unverified_branch_watermark(None)
+            AppShellMixin()._inject_unverified_branch_watermark()
 
         get_commit.assert_not_called()
         run_js.assert_not_called()
+        remove.assert_called_once_with()
 
     def test_enabled_switch_injects_version_metadata(self):
         config = SimpleNamespace(
@@ -280,6 +286,144 @@ class TestWatermarkInjection(unittest.TestCase):
         run_js.assert_called_once()
         self.assertIn("Ver.dev.a1b2c3d", run_js.call_args.args[0])
         self.assertIn("Fix login loop", run_js.call_args.args[0])
+
+    def test_failed_config_read_uses_git_branch(self):
+        config = SimpleNamespace(read=Mock(side_effect=RuntimeError('unavailable')))
+        with (
+            patch("module.webui.app_shell.State.deploy_config", config),
+            patch("module.webui.app_shell.detect_git_branch", return_value="dev"),
+            patch("module.webui.app_shell.updater.get_commit", return_value=None),
+            patch("module.webui.app_shell.run_js") as run_js,
+        ):
+            AppShellMixin()._inject_unverified_branch_watermark()
+
+        self.assertIn("Ver.dev.unknown", run_js.call_args.args[0])
+
+
+class TestBranchWatermarkDisabled(unittest.TestCase):
+    """关闭水印开关的读取：默认关闭（即显示水印），只有显式配置才隐藏。
+
+    配置缺失、属性不存在或读取异常都必须回退到「显示水印」，避免因为配置
+    问题把提醒静默关掉——水印里的版本信息是定位问题的唯一线索。
+    """
+
+    def test_default_is_show(self):
+        self.assertFalse(branch_watermark_disabled(None))
+        self.assertFalse(branch_watermark_disabled(object()))
+        self.assertFalse(branch_watermark_disabled(
+            SimpleNamespace(DisableBranchWatermark=False)))
+
+    def test_only_boolean_true_hides(self):
+        """非布尔真值不算开启：格式写错的 deploy.yaml 不能静默关掉水印。"""
+        for value in ("", "false", "False", "0", "no", "true", 0, 1, [], {}):
+            with self.subTest(value=value):
+                self.assertFalse(branch_watermark_disabled(
+                    SimpleNamespace(DisableBranchWatermark=value)))
+
+    def test_explicit_true_hides(self):
+        self.assertTrue(branch_watermark_disabled(
+            SimpleNamespace(DisableBranchWatermark=True)))
+
+    def test_legacy_switch_remains_effective_with_upstream_default(self):
+        for enabled, disabled, expected in (
+            (True, False, False),
+            (False, False, True),
+            (True, True, True),
+            (False, True, True),
+        ):
+            with self.subTest(enabled=enabled, disabled=disabled):
+                config = SimpleNamespace(
+                    ShowUnverifiedWatermark=enabled,
+                    DisableBranchWatermark=disabled,
+                )
+                self.assertIs(branch_watermark_disabled(config), expected)
+
+    def test_read_error_falls_back_to_show(self):
+        class Broken:
+            @property
+            def DisableBranchWatermark(self):
+                raise RuntimeError("boom")
+
+        self.assertFalse(branch_watermark_disabled(Broken()))
+
+
+class TestDeployModelsExposeSwitch(unittest.TestCase):
+    """开关字段必须同时存在于各部署模型与模板。
+
+    WebUI 用的是 module/webui/config.py 的子类（继承 deploy/config.py），
+    Windows 启动器用的是 deploy/Windows/config.py 的独立模型，两者读写同一份
+    config/deploy.yaml；字段缺失会让开关在对应平台上静默失效（读不到就恒为
+    False，水印照样显示）。
+    """
+
+    def test_models_expose_field(self):
+        from deploy.config import DeployConfig
+
+        self.assertIs(DeployConfig.DisableBranchWatermark, False)
+
+        from module.webui.config import DeployConfig as WebUIDeployConfig
+
+        self.assertIs(WebUIDeployConfig.DisableBranchWatermark, False)
+
+        try:
+            from deploy.Windows.config import DeployConfig as WindowsDeployConfig
+        except Exception as e:  # 非 Windows 环境可能无法导入
+            self.skipTest(f"Windows 部署模型不可导入: {e}")
+        self.assertIs(WindowsDeployConfig.DisableBranchWatermark, False)
+
+    def test_deploy_templates_expose_field(self):
+        import glob
+        import os
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        patterns = [
+            "config/deploy.template*.yaml",
+            "deploy/template",
+            "deploy/Windows/template.yaml",
+        ]
+        files = []
+        for pattern in patterns:
+            files.extend(glob.glob(os.path.join(root, pattern)))
+        self.assertTrue(files, "未找到任何部署模板")
+        for path in files:
+            with self.subTest(template=os.path.basename(path)):
+                with open(path, encoding="utf-8") as f:
+                    self.assertIn("DisableBranchWatermark", f.read())
+
+
+class TestWatermarkBranchResolution(unittest.TestCase):
+    """分支名规范化与「是否需要水印」的判定。
+
+    部署配置读取失败时不能把构建当成已验证的 master：先退回实际 git 分支，
+    仍拿不到就按未知分支处理——水印是排查问题的诊断信息，宁可多显示，
+    也不能因为一次读取失败被静默吞掉。
+    """
+
+    def test_resolve_keeps_real_branch(self):
+        self.assertEqual(resolve_watermark_branch("dev"), "dev")
+        self.assertEqual(resolve_watermark_branch(" feature/x "), "feature/x")
+
+    def test_resolve_maps_empty_and_detached_head_to_unknown(self):
+        for value in (None, "", "   ", "HEAD", " head "):
+            with self.subTest(value=value):
+                self.assertEqual(
+                    resolve_watermark_branch(value),
+                    BRANCH_WATERMARK_UNKNOWN_BRANCH)
+
+    def test_stable_branches_need_no_watermark(self):
+        for branch in ("master", "main", "Master", "  main  "):
+            with self.subTest(branch=branch):
+                self.assertFalse(branch_needs_watermark(branch))
+
+    def test_unstable_branches_need_watermark(self):
+        for branch in ("dev", "app", "v2020.07.15", "feature/x"):
+            with self.subTest(branch=branch):
+                self.assertTrue(branch_needs_watermark(branch))
+
+    def test_unknown_branch_fails_safe_to_watermark(self):
+        for branch in (None, "", "   ", "unknown", "UNKNOWN", "Unknown"):
+            with self.subTest(branch=branch):
+                self.assertTrue(branch_needs_watermark(branch))
 
 
 if __name__ == "__main__":

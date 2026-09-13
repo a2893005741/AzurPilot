@@ -33,7 +33,8 @@ from module.retire.dock import CARD_GRIDS, CARD_LEVEL_GRIDS, Dock
 from module.tactical.assets import *
 from module.ui.assets import (BACK_ARROW, REWARD_CHECK, REWARD_GOTO_TACTICAL, TACTICAL_CHECK)
 from module.ui.page import page_reward
-from module.ui_white.assets import REWARD_2_WHITE, REWARD_GOTO_TACTICAL_WHITE
+from module.ui_white.assets import (POPUP_CANCEL_WHITE, POPUP_CONFIRM_WHITE, REWARD_2_WHITE,
+                                     REWARD_GOTO_TACTICAL_WHITE)
 
 SKILL_GRIDS = ButtonGrid(origin=(315, 140), delta=(621, 132), button_shape=(621, 119), grid_shape=(1, 3), name='SKILL')
 if server.server != 'jp':
@@ -705,7 +706,20 @@ class RewardTacticalClass(Dock):
         self.interval_reset([BOOK_EMPTY_POPUP, DOCK_CHECK], interval=3)
         return True, study_finished
 
+    def _tactical_popup_visible(self):
+        """检测战术完成确认弹窗是否仍在前景。"""
+        normal_popup = self.appear(POPUP_CANCEL, offset=self._popup_offset) \
+            and self.appear(POPUP_CONFIRM, offset=self._popup_offset)
+        if normal_popup:
+            return True
+        return self.appear(POPUP_CONFIRM_WHITE, offset=self._popup_offset)
+
     def _handle_tactical_skill_confirm(self, pending_skill_auto_switch):
+        # 完成确认弹窗会遮住技能卡片，但背景中的 SKILL_CONFIRM 仍可能可见。
+        # 弹窗检测不使用 interval，避免上一轮点击后的节流让状态机误入技能选择。
+        if self._tactical_popup_visible():
+            return False, False, pending_skill_auto_switch
+
         if not self.appear(SKILL_CONFIRM, offset=(20, 20), interval=3):
             return False, False, pending_skill_auto_switch
 

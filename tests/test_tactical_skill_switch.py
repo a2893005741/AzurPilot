@@ -209,6 +209,7 @@ class TestSkillConfirmGate(unittest.TestCase):
         handler.appear = Mock(return_value=True)
         handler.interval_reset = Mock()
         handler._tactical_skill_choose = Mock(return_value=choose_result)
+        handler._tactical_popup_visible = Mock(return_value=False)
         return handler
 
     def test_continues_when_only_skill_auto_switch_is_enabled(self):
@@ -242,6 +243,28 @@ class TestSkillConfirmGate(unittest.TestCase):
         self.assertTrue(study_finished)
         handler._tactical_skill_choose.assert_not_called()
         handler.device.click.assert_called_once_with(BACK_ARROW)
+
+    def test_waits_when_completion_popup_is_still_visible(self):
+        # 完成确认弹窗覆盖技能列表时，不得点击被遮挡的技能卡片
+        handler = self._handler(True, False)
+        handler._tactical_popup_visible.return_value = True
+
+        handled, study_finished, pending = handler._handle_tactical_skill_confirm(False)
+
+        self.assertFalse(handled)
+        self.assertFalse(study_finished)
+        self.assertFalse(pending)
+        handler._tactical_skill_choose.assert_not_called()
+        handler.device.click.assert_not_called()
+
+    def test_detects_normal_completion_popup_without_interval(self):
+        # 弹窗检测必须绕过节流，避免上一轮点击后的间隔屏蔽真实弹窗
+        handler = object.__new__(RewardTacticalClass)
+        handler.appear = Mock(side_effect=[True, True])
+
+        self.assertTrue(handler._tactical_popup_visible())
+        self.assertEqual(handler.appear.call_count, 2)
+        self.assertTrue(all('interval' not in call_args.kwargs for call_args in handler.appear.call_args_list))
 
 
 class TestWaitUntilAppear(unittest.TestCase):

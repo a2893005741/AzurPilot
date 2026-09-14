@@ -355,11 +355,11 @@ YukikazeTaskManager:
       > Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3
       > OpsiScheduling
       > OpsiMeowfficerFarming
-      > OperationHandover
       > GemsFarming
       > Ambush11
       > OpsiHazard1Leveling
       > ThreeOilLowCost
+      > OperationHandover
 OneClickRetire:
   KeepLimitBreak:
     value: keep_limit_break
@@ -399,14 +399,9 @@ Campaign:
     value: withdraw_stop
     option: [ withdraw_continue, switch_fleet, withdraw_stop ]
 OperationHandover:
-  BattleCount:
-    type: input
+  Count:
     value: 1
     validate: [0, 999]
-  FullDelegationBookCount:
-    type: input
-    value: 0
-    validate: [0, 15]
   AutoSupplementTime: false
   UseHandoverBook: false
   ConsumeAllBook:
@@ -426,12 +421,19 @@ OperationHandover:
   OilLimit:
     value: 1000
     validate: [0, 999999]
-  ConsumeAllBookRecord:
+  # 一键消耗上一次实际执行的时间。落在本周内就表示本周不用再触发，
+  # 清空或改成上周及更早会让本周的一键消耗重新生效。用可见的 datetime
+  # 而不是隐藏的 stored，就是为了能手动改这个状态
+  ConsumeAllBookRecord: 2020-01-01 00:00:00
+  CommissionEnd:
     type: stored
-    value: ""
+    value: "2020-01-01 00:00:00"
     display: hide
 StopCondition:
   OilLimit: 1000
+  # 石油停止下限：实际停止阈值为 max(下限, OilLimit)，历史遗留的 500 安全网。
+  # 低耗监工希望把油打到更低时可以调小（#444）
+  OilLimitHardFloor: 500
   CoinLimit: 0
   RunCount: 0
   MapAchievement:
@@ -510,7 +512,7 @@ Submarine:
     value: sub_standby
     option: [sub_standby, sub_auto_call]
   DistanceToBoss:
-    value: use_open_ocean_support
+    value: "2_grid_to_boss"
     option:
       [to_boss_position, 1_grid_to_boss, 2_grid_to_boss, use_open_ocean_support]
   AdvancedConfig:
@@ -839,6 +841,7 @@ Research:
       - series_8_blueprint_305
       - series_8_blueprint_only
       - series_8_305_only
+      - series_8_305_e_first
       - series_7_blueprint_la9
       - series_7_blueprint_only
       - series_7_la9_only
@@ -1190,10 +1193,6 @@ OpsiExplore:
   ForceRun: false
   LastZone: 0
   AllowHazard1Leveling: false
-  EnableSmartScheduling:
-    type: checkbox
-    value: false
-    option: [true, false]
   ExploreProgress:
     type: textarea
     display: disabled
@@ -1330,10 +1329,6 @@ OpsiScheduling:
     value: 200
   OperationCoinsReturnThreshold:
     value: 20000
-  EnableExplore:
-    type: checkbox
-    value: false
-    option: [true, false]
   EnableMeowfficerFarming:
     type: checkbox
     value: true
@@ -1352,7 +1347,7 @@ OpsiScheduling:
     option: [true, false]
   TaskPriority:
     type: textarea
-    value: OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming
+    value: OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming
   MonthEndActionPointCleanupEnable:
     value: false
     option: [true, false]

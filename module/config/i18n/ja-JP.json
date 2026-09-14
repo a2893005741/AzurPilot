@@ -1354,23 +1354,19 @@
   "OperationHandover": {
     "_info": {
       "name": "作戦委託設定",
-      "help": "作戦回数と全権委託書の使用数を固定します。"
+      "help": ""
     },
-    "BattleCount": {
-      "name": "作戦回数",
-      "help": "1回の委託の戦闘回数（0-999）。0は通常の委託をスキップしますが、有効な毎週の委託書消費とメンテナンス予定は維持します。予定がすべて無効の場合のみタスクを無効にします。"
-    },
-    "FullDelegationBookCount": {
-      "name": "全権委託書数",
-      "help": "1回の作戦委託で使用する全権委託書の数。"
+    "Count": {
+      "name": "委託回数",
+      "help": "今回の作戦委託で実行する回数\n0 でゲームが許可する最小回数になります。このとき「作戦全権委託書を一括消費」が無効なら、このタスクは無効化されます"
     },
     "AutoSupplementTime": {
       "name": "時間を自動補填",
       "help": "残り可用時間が足りない場合、作戦全権委託書で可用時間を交換します（1 冊 = 1 時間）"
     },
     "UseHandoverBook": {
-      "name": "委託書を最大投入",
-      "help": "委託開始前に作戦全権委託書の投入量を最大にします。有効時は固定投入数を無視します。"
+      "name": "作戦全権委託書を使用",
+      "help": "委託開始前に委託書の投入量を最大にします"
     },
     "ConsumeAllBook": {
       "name": "作戦全権委託書を一括消費",
@@ -1404,8 +1400,12 @@
       "help": "燃料がこの値より少ない間はタスクを延期し、足りたら再開します\n0 で無効"
     },
     "ConsumeAllBookRecord": {
-      "name": "一括消費の記録",
-      "help": "スクリプトが記録する実行済みの週です"
+      "name": "前回の一括消費時刻",
+      "help": "前回「作戦全権委託書」を一括消費した時刻です。\n今週内であれば今週は再実行しません。\n空にするか先週以前にすると、今週もう一度実行できます"
+    },
+    "CommissionEnd": {
+      "name": "委託の終了予定時刻",
+      "help": "委託開始時にスクリプトが記録し、報酬を受け取りに戻る時刻の判断に使います"
     }
   },
   "StopCondition": {
@@ -1416,6 +1416,10 @@
     "OilLimit": {
       "name": "燃料がX以下になったら延期",
       "help": "燃料が少なすぎる場合はタスクを延期し、燃料が十分になったら出撃を続行します"
+    },
+    "OilLimitHardFloor": {
+      "name": "石油停止下限",
+      "help": "実際の停止しきい値は max(下限, 石油上限) です。500 は歴史的な安全網であり、低消費周回でさらに石油を使い切りたい場合は小さくしてください。0 にすると石油上限がそのまま有効になります"
     },
     "CoinLimit": {
       "name": "物資がXに達したら延期",
@@ -1600,7 +1604,7 @@
     },
     "AutoSearchMode": {
       "name": "潜水艦自律プランを選択",
-      "help": "自律索敵の場合にのみ有効",
+      "help": "自律尋敵（オートサーチ）時にこの設定を適用します。手動操作時に「待機」を選択していれば、出撃前ゲーム内の自動召喚も待機に同期します（周回済みマップのみ）",
       "sub_standby": "待機",
       "sub_auto_call": "潜水艦を自動的に召喚する"
     },
@@ -2281,6 +2285,7 @@
       "series_8_blueprint_305": "8期 図面+305",
       "series_8_blueprint_only": "8期 図面のみ",
       "series_8_305_only": "8期 305のみ",
+      "series_8_305_e_first": "8期 305外装優先",
       "series_7_blueprint_la9": "7期 図面+La9",
       "series_7_blueprint_only": "7期 図面のみ",
       "series_7_la9_only": "7期 La9のみ",
@@ -3360,12 +3365,6 @@
       "name": "探索中の侵蝕1レベリングを許可",
       "help": "有効にすると、侵蝕1レベリング任務を延期しなくなります。行動力が足りなくなってエリア開拓ができなくなる恐れがあるため、慎重に使用してください。"
     },
-    "EnableSmartScheduling": {
-      "name": "スマートスケジューリングを使用",
-      "help": "探索中に燃料コインがスマートスケジューリング上限に達すると侵蝕1へ切り替え、下限を下回ると探索を再開します。スマートスケジューリングとコイン目標調整の両方を有効にしてください。",
-      "True": "True",
-      "False": "False"
-    },
     "ExploreProgress": {
       "name": "月間開拓進捗",
       "help": "現在の月間開拓の完了パーセンテージを表示します。"
@@ -3705,12 +3704,6 @@
     "OperationCoinsReturnThreshold": {
       "name": "作戦補給コインがX以下で帰投",
       "help": "黄色のコイン獲得ミッション中に、戦闘補給券を合計 X 枚獲得 (増加) し、レベルを上げるために侵蝕 1 に戻ります。"
-    },
-    "EnableExplore": {
-      "name": "毎月の開拓を有効化",
-      "help": "作戦補給コインを補充するスマートスケジューリング対象として毎月の開拓を使用します。",
-      "True": "有効",
-      "False": "無効"
     },
     "EnableMeowfficerFarming": {
       "name": "短猫相接を有効にする",
@@ -6424,7 +6417,19 @@
       "Pending": "キューにいます",
       "Waiting": "待っている",
       "NoTask": "タスクがありません",
-      "Stat": "統計"
+      "Stat": "統計",
+      "BackgroundCurrentDefault": "**現在使用中**：Web（既定）",
+      "BackgroundCurrentLocal": "**現在使用中**：ローカル",
+      "BackgroundCurrentMixed": "**現在使用中**：ミックス",
+      "BackgroundCurrentUrl": "**現在使用中**：Web",
+      "BackgroundCustomUrls": "**カスタム URL**",
+      "BackgroundDirectLink": "現在の画像直リンク：",
+      "BackgroundExtractToLocal": "ローカルに抽出",
+      "BackgroundLocalCount": "ローカル：{n} 枚",
+      "BackgroundOpenFolder": "フォルダを開く",
+      "BackgroundOpenInNewWindow": "この画像を新しいウィンドウで開く",
+      "BackgroundTitle": "### 背景画像",
+      "BackgroundUrlCount": "解決済みリンク：{n} 件"
     },
     "Dashboard": {
       "TimeError": "時間誤差",
@@ -6641,8 +6646,6 @@
       "ThemeHelp": "WebUI の見た目のテーマです。",
       "DpiScaling": "システム DPI に追従",
       "DpiScalingHelp": "システム DPI に合わせて画面サイズを調整します。",
-      "ShowUnverifiedWatermark": "未検証バージョンの透かしを表示",
-      "ShowUnverifiedWatermarkHelp": "master/main 以外のブランチを使用している場合、「未検証バージョン」の薄い全画面透かしを表示します。オフにすると警告は表示されません。バージョンのリスクは自己責任でご確認ください。",
       "Password": "WebUI パスワード",
       "PasswordHelp": "WebUI へアクセスするためのパスワードです。空欄なら未設定です。",
       "CDN": "PyWebIO CDN",
@@ -6669,6 +6672,9 @@
       "InvalidFeedBack": "フォーマットエラー。例: {0}",
       "Clear": "クリア",
       "RunNow": "今すぐ実行",
+      "RunNowSchedulerStopped": "スケジューラーが起動していません。上部のスイッチまたは概要ページから起動してください",
+      "RunNowTaskDisabled": "このタスクは無効です。「スケジュール有効」にチェックしてから実行してください",
+      "SchedulerQuickBar": "スケジューラー",
       "EnterPassword": "パスワードを入力してください",
       "ChooseFile": "ファイルを選択"
     },
@@ -6778,7 +6784,54 @@
       "ResourceChartTitle": "全リソース推移",
       "LoadResourceDataFailed": "リソースデータの読み込みに失敗しました: {e}",
       "NoResourceData": "リソース変動データがありません。スクリプト実行後に自動記録されます",
-      "NoValidResourceData": "有効なリソースデータがありません"
+      "NoValidResourceData": "有効なリソースデータがありません",
+      "BackgroundBtn": "背景",
+      "ChartAp": "行動力: ",
+      "ChartApLabel": "行動力",
+      "ChartAsset": "資産: ",
+      "ChartChange": "騰落: ",
+      "ChartChangeLabel": "変化",
+      "ChartClose": "終値: ",
+      "ChartDelta": "変化量: ",
+      "ChartDensity": "データ点密度: ",
+      "ChartDistance": "海里数: ",
+      "ChartHigh": "高値: ",
+      "ChartLow": "安値: ",
+      "ChartMa10": "  MA10(10期間平均): ",
+      "ChartMa5": "  MA5(5期間平均): ",
+      "ChartMaxLabel": "最高",
+      "ChartMean": "平均: ",
+      "ChartMeanLabel": "平均",
+      "ChartMinLabel": "最低",
+      "ChartOpen": "始値: ",
+      "ChartPanelTitle": "行動力の推移 - {view}",
+      "ChartPurple": "紫コイン: ",
+      "ChartResetBtn": "リセット",
+      "ChartSeriesAp": "行動力",
+      "ChartSeriesAsset": "資産",
+      "ChartSeriesDistance": "海里数",
+      "ChartSeriesPurple": "紫コイン",
+      "ChartSeriesYellow": "黄コイン",
+      "ChartSource": "出典: ",
+      "ChartYellow": "黄コイン: ",
+      "ExtractAlreadyLocal": "現在の背景はすでにローカル画像のため、抽出は不要です。",
+      "ExtractDone": "bg/{sub}/{name} に抽出しました",
+      "ExtractFailed": "抽出に失敗しました：{error}",
+      "ExtractHint": "抽出は保存のみで、背景には自動適用されません。使用するには bg/ へ移動してください。",
+      "ExtractNoImage": "抽出できる背景画像がありません。",
+      "ExtractNoImageData": "抽出できる画像がありません",
+      "ExtractRunning": "抽出中…",
+      "ExtractSkipped": "この画像はすでに抽出済みです：{name}",
+      "ExtractUnknownError": "不明なエラー",
+      "MaterialAdvancedOnly": "高級マテリアルのみ有効",
+      "MaterialBlur": "ブラー",
+      "MaterialCards": "カード",
+      "MaterialReset": "リセット",
+      "MaterialTiles": "タイル",
+      "MaterialTitle": "インターフェース素材",
+      "MaterialTransparency": "透明度",
+      "Readme": "このフォルダに画像を置くと WebUI の背景として使用できます。\n対応形式：{{exts}}\n複数ある場合はランダムに 1 枚選ばれます。\n\nサブフォルダ「{{sub}}」には、画面の【抽出】ボタンでダウンロードした画像が保存されます。\n手動で追加した画像とは分けて管理され、画面に各画像の出所が表示されます。\nこのファイルは削除しても機能に影響しません。\n",
+      "ScreenshotPreviewBtn": "スクリーンショットプレビュー"
     },
     "Tactical": {
       "SkillAutoSwitch": "スキル自動切替"
@@ -6788,7 +6841,6 @@
       "OperationCoinsPreserve": "作戦コイン保留",
       "ActionPointPreserve": "行動力保留",
       "OperationCoinsReturnThreshold": "作戦コイン戻り閾値",
-      "EnableExplore": "毎月の開拓を有効化",
       "EnableMeowfficerFarming": "オフニャ収集を有効",
       "EnableObscure": "隠秘海域を有効",
       "EnableAbyssal": "深淵海域を有効",

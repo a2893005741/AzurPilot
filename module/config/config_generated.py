@@ -186,7 +186,7 @@ class GeneratedConfig:
     PublicEmotion_FleetOnsen = False
 
     # 配置组 `YukikazeTaskManager`
-    YukikazeTaskManager_TaskPriorityAdjustment = 'Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> OperationHandover\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost'
+    YukikazeTaskManager_TaskPriorityAdjustment = 'Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover'
 
     # 配置组 `OneClickRetire`
     OneClickRetire_KeepLimitBreak = 'keep_limit_break'  # keep_limit_break, do_not_keep
@@ -216,8 +216,7 @@ class GeneratedConfig:
     Campaign_DefeatWithdraw = 'withdraw_stop'  # withdraw_continue, switch_fleet, withdraw_stop
 
     # 配置组 `OperationHandover`
-    OperationHandover_BattleCount = 1
-    OperationHandover_FullDelegationBookCount = 0
+    OperationHandover_Count = 1
     OperationHandover_AutoSupplementTime = False
     OperationHandover_UseHandoverBook = False
     OperationHandover_ConsumeAllBook = False  # True, False
@@ -225,10 +224,12 @@ class GeneratedConfig:
     OperationHandover_ConsumeAllBookTime = '00:00'
     OperationHandover_MaintainOverride = False  # True, False
     OperationHandover_OilLimit = 1000
-    OperationHandover_ConsumeAllBookRecord = None
+    OperationHandover_ConsumeAllBookRecord = datetime.datetime(2020, 1, 1, 0, 0)
+    OperationHandover_CommissionEnd = datetime.datetime(2020, 1, 1, 0, 0)
 
     # 配置组 `StopCondition`
     StopCondition_OilLimit = 1000
+    StopCondition_OilLimitHardFloor = 500
     StopCondition_CoinLimit = 0
     StopCondition_RunCount = 0
     StopCondition_MapAchievement = 'non_stop'  # non_stop, non_stop_clear_all, 100_percent_clear, map_3_stars, threat_safe, threat_safe_without_3_stars
@@ -262,7 +263,7 @@ class GeneratedConfig:
     Submarine_Fleet = 0  # 0, 1, 2
     Submarine_Mode = 'do_not_use'  # do_not_use, hunt_only, boss_only, hunt_and_boss, every_combat, advanced
     Submarine_AutoSearchMode = 'sub_standby'  # sub_standby, sub_auto_call
-    Submarine_DistanceToBoss = 'use_open_ocean_support'  # to_boss_position, 1_grid_to_boss, 2_grid_to_boss, use_open_ocean_support
+    Submarine_DistanceToBoss = '2_grid_to_boss'  # to_boss_position, 1_grid_to_boss, 2_grid_to_boss, use_open_ocean_support
     Submarine_AdvancedConfig = '# 弹药数\nammo: 7\n\n# 远洋支援数\nsupport: 1\n\n# 松鲷的狩猎范围\nrange:\n  - "ONONOOO"\n  - "ONNNNOO"\n  - "NNNNNNO"\n  - "ONNHNNN"\n  - "NNNNNNO"\n  - "ONOONOO"\n  - "OOOOOOO"\n\n# 规则\nrules:\n  battle_0: # 所有战斗\n    type: hunt  # 出击类型为狩猎\n    condition:  # 出击条件\n      ammo: ">2"  # 弹药数大于2\n      enemy:  # 敌人类型为\n        - "2C"  # 中航\n        - "3T"  # 大运\n        - "0E"  # 未知敌人\n      in_range: true  # 在狩猎范围里\n    move: false # 不移动\n  battle_2: # 第二场战斗\n    type: call  # 出击类型为召唤\n    condition:  # 出击条件\n      ammo: ">=2" # 弹药数大于等于2\n      support: "!=0" # 远洋支援数不等于0\n      enemy:  # 敌人类型为\n        - "3*"  # 所有大型舰队\n      in_range: false  # 不要求在狩猎范围里\n    move: false # 不移动\n  battle_-1:  # 最后一场战斗\n    type: call  # 出击类型为召唤\n    # 这里没写条件所以是必定出击\n    support: true # 远洋支援\n    move: true # 移动\n'
 
     # 配置组 `Emotion`
@@ -411,7 +412,7 @@ class GeneratedConfig:
     Research_AllowDelay = True
     Research_AllowGenreT = False
     Research_RemainingCommissions = -1
-    Research_PresetFilter = 'series_9_blueprint_ta152'  # custom, series_9_blueprint_ta152, series_9_blueprint_only, series_9_ta152_only, series_8_blueprint_305, series_8_blueprint_only, series_8_305_only, series_7_blueprint_la9, series_7_blueprint_only, series_7_la9_only, series_6_blueprint_203, series_6_blueprint_only, series_6_203_only, series_5_blueprint_152, series_5_blueprint_only, series_5_152_only, series_4_blueprint_tenrai, series_4_blueprint_only, series_4_tenrai_only, series_3_blueprint_234, series_3_blueprint_only, series_3_234_only, series_2_than_3_457_234, series_2_blueprint_457, series_2_blueprint_only, series_2_457_only
+    Research_PresetFilter = 'series_9_blueprint_ta152'  # custom, series_9_blueprint_ta152, series_9_blueprint_only, series_9_ta152_only, series_8_blueprint_305, series_8_blueprint_only, series_8_305_only, series_8_305_e_first, series_7_blueprint_la9, series_7_blueprint_only, series_7_la9_only, series_6_blueprint_203, series_6_blueprint_only, series_6_203_only, series_5_blueprint_152, series_5_blueprint_only, series_5_152_only, series_4_blueprint_tenrai, series_4_blueprint_only, series_4_tenrai_only, series_3_blueprint_234, series_3_blueprint_only, series_3_234_only, series_2_than_3_457_234, series_2_blueprint_457, series_2_blueprint_only, series_2_457_only
     Research_CustomFilter = 'S9-DR0.5 > S9-PRY0.5 > S9-Q0.5 > S9-H0.5 > Q0.5 > S9-DR2.5\n> S9-G1.5 > S9-Q1 > S9-DR5 > 0.5 > S9-G4 > S9-Q2 > S9-PRY2.5 > reset\n> S9-DR8 > Q1 > 1 > S9-E-315 > S9-G2.5 > G1.5 > 1.5 > S9-E-031\n> S9-Q4 > Q2 > E2 > 2 > DR2.5 > PRY2.5 > G2.5 > 2.5 > S9-PRY5\n> S9-PRY8 > Q4 > G4 > 4 > S9-C6 > DR5 > PRY5 > 5 > C6 > 6 > S9-C8\n> S9-C12 > DR8 > PRY8 > C8 > 8 > C12 > 12'
 
     # 配置组 `Dorm`
@@ -633,7 +634,6 @@ class GeneratedConfig:
     OpsiExplore_ForceRun = False
     OpsiExplore_LastZone = 0
     OpsiExplore_AllowHazard1Leveling = False
-    OpsiExplore_EnableSmartScheduling = False  # True, False
     OpsiExplore_ExploreProgress = None
 
     # 配置组 `OpsiShop`
@@ -716,12 +716,11 @@ class GeneratedConfig:
     OpsiScheduling_OperationCoinsPreserve = 40000
     OpsiScheduling_ActionPointPreserve = 200
     OpsiScheduling_OperationCoinsReturnThreshold = 20000
-    OpsiScheduling_EnableExplore = False  # True, False
     OpsiScheduling_EnableMeowfficerFarming = True  # True, False
     OpsiScheduling_EnableObscure = False  # True, False
     OpsiScheduling_EnableAbyssal = False  # True, False
     OpsiScheduling_EnableStronghold = False  # True, False
-    OpsiScheduling_TaskPriority = 'OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming'
+    OpsiScheduling_TaskPriority = 'OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming'
     OpsiScheduling_MonthEndActionPointCleanupEnable = False  # True, False
     OpsiScheduling_MonthEndActionPointCleanupDays = 0
     OpsiScheduling_MonthEndActionPointPreserve = 0

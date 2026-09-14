@@ -1353,24 +1353,20 @@
   },
   "OperationHandover": {
     "_info": {
-      "name": "Operation Handover",
-      "help": "Set a fixed battle count and full delegation book count."
+      "name": "Operation handover settings",
+      "help": ""
     },
-    "BattleCount": {
-      "name": "Battle count",
-      "help": "Battles per batch (0-999). Zero skips regular batches but keeps enabled weekly book consumption and maintenance plans. The task is disabled only when no plan is enabled."
-    },
-    "FullDelegationBookCount": {
-      "name": "Full delegation books",
-      "help": "Number of full delegation books to use in one batch."
+    "Count": {
+      "name": "Handover count",
+      "help": "How many sorties this Operation Handover runs\n0 means the minimum the game allows: in that case the task is disabled unless Consume all Handover Books is on"
     },
     "AutoSupplementTime": {
-      "name": "Auto Supplement Time",
-      "help": "Exchange Handover Books for available time when remaining time is insufficient (1 book = 1 hour)."
+      "name": "Auto supplement time",
+      "help": "Exchange Handover Books for available time when the remaining time is not enough (1 book = 1 hour)"
     },
     "UseHandoverBook": {
-      "name": "Maximize Handover Books",
-      "help": "Max out invested Handover Books before starting; overrides fixed book count when enabled."
+      "name": "Use handover book",
+      "help": "Max out the invested Handover Books before starting"
     },
     "ConsumeAllBook": {
       "name": "Consume all Handover Books",
@@ -1404,8 +1400,12 @@
       "help": "Postpone the task while oil is below this value, resume when oil is enough\n0 to disable"
     },
     "ConsumeAllBookRecord": {
-      "name": "Trigger record",
-      "help": "Which week it was last triggered, managed by the script"
+      "name": "Last consume time",
+      "help": "When the Handover Books were last consumed.\nIf it falls in the current week, the weekly consume will not trigger again.\nClear it or set it to last week or earlier to let it run again this week"
+    },
+    "CommissionEnd": {
+      "name": "Commission end time",
+      "help": "Recorded by the script when starting a commission, used to know when to collect the reward"
     }
   },
   "StopCondition": {
@@ -1416,6 +1416,10 @@
     "OilLimit": {
       "name": "Delay when oil falls below X",
       "help": "Delay the task when oil is too low, continue sortie when oil is sufficient"
+    },
+    "OilLimitHardFloor": {
+      "name": "Oil stop floor",
+      "help": "Actual stop threshold is max(floor, oil limit). 500 is a legacy safety net; lower it if you run low-cost maps and want to drain oil further. Set 0 to make oil limit take effect directly"
     },
     "CoinLimit": {
       "name": "Delay when coins reach X",
@@ -1600,7 +1604,7 @@
     },
     "AutoSearchMode": {
       "name": "Select submarine auto plan",
-      "help": "Only takes effect when using auto-search",
+      "help": "Applies to auto search sorties. With manual enemy search and \"standby\", in-game sub auto call is also turned off before entering (cleared maps only; the setting page does not exist on uncleared maps)",
       "sub_standby": "Standby",
       "sub_auto_call": "Auto-summon submarine"
     },
@@ -2281,6 +2285,7 @@
       "series_8_blueprint_305": "Series 8 blueprint + 305",
       "series_8_blueprint_only": "Series 8 blueprint only",
       "series_8_305_only": "Series 8 305 only",
+      "series_8_305_e_first": "Series 8 305 E-first",
       "series_7_blueprint_la9": "Series 7 blueprint + La9",
       "series_7_blueprint_only": "Series 7 blueprint only",
       "series_7_la9_only": "Series 7 La9 only",
@@ -3360,12 +3365,6 @@
       "name": "Allow Corrosion 1 leveling during exploration",
       "help": "If enabled, Corrosion 1 Leveling will not be postponed. Use with caution, as you might run out of Action Points for exploration."
     },
-    "EnableSmartScheduling": {
-      "name": "Use smart scheduling",
-      "help": "During exploration, switch to Corrosion 1 when coins reach the smart scheduling upper bound, then resume exploration below the lower bound. Smart scheduling and coin-target scheduling must both be enabled.",
-      "True": "True",
-      "False": "False"
-    },
     "ExploreProgress": {
       "name": "Monthly exploration progress",
       "help": "Shows the current completion percentage of monthly exploration."
@@ -3705,12 +3704,6 @@
     "OperationCoinsReturnThreshold": {
       "name": "Return when supply coins below X",
       "help": "During the yellow coin acquisition task, obtain (increase) X Combat Supply Vouchers in total, then return to Corrosion 1 Leveling."
-    },
-    "EnableExplore": {
-      "name": "Enable Monthly Exploration",
-      "help": "Use Monthly Exploration as a smart-scheduling task to replenish OpSi coins.",
-      "True": "Enabled",
-      "False": "Disabled"
     },
     "EnableMeowfficerFarming": {
       "name": "Enable meowfficer farming",
@@ -6424,7 +6417,19 @@
       "Pending": "In queue",
       "Waiting": "Waiting",
       "NoTask": "No tasks",
-      "Stat": "Statistics"
+      "Stat": "Statistics",
+      "BackgroundCurrentDefault": "**Current**: Web (default)",
+      "BackgroundCurrentLocal": "**Current**: Local",
+      "BackgroundCurrentMixed": "**Current**: Mixed",
+      "BackgroundCurrentUrl": "**Current**: Web",
+      "BackgroundCustomUrls": "**Custom URLs**",
+      "BackgroundDirectLink": "Direct image link:",
+      "BackgroundExtractToLocal": "Extract to local",
+      "BackgroundLocalCount": "Local: {n}",
+      "BackgroundOpenFolder": "Open folder",
+      "BackgroundOpenInNewWindow": "Open this image in a new window",
+      "BackgroundTitle": "### Background Image",
+      "BackgroundUrlCount": "Resolved links: {n}"
     },
     "Dashboard": {
       "TimeError": "time error",
@@ -6641,8 +6646,6 @@
       "ThemeHelp": "Visual theme used by WebUI.",
       "DpiScaling": "Follow System DPI Scaling",
       "DpiScalingHelp": "Scale the interface with system DPI settings.",
-      "ShowUnverifiedWatermark": "Show unverified version watermark",
-      "ShowUnverifiedWatermarkHelp": "Display a faint full-screen \"unverified version\" watermark when running a branch other than master/main. Turn it off to hide the reminder and accept the version risk yourself.",
       "Password": "WebUI Password",
       "PasswordHelp": "Password used to access WebUI. Leave empty for no password.",
       "CDN": "PyWebIO CDN",
@@ -6669,6 +6672,9 @@
       "InvalidFeedBack": "Format error. Example: {0}",
       "Clear": "Clear",
       "RunNow": "Run Now",
+      "RunNowSchedulerStopped": "Scheduler is not running. Start it with the switch above or on the overview page.",
+      "RunNowTaskDisabled": "Task is not enabled. Turn on its scheduler before running now.",
+      "SchedulerQuickBar": "Scheduler",
       "EnterPassword": "Enter password",
       "ChooseFile": "Select file"
     },
@@ -6778,7 +6784,54 @@
       "ResourceChartTitle": "All Resources Trend",
       "LoadResourceDataFailed": "Failed to load resource data: {e}",
       "NoResourceData": "No resource data yet. It will be recorded automatically when the script runs.",
-      "NoValidResourceData": "No valid resource data"
+      "NoValidResourceData": "No valid resource data",
+      "BackgroundBtn": "Background",
+      "ChartAp": "AP: ",
+      "ChartApLabel": "AP",
+      "ChartAsset": "Assets: ",
+      "ChartChange": "Change: ",
+      "ChartChangeLabel": "Change",
+      "ChartClose": "Close: ",
+      "ChartDelta": "Change: ",
+      "ChartDensity": "Point density: ",
+      "ChartDistance": "Distance: ",
+      "ChartHigh": "High: ",
+      "ChartLow": "Low: ",
+      "ChartMa10": "  MA10 (10-period avg): ",
+      "ChartMa5": "  MA5 (5-period avg): ",
+      "ChartMaxLabel": "Max",
+      "ChartMean": "Mean: ",
+      "ChartMeanLabel": "Mean",
+      "ChartMinLabel": "Min",
+      "ChartOpen": "Open: ",
+      "ChartPanelTitle": "AP Trend - {view}",
+      "ChartPurple": "Purple Coins: ",
+      "ChartResetBtn": "Reset",
+      "ChartSeriesAp": "AP",
+      "ChartSeriesAsset": "Assets",
+      "ChartSeriesDistance": "Distance",
+      "ChartSeriesPurple": "Purple Coins",
+      "ChartSeriesYellow": "Yellow Coins",
+      "ChartSource": "Source: ",
+      "ChartYellow": "Yellow Coins: ",
+      "ExtractAlreadyLocal": "The current background is already a local image; nothing to extract.",
+      "ExtractDone": "Extracted to bg/{sub}/{name}",
+      "ExtractFailed": "Extraction failed: {error}",
+      "ExtractHint": "Extraction only saves the file; it is not applied as background. Move it to bg/ to use it.",
+      "ExtractNoImage": "No background image available to extract.",
+      "ExtractNoImageData": "No image available to extract",
+      "ExtractRunning": "Extracting…",
+      "ExtractSkipped": "This image was already extracted: {name}",
+      "ExtractUnknownError": "Unknown error",
+      "MaterialAdvancedOnly": "Advanced material only",
+      "MaterialBlur": "Blur",
+      "MaterialCards": "Cards",
+      "MaterialReset": "Reset",
+      "MaterialTiles": "Tiles",
+      "MaterialTitle": "Interface Material",
+      "MaterialTransparency": "Opacity",
+      "Readme": "Put images in this folder to use them as WebUI backgrounds.\nSupported: {{exts}}\nIf there are several, one is picked at random.\n\nThe subfolder \"{{sub}}\" holds images downloaded via the Extract button in the UI.\nThey are kept separate from the images you add manually, and the UI labels the source of each image.\nThis file can be deleted; it does not affect functionality.\n",
+      "ScreenshotPreviewBtn": "Screenshot Preview"
     },
     "Tactical": {
       "SkillAutoSwitch": "Skill Auto Switch"
@@ -6788,7 +6841,6 @@
       "OperationCoinsPreserve": "OpSi Coins Preserve",
       "ActionPointPreserve": "Action Points Preserve",
       "OperationCoinsReturnThreshold": "OpSi Coins Return Threshold",
-      "EnableExplore": "Enable Monthly Exploration",
       "EnableMeowfficerFarming": "Enable Meowfficer Farming",
       "EnableObscure": "Enable Obscure Zones",
       "EnableAbyssal": "Enable Abyssal Zones",

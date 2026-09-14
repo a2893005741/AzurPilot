@@ -1354,23 +1354,19 @@
   "OperationHandover": {
     "_info": {
       "name": "作戰委託設定",
-      "help": "固定設定作戰次數和全權委託書數量。"
+      "help": ""
     },
-    "BattleCount": {
-      "name": "作戰次數",
-      "help": "每批作戰次數（0–999）。0 跳過普通批次；已啟用的每週清書和維護日計畫仍保留。只有未啟用任何計畫時才關閉任務。"
-    },
-    "FullDelegationBookCount": {
-      "name": "全權委託書數量",
-      "help": "每批使用的作戰全權委託書數量。"
+    "Count": {
+      "name": "委託次數",
+      "help": "本次作戰委託要執行的關卡次數\n0 表示降到遊戲允許的最少次數：這時如果不開啟「一鍵消耗作戰全權委託書」，本任務會直接被關閉"
     },
     "AutoSupplementTime": {
       "name": "自動補充時間",
       "help": "剩餘可用時間不足以完成委託時，用作戰全權委託書兌換可用時間（1 本 = 1 小時）"
     },
     "UseHandoverBook": {
-      "name": "最大投入委託書",
-      "help": "開始委託前把作戰全權委託書的投入量拉到最大；開啟時忽略固定數量。"
+      "name": "使用作戰全權委託書",
+      "help": "開始委託前把作戰全權委託書的投入量拉到最大"
     },
     "ConsumeAllBook": {
       "name": "一鍵消耗作戰全權委託書",
@@ -1404,8 +1400,12 @@
       "help": "石油低於該數值時延後任務，石油夠了再繼續出擊\n0 表示不檢查"
     },
     "ConsumeAllBookRecord": {
-      "name": "一鍵消耗觸發記錄",
-      "help": "腳本記錄本週是否已經觸發過，不需要手動修改"
+      "name": "上次一鍵消耗時間",
+      "help": "上一次一鍵消耗作戰全權委託書的執行時間。\n落在本週內就表示本週已經消耗過，不會再觸發；\n清空或改成上週及更早的時間，本週的一鍵消耗會重新生效"
+    },
+    "CommissionEnd": {
+      "name": "委託預計結束時間",
+      "help": "腳本開委託時記下的結束時間，用來判斷什麼時候回來領獎勵"
     }
   },
   "StopCondition": {
@@ -1416,6 +1416,10 @@
     "OilLimit": {
       "name": "石油低於 X 後推遲",
       "help": "石油過低時推遲任務，石油充足後繼續出擊"
+    },
+    "OilLimitHardFloor": {
+      "name": "石油停止下限",
+      "help": "實際停止閾值為 max(下限, 石油上限)。500 是歷史遺留的安全網，低耗監工希望把油打到更低時可以調小，設為 0 則石油上限直接生效"
     },
     "CoinLimit": {
       "name": "物資達到 X 後推遲",
@@ -1600,7 +1604,7 @@
     },
     "AutoSearchMode": {
       "name": "選擇潛艇自律方案",
-      "help": "僅在自律尋敵下生效",
+      "help": "自律尋敵下按此設定潛艇；手動尋敵時若為待機，進圖前也會同步關閉遊戲內的自動召喚（僅限已通關地圖，開荒圖無此設定頁）",
       "sub_standby": "待機",
       "sub_auto_call": "自動召喚潛艇"
     },
@@ -2281,6 +2285,7 @@
       "series_8_blueprint_305": "八期 藍圖+305",
       "series_8_blueprint_only": "八期 僅藍圖",
       "series_8_305_only": "八期 僅305",
+      "series_8_305_e_first": "八期 305彩裝優先",
       "series_7_blueprint_la9": "七期 藍圖+La9",
       "series_7_blueprint_only": "七期 僅藍圖",
       "series_7_la9_only": "七期 僅La9",
@@ -3360,12 +3365,6 @@
       "name": "允許開荒期間執行侵蝕1練級",
       "help": "開啟後將不會推遲侵蝕1練級任務，慎用，沒體力開荒就老實了。"
     },
-    "EnableSmartScheduling": {
-      "name": "接入智慧調度",
-      "help": "開荒期間黃幣達到智慧調度上限時切換侵蝕1，黃幣降到下限後繼續開荒。需同時啟用智慧調度和黃幣目標調度。",
-      "True": "True",
-      "False": "False"
-    },
     "ExploreProgress": {
       "name": "每月開荒進度",
       "help": "顯示當前每月開荒的完成百分比"
@@ -3705,12 +3704,6 @@
     "OperationCoinsReturnThreshold": {
       "name": "作戰補給憑證低於 X 時返航",
       "help": "在黃幣獲取任務時 共獲取(增加) X 個作戰補給憑證後返回侵蝕1練級"
-    },
-    "EnableExplore": {
-      "name": "啟用每月開荒",
-      "help": "智慧排程Plus中是否啟用每月開荒任務來補充黃幣",
-      "True": "已啟用",
-      "False": "未啟用"
     },
     "EnableMeowfficerFarming": {
       "name": "啟用短貓相接",
@@ -6424,7 +6417,19 @@
       "Pending": "佇列中",
       "Waiting": "等待中",
       "NoTask": "無任務",
-      "Stat": "統計"
+      "Stat": "統計",
+      "BackgroundCurrentDefault": "**目前使用**：網頁（預設）",
+      "BackgroundCurrentLocal": "**目前使用**：本地",
+      "BackgroundCurrentMixed": "**目前使用**：混合",
+      "BackgroundCurrentUrl": "**目前使用**：網頁",
+      "BackgroundCustomUrls": "**自訂網址**",
+      "BackgroundDirectLink": "目前圖片直鏈：",
+      "BackgroundExtractToLocal": "提取到本地",
+      "BackgroundLocalCount": "本地：{n} 張",
+      "BackgroundOpenFolder": "開啟資料夾",
+      "BackgroundOpenInNewWindow": "在新視窗開啟這張圖",
+      "BackgroundTitle": "### 背景圖",
+      "BackgroundUrlCount": "已解析連結：{n} 個"
     },
     "Dashboard": {
       "TimeError": "時間錯誤",
@@ -6641,8 +6646,6 @@
       "ThemeHelp": "WebUI 使用的視覺主題。",
       "DpiScaling": "跟隨系統 DPI 縮放",
       "DpiScalingHelp": "跟隨系統 DPI 縮放介面尺寸。",
-      "ShowUnverifiedWatermark": "顯示未驗證版本水印",
-      "ShowUnverifiedWatermarkHelp": "使用非 master/main 分支時，全螢幕顯示「未經驗證的版本」淡灰水印。關閉後不再提示，請自行確認版本風險。",
       "Password": "WebUI 密碼",
       "PasswordHelp": "存取 WebUI 使用的密碼。留空表示不設定密碼。",
       "CDN": "PyWebIO CDN",
@@ -6669,6 +6672,9 @@
       "InvalidFeedBack": "格式錯誤。 示例：{0}",
       "Clear": "清除",
       "RunNow": "立即執行",
+      "RunNowSchedulerStopped": "調度器未啟動，請先透過上方開關或總覽頁啟動",
+      "RunNowTaskDisabled": "該任務未啟用，請先勾選\"啟用調度\"再立即執行",
+      "SchedulerQuickBar": "調度器",
       "EnterPassword": "輸入密碼",
       "ChooseFile": "選擇檔案"
     },
@@ -6778,7 +6784,54 @@
       "ResourceChartTitle": "全資源變化趨勢",
       "LoadResourceDataFailed": "載入資源資料失敗: {e}",
       "NoResourceData": "暫無資源變化資料，執行腳本後將自動記錄",
-      "NoValidResourceData": "暫無有效資源資料"
+      "NoValidResourceData": "暫無有效資源資料",
+      "BackgroundBtn": "背景",
+      "ChartAp": "體力: ",
+      "ChartApLabel": "行動力",
+      "ChartAsset": "資產: ",
+      "ChartChange": "漲跌: ",
+      "ChartChangeLabel": "變化",
+      "ChartClose": "收盤: ",
+      "ChartDelta": "單次變化:",
+      "ChartDensity": "資料點密度: ",
+      "ChartDistance": "海里數: ",
+      "ChartHigh": "最高: ",
+      "ChartLow": "最低: ",
+      "ChartMa10": "  MA10(10期平均): ",
+      "ChartMa5": "  MA5(5期平均): ",
+      "ChartMaxLabel": "最高",
+      "ChartMean": "均值:",
+      "ChartMeanLabel": "均值",
+      "ChartMinLabel": "最低",
+      "ChartOpen": "開盤: ",
+      "ChartPanelTitle": "體力變化 - {view}",
+      "ChartPurple": "紫幣: ",
+      "ChartResetBtn": "重設",
+      "ChartSeriesAp": "體力",
+      "ChartSeriesAsset": "資產",
+      "ChartSeriesDistance": "海里數",
+      "ChartSeriesPurple": "紫幣",
+      "ChartSeriesYellow": "黃幣",
+      "ChartSource": "來源: ",
+      "ChartYellow": "黃幣: ",
+      "ExtractAlreadyLocal": "目前背景已經是本地圖片，無需提取。",
+      "ExtractDone": "已提取到 bg/{sub}/{name}",
+      "ExtractFailed": "提取失敗：{error}",
+      "ExtractHint": "提取只是存放，不會自動當背景；想用請移到 bg/。",
+      "ExtractNoImage": "目前沒有可提取的背景圖。",
+      "ExtractNoImageData": "沒有可提取的圖片",
+      "ExtractRunning": "正在提取…",
+      "ExtractSkipped": "這張圖之前已經提取過了：{name}",
+      "ExtractUnknownError": "未知錯誤",
+      "MaterialAdvancedOnly": "僅進階材質生效",
+      "MaterialBlur": "磨砂",
+      "MaterialCards": "卡片",
+      "MaterialReset": "重設",
+      "MaterialTiles": "貼片",
+      "MaterialTitle": "介面材質",
+      "MaterialTransparency": "透明",
+      "Readme": "把圖片放進這個資料夾即可作為 WebUI 背景。\n支援：{{exts}}\n放多張會隨機選取一張。\n\n子資料夾「{{sub}}」存放介面上點【提取】下載的圖片，\n與你手動放進來的圖片分開，頁面上會標明每張圖的來源。\n本檔案可刪除，不影響功能。\n",
+      "ScreenshotPreviewBtn": "截圖預覽"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自動切換"
@@ -6788,7 +6841,6 @@
       "OperationCoinsPreserve": "作戰補給憑證保留",
       "ActionPointPreserve": "行動力保留",
       "OperationCoinsReturnThreshold": "作戰補給憑證回退閾值",
-      "EnableExplore": "啟用每月開荒",
       "EnableMeowfficerFarming": "啟用指揮喵刷取",
       "EnableObscure": "啟用隱秘海域",
       "EnableAbyssal": "啟用深淵海域",

@@ -23,7 +23,12 @@ from module.device.pkg_resources import get_distribution
 _ = get_distribution
 
 from adbutils import AdbError, Network
-from starlette.responses import JSONResponse, HTMLResponse, StreamingResponse
+from starlette.responses import (
+    FileResponse,
+    JSONResponse,
+    HTMLResponse,
+    StreamingResponse,
+)
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
 from module.device.method.scrcpy import const as scrcpy_const
@@ -73,6 +78,22 @@ def api_ap_timeline(request):
     except Exception as e:
         logger.error(f"api_ap_timeline错误: {e}")
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+def api_css_fingerprint(request):
+    """返回 GUI CSS 文件指纹，供前端轮询检测样式文件变化并热更新。
+
+    前端脚本由 load_webui_styles 注入，样式文件改动后原地替换
+    <link>/<style> 内容，无需手动刷新页面。
+    """
+    try:
+        from module.webui.utils import gui_css_fingerprint
+        fingerprint, files = gui_css_fingerprint()
+        return JSONResponse({"fingerprint": fingerprint, "files": files})
+    except Exception as e:
+        logger.error(f"api_css_fingerprint错误: {e}")
+        return JSONResponse({"fingerprint": "", "files": {}}, status_code=500)
+
 
 def serve_obs_overlay(request):
     """
@@ -1782,7 +1803,38 @@ async def api_import_legacy_upload(request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+def api_background_image(request):
+    """按文件名返回 ``bg/`` 下的背景图。
+
+    文件名经 :func:`safe_local_path` 校验：只接受裸文件名与图片扩展名，
+    拒绝路径分隔符和 ``..``，避免顺着这个路由读到目录外的文件。
+    """
+    from module.webui.background_image import PLACE_ROOT, safe_local_path
+
+    name = request.path_params.get("name", "")
+    path = safe_local_path(name, PLACE_ROOT)
+    if path is None:
+        return JSONResponse({"success": False, "error": "not found"},
+                            status_code=404)
+    return FileResponse(path)
+
+
+def api_background_extracted(request):
+    """返回 ``bg/提取/`` 下【提取】下载的背景图。"""
+    from module.webui.background_image import PLACE_EXTRACTED, safe_local_path
+
+    name = request.path_params.get("name", "")
+    path = safe_local_path(name, PLACE_EXTRACTED)
+    if path is None:
+        return JSONResponse({"success": False, "error": "not found"},
+                            status_code=404)
+    return FileResponse(path)
+
+
 api_routes = [
+    # 注意顺序：extracted 必须在 {name} 之前，否则会被当成文件名吃掉
+    Route("/api/background/extracted/{name}", api_background_extracted),
+    Route("/api/background/{name}", api_background_image),
     Route("/api/cl1_stats", api_cl1_stats),
     Route("/api/ap_timeline", api_ap_timeline),
     Route("/api/notify", api_notify, methods=["POST"]),
@@ -1798,6 +1850,7 @@ api_routes = [
     Route("/api/deploy/startup-run", api_deploy_startup_run),
     Route("/api/deploy/startup-run", api_deploy_startup_run_save, methods=["POST"]),
     Route("/api/import_legacy_upload", api_import_legacy_upload, methods=["POST"]),
+    Route("/api/css-fingerprint", api_css_fingerprint),
     Route("/obs", serve_obs_overlay),
     WebSocketRoute("/ws/live_screenshot", ws_live_screenshot),
     WebSocketRoute("/ws/live_control", ws_live_control),

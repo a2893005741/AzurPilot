@@ -935,7 +935,7 @@
     "YukikazeTaskManager": {
       "TaskPriorityAdjustment": {
         "type": "task_priority",
-        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> OperationHandover\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost"
+        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
       }
     },
     "Storage": {
@@ -1152,6 +1152,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -1318,7 +1322,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -1583,6 +1587,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -1749,7 +1757,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -2014,6 +2022,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -2180,7 +2192,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -2572,6 +2584,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -2742,7 +2758,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -2852,7 +2868,7 @@
     "EnemyPriority": {
       "EnemyScaleBalanceWeight": {
         "type": "select",
-        "value": "default_mode",
+        "value": "S1_enemy_first",
         "option": [
           "default_mode",
           "S3_enemy_first",
@@ -3108,6 +3124,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -3278,7 +3298,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -3387,7 +3407,7 @@
     "EnemyPriority": {
       "EnemyScaleBalanceWeight": {
         "type": "select",
-        "value": "default_mode",
+        "value": "S1_enemy_first",
         "option": [
           "default_mode",
           "S3_enemy_first",
@@ -3629,6 +3649,10 @@
       "OilLimit": {
         "type": "input",
         "value": 1000
+      },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
       },
       "CoinLimit": {
         "type": "input",
@@ -4079,6 +4103,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -4245,7 +4273,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -4528,6 +4556,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -4694,7 +4726,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -4976,6 +5008,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -5142,7 +5178,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -5444,6 +5480,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -5724,6 +5764,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -5890,7 +5934,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -6060,6 +6104,10 @@
       "OilLimit": {
         "type": "input",
         "value": 1000
+      },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
       },
       "CoinLimit": {
         "type": "input",
@@ -6355,6 +6403,10 @@
       "OilLimit": {
         "type": "input",
         "value": 1000
+      },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
       },
       "CoinLimit": {
         "type": "input",
@@ -6655,6 +6707,10 @@
       "OilLimit": {
         "type": "input",
         "value": 1000
+      },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
       },
       "CoinLimit": {
         "type": "input",
@@ -7352,6 +7408,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -7562,7 +7622,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -7857,6 +7917,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -8028,7 +8092,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -8323,6 +8387,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -8494,7 +8562,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -8789,6 +8857,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -8960,7 +9032,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -9255,6 +9327,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -9426,7 +9502,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -9711,6 +9787,10 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
@@ -9883,7 +9963,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -10174,6 +10254,10 @@
       "OilLimit": {
         "type": "input",
         "value": 1000
+      },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
       },
       "CoinLimit": {
         "type": "input",
@@ -10466,6 +10550,10 @@
       "OilLimit": {
         "type": "input",
         "value": 1000
+      },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
       },
       "CoinLimit": {
         "type": "input",
@@ -10974,6 +11062,7 @@
           "series_8_blueprint_305",
           "series_8_blueprint_only",
           "series_8_305_only",
+          "series_8_305_e_first",
           "series_7_blueprint_la9",
           "series_7_blueprint_only",
           "series_7_la9_only",
@@ -11590,12 +11679,12 @@
       },
       "SuccessInterval": {
         "type": "input",
-        "value": "30-60",
+        "value": 30,
         "display": "hide"
       },
       "FailureInterval": {
         "type": "input",
-        "value": "30-60",
+        "value": 30,
         "display": "hide"
       },
       "ServerUpdate": {
@@ -11621,26 +11710,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "campaign_main",
-          "event_20260813_cn",
-          "event_20260908_cn"
-        ],
-        "option_cn": [
-          "event_20260908_cn"
-        ],
-        "option_en": [
-          "event_20260908_cn"
-        ],
-        "option_jp": [
-          "event_20260908_cn"
-        ],
-        "option_tw": [
-          "event_20260813_cn"
-        ],
-        "option_bold": [
-          "campaign_main",
-          "event_20260813_cn",
-          "event_20260908_cn"
+          "campaign_main"
         ]
       },
       "Mode": {
@@ -11649,21 +11719,22 @@
         "option": [
           "normal",
           "hard"
-        ]
+        ],
+        "display": "hide"
       },
       "UseClearMode": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "display": "hide"
       },
       "UseFleetLock": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "display": "hide"
       },
       "UseAutoSearch": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "display": "hide"
       },
       "Use2xBook": {
@@ -11673,7 +11744,7 @@
       },
       "AmbushEvade": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "display": "hide"
       },
       "UseRecommendFleet": {
@@ -11693,20 +11764,12 @@
       }
     },
     "OperationHandover": {
-      "BattleCount": {
+      "Count": {
         "type": "input",
         "value": 1,
         "validate": [
           0,
           999
-        ]
-      },
-      "FullDelegationBookCount": {
-        "type": "input",
-        "value": 0,
-        "validate": [
-          0,
-          15
         ]
       },
       "AutoSupplementTime": {
@@ -11760,8 +11823,13 @@
         ]
       },
       "ConsumeAllBookRecord": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "CommissionEnd": {
         "type": "stored",
-        "value": "",
+        "value": "2020-01-01 00:00:00",
         "display": "hide"
       }
     },
@@ -13372,14 +13440,6 @@
         "type": "checkbox",
         "value": false
       },
-      "EnableSmartScheduling": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
       "ExploreProgress": {
         "type": "textarea",
         "value": "",
@@ -14507,14 +14567,6 @@
         "type": "input",
         "value": 20000
       },
-      "EnableExplore": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
       "EnableMeowfficerFarming": {
         "type": "checkbox",
         "value": true,
@@ -14549,7 +14601,7 @@
       },
       "TaskPriority": {
         "type": "textarea",
-        "value": "OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
+        "value": "OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
       },
       "MonthEndActionPointCleanupEnable": {
         "type": "checkbox",

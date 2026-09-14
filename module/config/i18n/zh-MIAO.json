@@ -1353,24 +1353,20 @@
   },
   "OperationHandover": {
     "_info": {
-      "name": "作战委托设置喵",
-      "help": "固定设置作战次数和全权委托书数量喵。"
+      "name": "作战委托设定喵",
+      "help": ""
     },
-    "BattleCount": {
-      "name": "作战次数喵",
-      "help": "每批作战次数（0–999）喵。0 跳过普通批次；已启用的每周清书和维护日计划仍保留。只有未启用任何计划时才关闭任务。"
-    },
-    "FullDelegationBookCount": {
-      "name": "全权委托书数量喵",
-      "help": "每批使用的作战全权委托书数量喵。"
+    "Count": {
+      "name": "委托次数",
+      "help": "这次要打多少把喵\n填 0 就是降到最少：这时候要是没开一键消耗委托书，这个任务就直接被关掉喵 (・_・)"
     },
     "AutoSupplementTime": {
-      "name": "自动补充时间喵",
+      "name": "自动补充时间",
       "help": "时间不够就用委托书换喵，一本换一小时喵 (=^･ω･^=)"
     },
     "UseHandoverBook": {
-      "name": "最大投入委托书喵",
-      "help": "开打之前把委托书塞满喵！开启时无视固定数量喵～"
+      "name": "使用作战全权委托书",
+      "help": "开打之前把委托书塞满喵！"
     },
     "ConsumeAllBook": {
       "name": "一键把委托书全烧了喵",
@@ -1404,8 +1400,12 @@
       "help": "油不够就先别跑，等油攒够了再来喵~ (￣ω￣)"
     },
     "ConsumeAllBookRecord": {
-      "name": "开烧记录喵",
-      "help": "脚本自己记的，不用管喵~"
+      "name": "上次烧书是啥时候喵",
+      "help": "上一次把委托书烧光的时刻喵~\n在本周内就说明这周已经烧过了，不会再烧；\n清空或者改到上周以前，这周就能再烧一次喵 (๑•̀ㅂ•́)و✧"
+    },
+    "CommissionEnd": {
+      "name": "委托啥时候结束喵",
+      "help": "脚本自己记的，用来知道啥时候回来收菜喵~"
     }
   },
   "StopCondition": {
@@ -1416,6 +1416,10 @@
     "OilLimit": {
       "name": "石油低于 X 后推迟",
       "help": "石油不足时歇一歇，等回复再出喵~ (=^･ω･^=)"
+    },
+    "OilLimitHardFloor": {
+      "name": "石油停止下限喵",
+      "help": "实际停止阈值为 max(下限, 石油上限)。500 是历史遗留的安全网，低耗监工希望把油打到更低时可以调小，设为 0 则石油上限直接生效喵"
     },
     "CoinLimit": {
       "name": "物资大于 X 后停止喵",
@@ -1600,7 +1604,7 @@
     },
     "AutoSearchMode": {
       "name": "潜艇自律方案",
-      "help": "自律寻敌下生效",
+      "help": "自律寻敌下按此设置潜艇喵；手动寻敌时若为待机，进图前也会同步关闭游戏内的自动召唤（仅限已通关地图，开荒图无此设置页）喵",
       "sub_standby": "待机喵",
       "sub_auto_call": "自动召唤潜艇喵"
     },
@@ -2281,6 +2285,7 @@
       "series_8_blueprint_305": "八期 蓝图+305喵",
       "series_8_blueprint_only": "八期 仅蓝图喵",
       "series_8_305_only": "八期 仅305喵",
+      "series_8_305_e_first": "八期 305彩装优先喵",
       "series_7_blueprint_la9": "七期 蓝图+La9喵",
       "series_7_blueprint_only": "七期 仅蓝图喵",
       "series_7_la9_only": "七期 仅La9喵",
@@ -3360,12 +3365,6 @@
       "name": "允许开荒期间运行侵蚀1练级喵",
       "help": "开启后将不会推迟侵蚀1练级任务，慎用，没体力开荒就老实了喵。"
     },
-    "EnableSmartScheduling": {
-      "name": "接入智能调度喵",
-      "help": "开荒期间黄币达到智能调度上限时切换侵蚀1，黄币降到下限后继续开荒喵。需同时启用智能调度和黄币目标调度喵。",
-      "True": "True",
-      "False": "False"
-    },
     "ExploreProgress": {
       "name": "每月开荒进度",
       "help": "显示当前完成百分比喵。 (=^･ω･^=)"
@@ -3705,12 +3704,6 @@
     "OperationCoinsReturnThreshold": {
       "name": "获取 X 个作战补给凭证",
       "help": "黄币获取任务中共获取X个凭证后返回侵蚀1练级喵。 (´・ω・`)"
-    },
-    "EnableExplore": {
-      "name": "启用每月开荒喵",
-      "help": "智能调度Plus中是否启用每月开荒任务来补充黄币喵",
-      "True": "已启用喵",
-      "False": "未启用喵"
     },
     "EnableMeowfficerFarming": {
       "name": "启用短猫相接",
@@ -6424,7 +6417,19 @@
       "Pending": "队列中",
       "Waiting": "等待中",
       "NoTask": "无任务喵",
-      "Stat": "统计喵"
+      "Stat": "统计喵",
+      "BackgroundCurrentDefault": "**当前使用**：网页（默认）喵",
+      "BackgroundCurrentLocal": "**当前使用**：本地喵",
+      "BackgroundCurrentMixed": "**当前使用**：混合喵",
+      "BackgroundCurrentUrl": "**当前使用**：网页喵",
+      "BackgroundCustomUrls": "**自定义网址喵**",
+      "BackgroundDirectLink": "当前图片直链喵：",
+      "BackgroundExtractToLocal": "提取到本地喵",
+      "BackgroundLocalCount": "本地：{n} 张喵",
+      "BackgroundOpenFolder": "打开文件夹喵",
+      "BackgroundOpenInNewWindow": "在新窗口打开这张图喵",
+      "BackgroundTitle": "### 背景图喵",
+      "BackgroundUrlCount": "已解析链接：{n} 个喵"
     },
     "Dashboard": {
       "TimeError": "时间错误喵",
@@ -6641,8 +6646,6 @@
       "ThemeHelp": "WebUI 使用的视觉主题喵。",
       "DpiScaling": "跟随系统 DPI 缩放",
       "DpiScalingHelp": "跟随系统 DPI 缩放界面尺寸喵。",
-      "ShowUnverifiedWatermark": "显示未验证版本水印喵",
-      "ShowUnverifiedWatermarkHelp": "使用非 master/main 分支的时候，全屏显示“未经验证的版本”淡灰水印喵～关掉之后就不提示了喵，请自己确认版本风险喵！",
       "Password": "WebUI 密码",
       "PasswordHelp": "访问 WebUI 使用的密码。留空表示不设置密码喵。",
       "CDN": "PyWebIO CDN",
@@ -6669,6 +6672,9 @@
       "InvalidFeedBack": "格式错误喵。示例：{0}",
       "Clear": "清除喵",
       "RunNow": "立即运行喵",
+      "RunNowSchedulerStopped": "调度器未启动喵，请先通过上方开关或总览页启动",
+      "RunNowTaskDisabled": "该任务未启用喵，请先勾选\"启用调度\"再立即运行",
+      "SchedulerQuickBar": "调度器喵",
       "EnterPassword": "输入密码喵",
       "ChooseFile": "选择文件喵"
     },
@@ -6778,7 +6784,54 @@
       "ResourceChartTitle": "全资源变化趋势喵",
       "LoadResourceDataFailed": "加载资源数据失败喵: {e}",
       "NoResourceData": "暂无资源变化数据喵，运行脚本后将自动记录喵",
-      "NoValidResourceData": "暂无有效资源数据喵"
+      "NoValidResourceData": "暂无有效资源数据喵",
+      "BackgroundBtn": "背景喵",
+      "ChartAp": "体力喵: ",
+      "ChartApLabel": "行动力喵",
+      "ChartAsset": "资产喵: ",
+      "ChartChange": "涨跌喵: ",
+      "ChartChangeLabel": "变化喵",
+      "ChartClose": "收盘喵: ",
+      "ChartDelta": "单次变化喵: ",
+      "ChartDensity": "数据点密度喵: ",
+      "ChartDistance": "海里数喵: ",
+      "ChartHigh": "最高喵: ",
+      "ChartLow": "最低喵: ",
+      "ChartMa10": "  MA10(10期平均)喵: ",
+      "ChartMa5": "  MA5(5期平均)喵: ",
+      "ChartMaxLabel": "最高喵",
+      "ChartMean": "均值喵:",
+      "ChartMeanLabel": "均值喵",
+      "ChartMinLabel": "最低喵",
+      "ChartOpen": "开盘喵: ",
+      "ChartPanelTitle": "体力变化喵 - {view}",
+      "ChartPurple": "紫币喵: ",
+      "ChartResetBtn": "重置喵",
+      "ChartSeriesAp": "体力喵",
+      "ChartSeriesAsset": "资产喵",
+      "ChartSeriesDistance": "海里数喵",
+      "ChartSeriesPurple": "紫币喵",
+      "ChartSeriesYellow": "黄币喵",
+      "ChartSource": "来源喵: ",
+      "ChartYellow": "黄币喵: ",
+      "ExtractAlreadyLocal": "当前背景已经是本地图片，无需提取喵。",
+      "ExtractDone": "已提取到 bg/{sub}/{name} 喵",
+      "ExtractFailed": "提取失败喵：{error}",
+      "ExtractHint": "提取只是存放，不会自动当背景喵；想用请移到 bg/。",
+      "ExtractNoImage": "当前没有可提取的背景图喵。",
+      "ExtractNoImageData": "没有可提取的图片喵",
+      "ExtractRunning": "正在提取喵…",
+      "ExtractSkipped": "这张图之前已经提取过了喵：{name}",
+      "ExtractUnknownError": "未知错误喵",
+      "MaterialAdvancedOnly": "仅高级材质生效喵",
+      "MaterialBlur": "磨砂喵",
+      "MaterialCards": "卡片喵",
+      "MaterialReset": "重置喵",
+      "MaterialTiles": "贴片喵",
+      "MaterialTitle": "界面材质喵",
+      "MaterialTransparency": "透明喵",
+      "Readme": "把图片放进这个文件夹即可作为 WebUI 背景喵。\n支持：{{exts}}\n放多张会随机选取一张喵。\n\n子文件夹「{{sub}}」存放界面上点【提取】下载的图片喵，\n和你手动放进来的图片分开，页面上会标明每张图的来源。\n本文件可删除，不影响功能喵。\n",
+      "ScreenshotPreviewBtn": "截图预览喵"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自动切换喵"
@@ -6788,7 +6841,6 @@
       "OperationCoinsPreserve": "侵蚀1保留凭证喵",
       "ActionPointPreserve": "短猫保留行动力喵",
       "OperationCoinsReturnThreshold": "补充凭证至X喵",
-      "EnableExplore": "每月开荒开关喵",
       "EnableMeowfficerFarming": "短猫开关喵",
       "EnableObscure": "隐秘开关喵",
       "EnableAbyssal": "深渊开关喵",

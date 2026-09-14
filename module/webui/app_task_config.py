@@ -1,12 +1,12 @@
 """WebUI任务菜单和配置表单"""
 
 from html import escape
-import json
 from typing import cast
 
 import module.webui.lang as lang
 from module.webui.app_dependencies import (
     Any,
+    BinarySwitchButton,
     clear,
     Dict,
     List,
@@ -402,6 +402,10 @@ class TaskConfigMixin(WebUIMixinBase):
                 )
             )
 
+        # 任务页顶部工具行：调度器启停开关，调完设置不必回总览页启动（#392）
+        if "Scheduler" in self.ALAS_ARGS[task]:
+            group_outputs.append(put_scope("scheduler_quick_bar"))
+
         if task == "Alas":
             group_outputs.append(put_scope("group_StartupRun"))
 
@@ -443,6 +447,35 @@ class TaskConfigMixin(WebUIMixinBase):
                 self._os_simulator()
         elif render_event_calculator:
             self._render_event_calculator(config)
+        if "Scheduler" in self.ALAS_ARGS[task]:
+            with use_scope("scheduler_quick_bar"):
+                self._render_scheduler_quick_bar()
+
+    def _render_scheduler_quick_bar(self) -> None:
+        """渲染任务设置页顶部的调度器启停开关（#392）。
+
+        与总览页的开关行为一致：启动后进入调度循环，停止时按
+        Optimization_WhenSchedulerStopped 处理正在运行的任务。
+        左右布局（标题居左、按钮居右）由 alas.css 的
+        #pywebio-scope-scheduler_quick_bar 控制，与总览页工具行一致。
+        """
+        with use_scope("scheduler_quick_bar"):
+            put_text(t("Gui.Text.SchedulerQuickBar"))
+            put_scope("scheduler_btn_task")
+        switch_scheduler = BinarySwitchButton(
+            label_on=t("Gui.Button.Stop"),
+            label_off=t("Gui.Button.Start"),
+            onclick_on=lambda: self.alas.stop_by_user(
+                self.alas_config.Optimization_WhenSchedulerStopped
+            ),
+            onclick_off=self._alas_start,
+            get_state=lambda: self.alas.alive,
+            color_on="off",
+            color_off="on",
+            scope="scheduler_btn_task",
+        )
+        # 按钮的首次渲染与状态轮询均由周期任务完成；页面切换时随 pending 任务清理
+        self.task_handler.add(switch_scheduler.g(), 1, True)
 
     def _build_config_group(
         self,
@@ -465,8 +498,20 @@ class TaskConfigMixin(WebUIMixinBase):
             output_kwargs = resolved_kwargs.copy()
             if group_name == "Scheduler" and arg_name == "NextRun":
                 # 立即运行按钮：清空 NextRun 触发调度器立即执行该任务
-                def _run_now(_task=task):
-                    self._queue_run_now(_task)
+                run_now_path = f"{task}.Scheduler.NextRun"
+
+                def _run_now(_path=run_now_path, _task=task):
+                    # 静默失效场景提示：调度器未启动或任务未启用时，
+                    # 清空 NextRun 不会有任何效果（#392）
+                    if not self.alas.alive:
+                        toast(t("Gui.Text.RunNowSchedulerStopped"), color="warning")
+                        return
+                    current = self.alas_config.read_file(self.alas_name)
+                    if not deep_get(current, f"{_task}.Scheduler.Enable", False):
+                        toast(t("Gui.Text.RunNowTaskDisabled"), color="warning")
+                        return
+                    self.modified_config_queue.put({"name": _path, "value": ""})
+                    toast(t("Gui.Text.RunNow"))
 
                 run_now_btn = put_html(
                     f'<a href="javascript:void(0)" '
@@ -543,46 +588,6 @@ class TaskConfigMixin(WebUIMixinBase):
             onclick=lambda: run_js(js),
             color="navigator",
         )
-
-    def _queue_run_now(self, task: str) -> None:
-        """将任务加入立即执行队列。
-
-        作战委托Plus默认关闭，用户点击“立即运行”时需要同时唤醒该任务；
-        已启用时保持开关状态不变，其他任务保持原有的仅清空 ``NextRun`` 行为。
-        """
-        run_now_path = f"{task}.Scheduler.NextRun"
-        self.modified_config_queue.put({"name": run_now_path, "value": ""})
-        if task == "OperationHandover":
-            config = getattr(self, "alas_config", None)
-            config_name = getattr(self, "alas_name", "")
-            enabled = False
-            if config is not None and config_name:
-                try:
-                    enabled = bool(
-                        deep_get(
-                            config.read_file(config_name),
-                            f"{task}.Scheduler.Enable",
-                            False,
-                        )
-                    )
-                except Exception:
-                    logger.warning("[WebUI] 无法读取作战委托启用状态，按关闭状态唤醒任务")
-
-            if not enabled:
-                self.modified_config_queue.put({
-                    "name": f"{task}.Scheduler.Enable",
-                    "value": True,
-                })
-                # 旧版 PyWebIO 前端在 pin_update 后可能重新读取 checkbox 的旧值，
-                # 造成“立即运行”后页面看起来又被关闭。直接更新 DOM 属性，不派发 change 事件，
-                # 真实配置仍由上面的保存队列写入。
-                pin_name = f"{task}_Scheduler_Enable"
-                selector = json.dumps(f'input[name="{pin_name}"]')
-                run_js(
-                    f"document.querySelectorAll({selector})"
-                    ".forEach(function (input) { input.checked = true; });"
-                )
-        toast(t("Gui.Text.RunNow"))
 
     @use_scope("navigator")
     def set_navigator(self, group):

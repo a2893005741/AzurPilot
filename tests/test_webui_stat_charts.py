@@ -205,7 +205,6 @@ class TestStatisticsChartPayloads(unittest.TestCase):
         resource = _ResourceHarness()
         with (
             patch("module.webui.app_stat_resource.t", side_effect=lambda key, **_kwargs: key),
-            patch("module.webui.app_stat_resource.read_webapp_template", return_value="{chart_id}|{title}|{stats_html}"),
         ):
             labels, series_map = resource._build_resource_series(
                 [
@@ -213,12 +212,34 @@ class TestStatisticsChartPayloads(unittest.TestCase):
                     {"ts": "2026-08-26T10:00:00", "oil": 1000, "action_point": 100},
                 ]
             )
-            _, chart_request = resource._build_resource_chart_content(labels, series_map)
+            html, chart_request = resource._build_resource_chart_content(labels, series_map)
             payload = chart_request["payload"]
+        self.assertIn(f'id="{chart_request["chart_id"]}_echarts"', html)
+        self.assertNotIn("<canvas", html)
         self.assertEqual("Oil", payload["series"][0]["key"])
         self.assertEqual(["08-26 10:00"], labels)
         self.assertIn("ActionPoint", [item["key"] for item in payload["series"]])
         self.assertIsNone(payload["series"][1]["data"][0])
+
+    def test_resource_render_uses_real_template_and_echarts_script(self):
+        """覆盖总览有数据时的真实模板与脚本注入，防止合并后契约错配。"""
+        resource = _ResourceHarness()
+        timeline = [{"ts": "2026-09-15T10:00:00", "oil": 1000}]
+        with (
+            patch.object(resource, "_load_resource_timeline", return_value=timeline),
+            patch("module.webui.app_stat_resource.t", side_effect=lambda key, **_kwargs: key),
+            patch("module.webui.app_stat_resource.use_scope", side_effect=lambda *_args, **_kwargs: nullcontext()),
+            patch("module.webui.app_stat_resource.put_html") as output,
+            patch.object(ChartInjectionMixin, "_inject_chart_scripts") as inject,
+        ):
+            resource._render_resource_chart()
+        output.assert_called_once()
+        inject.assert_called_once()
+        request = inject.call_args.kwargs
+        self.assertIn(f'id="{request["chart_id"]}_echarts"', output.call_args.args[0])
+        self.assertEqual("__renderResourceChart", request["render_fn"])
+        self.assertIn('chartId + "_echarts"', request["render_script"])
+        self.assertEqual([1000], request["payload"]["series"][0]["data"])
 
 
 class TestStatisticsChartAssets(unittest.TestCase):

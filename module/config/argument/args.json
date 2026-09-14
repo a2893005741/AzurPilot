@@ -2868,7 +2868,7 @@
     "EnemyPriority": {
       "EnemyScaleBalanceWeight": {
         "type": "select",
-        "value": "S1_enemy_first",
+        "value": "default_mode",
         "option": [
           "default_mode",
           "S3_enemy_first",
@@ -3407,7 +3407,7 @@
     "EnemyPriority": {
       "EnemyScaleBalanceWeight": {
         "type": "select",
-        "value": "S1_enemy_first",
+        "value": "default_mode",
         "option": [
           "default_mode",
           "S3_enemy_first",
@@ -11679,12 +11679,12 @@
       },
       "SuccessInterval": {
         "type": "input",
-        "value": 30,
+        "value": "30-60",
         "display": "hide"
       },
       "FailureInterval": {
         "type": "input",
-        "value": 30,
+        "value": "30-60",
         "display": "hide"
       },
       "ServerUpdate": {
@@ -11710,7 +11710,26 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "campaign_main"
+          "campaign_main",
+          "event_20260813_cn",
+          "event_20260908_cn"
+        ],
+        "option_cn": [
+          "event_20260908_cn"
+        ],
+        "option_en": [
+          "event_20260908_cn"
+        ],
+        "option_jp": [
+          "event_20260908_cn"
+        ],
+        "option_tw": [
+          "event_20260813_cn"
+        ],
+        "option_bold": [
+          "campaign_main",
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -11719,22 +11738,21 @@
         "option": [
           "normal",
           "hard"
-        ],
-        "display": "hide"
+        ]
       },
       "UseClearMode": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "display": "hide"
       },
       "UseFleetLock": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "display": "hide"
       },
       "UseAutoSearch": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "display": "hide"
       },
       "Use2xBook": {
@@ -11744,7 +11762,7 @@
       },
       "AmbushEvade": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "display": "hide"
       },
       "UseRecommendFleet": {

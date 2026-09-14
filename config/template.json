@@ -555,7 +555,7 @@
       "Fleet2Onsen": false
     },
     "EnemyPriority": {
-      "EnemyScaleBalanceWeight": "S1_enemy_first"
+      "EnemyScaleBalanceWeight": "default_mode"
     },
     "Storage": {
       "Storage": {}
@@ -648,7 +648,7 @@
       "Fleet2Onsen": false
     },
     "EnemyPriority": {
-      "EnemyScaleBalanceWeight": "S1_enemy_first"
+      "EnemyScaleBalanceWeight": "default_mode"
     },
     "Storage": {
       "Storage": {}
@@ -2221,8 +2221,8 @@
       "PushNotification": false,
       "NextRun": "2020-01-01 00:00:00",
       "Command": "OperationHandover",
-      "SuccessInterval": 30,
-      "FailureInterval": 30,
+      "SuccessInterval": "30-60",
+      "FailureInterval": "30-60",
       "ServerUpdate": "00:00",
       "Sensitive": false
     },
@@ -2230,11 +2230,11 @@
       "Name": "12-4",
       "Event": "campaign_main",
       "Mode": "normal",
-      "UseClearMode": true,
-      "UseFleetLock": true,
-      "UseAutoSearch": true,
+      "UseClearMode": false,
+      "UseFleetLock": false,
+      "UseAutoSearch": false,
       "Use2xBook": false,
-      "AmbushEvade": true,
+      "AmbushEvade": false,
       "UseRecommendFleet": false,
       "DefeatWithdraw": "withdraw_stop"
     },

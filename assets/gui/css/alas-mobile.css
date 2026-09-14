@@ -28,7 +28,14 @@
 #pywebio-scope-statistics-content,
 #pywebio-scope-log-content {
     padding: .25rem;
-    margin: 0
+    margin: 0;
+    min-width: 0;
+}
+
+#pywebio-scope-aside [id^="pywebio-scope-alas-instance-"] .btn-aside {
+    font-size: .625rem;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
 }
 
 #pywebio-scope-navigator {
@@ -56,8 +63,8 @@
     width: 100%;
     display: grid;
     grid-auto-flow: row;
-    grid-template-columns: repeat(auto-fit,minmax(6rem,1fr));
-    overflow: hidden;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
 }
 
 #pywebio-scope-_groups {
@@ -66,7 +73,28 @@
 
 #pywebio-scope-overview {
     grid-auto-flow: row;
-    grid-template-rows: 100% 100%;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-content: start;
+}
+
+#pywebio-scope-overview > #pywebio-scope-schedulers {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+
+#pywebio-scope-overview > #pywebio-scope-panel_column {
+    grid-column: 1;
+    grid-row: 2;
+    display: block;
+    min-width: 0;
+    overflow: visible;
+}
+
+#pywebio-scope-overview > #pywebio-scope-panel_column > #pywebio-scope-stat_panels,
+#pywebio-scope-overview > #pywebio-scope-panel_column > #pywebio-scope-logs {
+    overflow: visible;
 }
 
 #pywebio-scope-daemon-overview {
@@ -80,9 +108,15 @@
 
 #pywebio-scope-running,
 #pywebio-scope-pending,
-#pywebio-scope-waiting,
-#pywebio-scope-log {
-    overflow-y: auto;
+#pywebio-scope-waiting {
+    overflow-y: visible;
+}
+
+#pywebio-scope-running_tasks,
+#pywebio-scope-pending_tasks,
+#pywebio-scope-waiting_tasks {
+    height: auto;
+    overflow-y: visible;
 }
 
 #output-container .status-point {
@@ -109,6 +143,7 @@
 
 #pywebio-scope-opsi_stats,
 #pywebio-scope-ap_chart,
+#pywebio-scope-resource_chart,
 #pywebio-scope-ship_exp_table,
 #pywebio-scope-commission_income {
     width: 100% !important;
@@ -120,6 +155,7 @@
 
 #pywebio-scope-opsi_stats .pywebio-row,
 #pywebio-scope-ap_chart .pywebio-row,
+#pywebio-scope-resource_chart .pywebio-row,
 #pywebio-scope-ship_exp_table .pywebio-row,
 #pywebio-scope-commission_income .pywebio-row {
     display: grid !important;
@@ -129,6 +165,7 @@
 
 #pywebio-scope-opsi_stats .pywebio-row > *,
 #pywebio-scope-ap_chart .pywebio-row > *,
+#pywebio-scope-resource_chart .pywebio-row > *,
 #pywebio-scope-ship_exp_table .pywebio-row > *,
 #pywebio-scope-commission_income .pywebio-row > * {
     min-width: 0 !important;
@@ -136,6 +173,7 @@
 }
 
 #pywebio-scope-ap_chart .btn,
+#pywebio-scope-resource_chart .btn,
 #pywebio-scope-opsi_stats .btn,
 #pywebio-scope-ship_exp_table .btn,
 #pywebio-scope-commission_income .btn {
@@ -157,6 +195,26 @@
     flex: 0 0 auto !important;
 }
 
+#pywebio-scope-stat_panels,
+#pywebio-scope-ap_chart .ap-chart-box,
+#pywebio-scope-resource_chart .ap-chart-box {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+#pywebio-scope-ap_chart .ap-chart-box,
+#pywebio-scope-resource_chart .ap-chart-box {
+    overflow: hidden;
+}
+
+#pywebio-scope-ap_chart canvas,
+#pywebio-scope-resource_chart canvas,
+#pywebio-scope-resource_chart [id$="_echarts"] {
+    max-width: 100%;
+}
+
 #pywebio-scope-opsi_stats table,
 #pywebio-scope-ship_exp_table table,
 #pywebio-scope-commission_income table {
@@ -167,4 +225,27 @@
     align-items: flex-start !important;
     gap: .35rem !important;
     flex-wrap: wrap !important;
+}
+
+.ap-chart-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .35rem .75rem !important;
+    white-space: normal !important;
+}
+
+.ap-chart-stats > .ap-stat-row {
+    display: grid !important;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: .35rem .75rem !important;
+}
+
+.ap-chart-stats span,
+.ap-stat-row span {
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.ap-chart-stats > .ap-stat-row > span:empty {
+    display: none;
 }

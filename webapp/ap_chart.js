@@ -285,7 +285,14 @@
         var COIN_TICK_BASELINE = 4;
         var COIN_TICK_STACK_GAP = 11;
 
-        pad = { t: 20, r: showCoins ? 110 : 20, b: 52, l: 52 };
+        // 手机上右侧多轴标签会吞掉近半绘图区；数据仍可通过图例和提示查看。
+        var compact = W <= 640;
+        pad = {
+            t: 20,
+            r: compact ? 12 : (showCoins ? 110 : 20),
+            b: 52,
+            l: compact ? 44 : 52
+        };
         gW = W - pad.l - pad.r;
         gH = H - pad.t - pad.b;
 
@@ -395,6 +402,7 @@
         }
 
         function drawAssetTicks(ctx, yOfMain, mainMin, mainMax) {
+            if (compact) return;
             if (!hasExtra) return;
             ctx.font = "10px -apple-system, sans-serif";
             ctx.textAlign = "left";
@@ -478,7 +486,8 @@
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
         if (chartType === 'line') {
-            var labelStep = Math.max(1, Math.floor(nn / 8));
+            var labelSlots = compact ? Math.max(3, Math.floor(gW / 88)) : 8;
+            var labelStep = Math.max(1, Math.ceil(nn / labelSlots));
             for (var i = 0; i < nn; i += labelStep) {
                 ctx.save();
                 ctx.translate(xOfLine(i), H - pad.b + 8);
@@ -910,7 +919,9 @@
                 drawSeriesLine(dxOf, visibleStart, visibleEnd);
 
                 // X 轴标签
-                var labelInterval = Math.max(1, Math.floor(visibleNn / 8));
+                var detailLabelSlots = compact
+                    ? Math.max(3, Math.floor(gW / 88)) : 8;
+                var labelInterval = Math.max(1, Math.ceil(visibleNn / detailLabelSlots));
                 for (var i = visibleStart; i < visibleEnd; i += labelInterval) {
                     var lx = dxOf(i);
                     ctx.save();

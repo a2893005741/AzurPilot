@@ -278,6 +278,63 @@ class TestChartThemeColors(unittest.TestCase):
                         f'{owner(u)} 里没有重读 _cc；换主题后会沿用旧色。')
 
 
+class TestMobileOverviewLayout(unittest.TestCase):
+    """移动端总览和体力图必须使用手机可用宽度。"""
+
+    def test_overview_columns_stack_on_mobile(self):
+        css = (CSS / 'alas-mobile.css').read_text(encoding='utf-8')
+        self.assertRegex(
+            css,
+            r'#pywebio-scope-overview\s*>\s*#pywebio-scope-schedulers\s*\{'
+            r'[^}]*grid-column:\s*1[^}]*grid-row:\s*1',
+        )
+        self.assertRegex(
+            css,
+            r'#pywebio-scope-overview\s*>\s*#pywebio-scope-panel_column\s*\{'
+            r'[^}]*grid-column:\s*1[^}]*grid-row:\s*2',
+        )
+
+    def test_mobile_statistics_summary_uses_two_columns(self):
+        css = (CSS / 'alas-mobile.css').read_text(encoding='utf-8')
+        self.assertRegex(
+            css,
+            r'\.ap-chart-stats\s*\{[^}]*grid-template-columns:\s*'
+            r'repeat\(2,\s*minmax\(0,\s*1fr\)\)',
+        )
+
+    def test_mobile_dashboard_and_all_chart_panels_fit_viewport(self):
+        css = (CSS / 'alas-mobile.css').read_text(encoding='utf-8')
+        self.assertRegex(
+            css,
+            r'#pywebio-scope-dashboard\s*\{[^}]*grid-template-columns:\s*'
+            r'repeat\(2,\s*minmax\(0,\s*1fr\)\)',
+        )
+        for panel in ('ap_chart', 'resource_chart'):
+            self.assertIn(f'#pywebio-scope-{panel} .ap-chart-box', css)
+        self.assertRegex(
+            css,
+            r'#pywebio-scope-stat_panels,[^{]*\{[^}]*min-width:\s*0',
+        )
+        self.assertRegex(
+            css,
+            r'\.ap-chart-stats\s*>\s*\.ap-stat-row\s*\{[^}]*'
+            r'grid-column:\s*1\s*/\s*-1',
+        )
+
+    def test_mobile_chart_uses_compact_plot_area(self):
+        script = (WEBAPP / 'ap_chart.js').read_text(encoding='utf-8')
+        self.assertRegex(script, r'compact\s*=\s*W\s*<=\s*640')
+        self.assertRegex(
+            script,
+            r'pad\s*=\s*\{[^}]*r:\s*compact\s*\?\s*12\s*:',
+        )
+        self.assertRegex(
+            script,
+            r'function drawAssetTicks\([^)]*\)\s*\{\s*'
+            r'if \(compact\) return;',
+        )
+
+
 class TestButtonFrames(unittest.TestCase):
     """每个主题都必须定义 .btn-off，否则按钮只剩文字。
 

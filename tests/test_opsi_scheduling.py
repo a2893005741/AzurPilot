@@ -6,11 +6,17 @@ from unittest.mock import Mock, patch
 
 from module.campaign.os_run import OSCampaignRun
 from module.config.config import Function, TaskEnd
+from module.config.deep import deep_get, deep_set
+from module.config.time_source import now as current_time
+from module.config.utils import (
+    get_os_next_reset,
+    get_os_next_reset_after,
+    get_os_reset_remain_days,
+)
 from module.os.operation_siren import OperationSiren
 from module.os.tasks.prevent_action_point_overflow import OpsiPreventActionPointOverflow
 from module.os.tasks.scheduling import OpsiScheduling
-from module.os.tasks.explore import OpsiExplore
-from module.os.tasks.hazard_leveling import OpsiHazard1Leveling
+from module.os.tasks.stronghold import OpsiStronghold
 from module.os_handler.action_point import ActionPointLimit
 from module.os_handler.os_status import OSStatus
 
@@ -336,383 +342,542 @@ class TestSmartSchedulingExploreDelay(unittest.TestCase):
         )
 
 
-class ExploreSchedulingConfig:
-    def __init__(
-        self,
-        explore=True,
-        scheduling=True,
-        preserve=True,
-        enable_explore=True,
-    ):
-        self.values = {
-            'OpsiExplore.OpsiExplore.EnableSmartScheduling': explore,
-            'OpsiScheduling.Scheduler.Enable': scheduling,
-            'OpsiScheduling.OpsiScheduling.UseSmartSchedulingOperationCoinsPreserve': preserve,
-            'OpsiScheduling.OpsiScheduling.OperationCoinsPreserve': 30000,
-            'OpsiScheduling.OpsiScheduling.OperationCoinsReturnThreshold': 20000,
-            'OpsiScheduling.OpsiScheduling.EnableExplore': enable_explore,
-            'OpsiScheduling.OpsiScheduling.EnableStronghold': True,
-            'OpsiScheduling.OpsiScheduling.EnableObscure': False,
-            'OpsiScheduling.OpsiScheduling.EnableAbyssal': False,
-            'OpsiScheduling.OpsiScheduling.EnableMeowfficerFarming': False,
-        }
-        self.OpsiScheduling_TaskPriority = (
-            'OpsiExplore > OpsiStronghold > OpsiObscure > '
-            'OpsiAbyssal > OpsiMeowfficerFarming'
-        )
+class StrongholdPostponeConfig(SmartSchedulingConfig):
+    """仅提供塞壬要塞推迟检查所需的配置读写接口。"""
+
+    def __init__(self, state=None):
+        super().__init__()
+        self.data = {'OpsiScheduling': {'Storage': {'Storage': dict(state or {})}}}
+        self.modified = {}
+        self.OpsiStronghold_SubmarineEveryCombat = False
 
     def cross_get(self, keys, default=None):
         if keys == 'OpsiScheduling.Storage.Storage':
-            return getattr(self, 'storage', default)
-        return self.values.get(keys, default)
+            return dict(deep_get(self.data, keys=keys, default={}) or {})
+        return super().cross_get(keys, default=default)
 
-    def is_task_enabled(self, task):
-        return self.values.get(f'{task}.Scheduler.Enable', False)
+    def save(self):
+        for path, value in self.modified.items():
+            deep_set(self.data, keys=path, value=value)
+        self.modified.clear()
+
+    @staticmethod
+    def multi_set():
+        return nullcontext()
 
 
-class TestExploreSchedulingEnable(unittest.TestCase):
-    def test_active_explore_blocks_scheduling_when_closed_loop_is_disabled(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig(enable_explore=False)
-        scheduling.config.values['OpsiExplore.Scheduler.Enable'] = True
-        scheduling.config.values['OpsiExplore.Scheduler.NextRun'] = datetime(2026, 9, 1)
+class TestStrongholdCheckPostpone(unittest.TestCase):
+    """塞壬要塞全部清除后推迟检查，避免每轮补黄币都重扫全球地图。"""
 
-        with (
-            patch(
-                'module.os_handler.mission.get_os_next_reset',
-                return_value=datetime(2026, 10, 1),
-            ),
-            patch.object(
-                scheduling,
-                '_get_explore_scheduling_phase',
-                return_value=scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE,
-            ),
-        ):
-            self.assertTrue(scheduling.is_in_opsi_explore())
+    NEXT_CHECK_KEY = OpsiScheduling.STATE_KEY_STRONGHOLD_NEXT_CHECK
 
-    def test_monthly_explore_is_selected_by_coin_task_priority(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
+    def make_scheduling(self, state=None, cls=OpsiScheduling):
+        scheduling = cls.__new__(cls)
+        scheduling.config = StrongholdPostponeConfig(state=state)
+        return scheduling
 
-        self.assertEqual(
-            scheduling._get_enabled_coin_tasks(),
-            ['OpsiExplore', 'OpsiStronghold'],
-        )
+    @staticmethod
+    def state_of(scheduling):
+        return scheduling.config.cross_get('OpsiScheduling.Storage.Storage')
 
-    def test_monthly_explore_can_be_excluded_from_coin_task_priority(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig(enable_explore=False)
+    def dispatch(self, scheduling, coin_tasks=('OpsiStronghold', 'OpsiObscure')):
+        """派发一轮补黄币，返回真正被代理执行的任务名。"""
+        executed = []
 
-        self.assertEqual(
-            scheduling._get_enabled_coin_tasks(),
-            ['OpsiStronghold'],
-        )
-
-    def test_monthly_explore_requires_closed_loop_configuration(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig(explore=False)
-
-        self.assertEqual(
-            scheduling._get_enabled_coin_tasks(),
-            ['OpsiStronghold'],
-        )
-
-    def test_selected_monthly_explore_is_handed_to_task_queue(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
-        scheduling.config.task_call_calls = []
-        scheduling.config.task_call = (
-            lambda *args, **kwargs: scheduling.config.task_call_calls.append(
-                (args, kwargs)
-            )
-        )
-        scheduling.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
+        def run_once(task_name, ap_preserve):
+            executed.append(task_name)
+            return True
 
         with (
-            patch.object(
-                scheduling,
-                '_get_explore_scheduling_phase',
-                return_value=scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE,
-            ),
-            patch.object(scheduling, '_delay_smart_scheduling_to_server_update'),
-        ):
-            with self.assertRaises(TaskEnd):
-                scheduling._run_scheduled_coin_task_once('OpsiExplore', 200)
-
-        self.assertEqual(
-            scheduling.config.task_call_calls,
-            [(('OpsiExplore',), {'force_call': True})],
-        )
-
-    def test_completed_monthly_explore_falls_through_to_next_coin_task(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
-
-        with patch.object(
-            scheduling,
-            '_get_explore_scheduling_phase',
-            return_value=scheduling.EXPLORE_SCHEDULING_PHASE_COIN_TASK,
-        ):
-            self.assertFalse(
-                scheduling._run_scheduled_coin_task_once('OpsiExplore', 200)
-            )
-
-    def test_monthly_explore_handoff_skips_coin_task_auto_search(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
-
-        with (
-            patch.object(
-                scheduling,
-                '_get_enabled_coin_tasks',
-                return_value=['OpsiExplore'],
-            ),
-            patch.object(scheduling, 'handle_first_auto_search') as auto_search,
-            patch.object(
-                scheduling,
-                '_run_scheduled_coin_task_once',
-                side_effect=TaskEnd,
-            ),
-        ):
-            with self.assertRaises(TaskEnd):
-                scheduling._dispatch_coin_task(10000, 1000, 50000, 200)
-
-        auto_search.assert_not_called()
-
-    def test_coin_task_dispatch_skips_initial_auto_search(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
-        scheduling._smart_scheduling_first_auto_search_pending = True
-
-        with (
-            patch.object(
-                scheduling,
-                '_get_enabled_coin_tasks',
-                return_value=['OpsiExplore', 'OpsiMeowfficerFarming'],
-            ),
-            patch.object(scheduling, 'run_first_auto_search') as auto_search,
-            patch.object(
-                scheduling,
-                '_run_scheduled_coin_task_once',
-                side_effect=[False, True],
-            ),
+            patch.object(scheduling, '_get_enabled_coin_tasks', return_value=list(coin_tasks)),
+            patch.object(scheduling, '_run_scheduled_coin_task_once', side_effect=run_once),
             patch.object(scheduling, '_notify_coin_task_proxy'),
         ):
-            scheduling._dispatch_coin_task(10000, 1000, 50000, 200)
+            scheduling._dispatch_coin_task(
+                yellow_coins=1000,
+                total_ap=5000,
+                coin_target=2000,
+                meow_ap_preserve=1000,
+            )
+        return executed
 
-        auto_search.assert_not_called()
-        self.assertFalse(scheduling._smart_scheduling_first_auto_search_pending)
+    def test_skips_stronghold_while_check_is_postponed(self):
+        future = current_time() + timedelta(days=3)
+        scheduling = self.make_scheduling({self.NEXT_CHECK_KEY: future.isoformat()})
 
-    def test_completed_explore_finalizes_before_startup_coin_switch(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.OS_EXPLORE_FILTER = '1'
-        explore.config.OpsiExplore_LastZone = 1
-        explore.config.OpsiExplore_ExploreProgress = None
-        explore.config.OpsiExplore_SpecialRadar = False
-        explore.config.Scheduler_NextRun = None
-        explore.config.task_delay = lambda *args, **kwargs: None
-        explore.config.task_call = lambda *args, **kwargs: None
-        explore.config.multi_set = lambda: nullcontext()
-        explore.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
-        explore.name_to_zone = lambda zone: SimpleNamespace(zone_id=int(zone))
-        with (
-            patch.object(explore, '_switch_to_smart_scheduling_after_zone') as switch,
-            patch.object(explore, '_finish_explore_scheduling'),
-            patch('module.os.tasks.explore.get_os_next_reset'),
-        ):
-            with self.assertRaises(TaskEnd):
-                explore._os_explore()
-        switch.assert_not_called()
+        executed = self.dispatch(scheduling)
 
-    def test_skips_initial_auto_search_when_coin_threshold_is_reached(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.task = SimpleNamespace(command='OpsiExplore')
-        with (
-            patch.object(explore, '_get_explore_scheduling_phase', return_value=explore.EXPLORE_SCHEDULING_PHASE_EXPLORE),
-            patch.object(explore, 'get_yellow_coins', return_value=50000),
-            patch.object(explore, '_get_explore_action_point_total', return_value=201),
-        ):
-            self.assertTrue(explore._should_skip_first_auto_search())
+        self.assertEqual(executed, ['OpsiObscure'])
+        self.assertEqual(self.state_of(scheduling)[self.NEXT_CHECK_KEY], future.isoformat())
 
-    def test_explore_checks_scheduling_threshold_before_loading_zones(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.OS_EXPLORE_FILTER = '1'
-        explore.config.OpsiExplore_LastZone = 0
-        with patch.object(
-            explore,
-            '_switch_to_smart_scheduling_after_zone',
-            side_effect=TaskEnd,
-        ):
-            with self.assertRaises(TaskEnd):
-                explore._os_explore()
+    def test_searches_stronghold_again_when_postpone_time_has_passed(self):
+        scheduling = self.make_scheduling({
+            self.NEXT_CHECK_KEY: (current_time() - timedelta(hours=1)).isoformat(),
+        })
 
-    def test_explore_task_stops_when_phase_is_not_explore(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.task_delay = lambda *args, **kwargs: None
-        explore.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
-        with patch.object(
-            explore,
-            '_get_explore_scheduling_phase',
-            return_value=explore.EXPLORE_SCHEDULING_PHASE_CL1,
-        ):
-            with self.assertRaises(TaskEnd):
-                explore._delay_explore_for_scheduling_phase()
+        executed = self.dispatch(scheduling)
 
-    def test_enable_switch_accepts_legacy_checkbox_list_value(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.values[
-            'OpsiExplore.OpsiExplore.EnableSmartScheduling'
-        ] = [True]
-        self.assertTrue(explore._is_explore_scheduling_enabled())
+        self.assertEqual(executed, ['OpsiStronghold'])
+        self.assertNotIn(self.NEXT_CHECK_KEY, self.state_of(scheduling))
 
-    def test_uses_shared_smart_scheduling_storage_path(self):
+    def test_ends_round_without_scanning_when_only_postponed_stronghold_is_enabled(self):
+        scheduling = self.make_scheduling({
+            self.NEXT_CHECK_KEY: (current_time() + timedelta(days=3)).isoformat(),
+        })
+
+        with self.assertRaises(TaskEnd):
+            self.dispatch(scheduling, coin_tasks=('OpsiStronghold',))
+
         self.assertEqual(
-            OpsiExplore.EXPLORE_SCHEDULING_STATE_PATH,
-            OpsiScheduling.CONFIG_PATH_SMART_STATE,
+            scheduling.config.task_delay_calls,
+            [((), {'server_update': '00:00', 'task': 'OpsiScheduling'})],
         )
 
-    def test_requires_all_four_closed_loop_switches(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        for key in ('explore', 'scheduling', 'preserve', 'enable_explore'):
-            values = {
-                'explore': True,
-                'scheduling': True,
-                'preserve': True,
-                'enable_explore': True,
-            }
-            values[key] = False
-            explore.config = ExploreSchedulingConfig(**values)
-            self.assertFalse(explore._is_explore_scheduling_enabled())
+    def test_ignores_broken_state_and_checks_stronghold_again(self):
+        scheduling = self.make_scheduling({self.NEXT_CHECK_KEY: 'not-a-time'})
 
-        explore.config = ExploreSchedulingConfig()
-        self.assertTrue(explore._is_explore_scheduling_enabled())
+        executed = self.dispatch(scheduling)
 
-    def test_switches_to_cl1_only_at_upper_coin_bound_and_sufficient_ap(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.task_delay_calls = []
-        explore.config.task_call_calls = []
-        explore.config.task_delay = lambda *args, **kwargs: explore.config.task_delay_calls.append((args, kwargs))
-        explore.config.task_call = lambda *args, **kwargs: explore.config.task_call_calls.append((args, kwargs))
-        explore.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
-        with (
-            patch.object(explore, '_get_explore_scheduling_phase', return_value=explore.EXPLORE_SCHEDULING_PHASE_EXPLORE),
-            patch.object(explore, 'get_yellow_coins', return_value=49999),
+        self.assertEqual(executed, ['OpsiStronghold'])
+        self.assertNotIn(self.NEXT_CHECK_KEY, self.state_of(scheduling))
+
+    def test_check_time_uses_earlier_of_weekly_and_monthly_refresh(self):
+        # 无论要塞来自每周刷新还是每月重置，都取更早的那个时间点
+        earlier = datetime(2026, 9, 21, 0, 0)
+        later = datetime(2026, 10, 1, 0, 0)
+        scheduling = self.make_scheduling()
+
+        for name, weekly_value, monthly_value in (
+            ('每周刷新在前', earlier, later),
+            ('每月重置在前', later, earlier),
         ):
-            self.assertFalse(explore._switch_to_smart_scheduling_after_zone())
-        with (
-            patch.object(explore, '_get_explore_scheduling_phase', return_value=explore.EXPLORE_SCHEDULING_PHASE_EXPLORE),
-            patch.object(explore, 'get_yellow_coins', return_value=50000),
-            patch.object(explore, '_get_explore_action_point_total', return_value=201),
-            patch.object(explore, '_set_explore_scheduling_phase') as set_phase,
-            patch('module.os.tasks.explore.get_os_next_reset', return_value=object()),
-        ):
-            with self.assertRaises(TaskEnd):
-                explore._switch_to_smart_scheduling_after_zone()
-        set_phase.assert_called_once_with(explore.EXPLORE_SCHEDULING_PHASE_CL1)
-        self.assertEqual(
-            explore.config.task_call_calls,
-            [(('OpsiScheduling',), {'force_call': True})],
-        )
+            with self.subTest(name):
+                with (
+                    patch(
+                        'module.os.tasks.scheduling.get_nearest_weekday_date',
+                        return_value=weekly_value,
+                    ),
+                    patch(
+                        'module.os.tasks.scheduling.get_os_next_reset',
+                        return_value=monthly_value,
+                    ),
+                ):
+                    self.assertEqual(
+                        scheduling._get_next_stronghold_check_time(),
+                        earlier + OpsiScheduling.RESET_CHECK_GRACE,
+                    )
 
-    def test_cl1_low_coins_returns_to_managed_priority_without_direct_call(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
-        scheduling.config.task_delay_calls = []
-        scheduling.config.task_call_calls = []
-        scheduling.config.task_delay = lambda *args, **kwargs: scheduling.config.task_delay_calls.append((args, kwargs))
-        scheduling.config.task_call = lambda *args, **kwargs: scheduling.config.task_call_calls.append((args, kwargs))
-        with (
-            patch.object(scheduling, '_get_explore_scheduling_phase', return_value=scheduling.EXPLORE_SCHEDULING_PHASE_CL1),
-            patch.object(scheduling, '_set_explore_scheduling_phase') as set_phase,
-            patch.object(scheduling, '_clear_coin_replenish_target') as clear_coin,
-            patch.object(scheduling, '_clear_ap_replenish_active') as clear_ap,
-        ):
-            switched = scheduling._return_to_explore_when_coins_low(29999, 30000)
-        self.assertTrue(switched)
-        set_phase.assert_called_once_with(scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE)
-        clear_coin.assert_called_once()
-        clear_ap.assert_called_once()
-        self.assertEqual(scheduling.config.task_call_calls, [])
-
-    def test_explore_phase_below_upper_bound_uses_coin_task_priority(self):
-        scheduling = OpsiScheduling.__new__(OpsiScheduling)
-        scheduling.config = ExploreSchedulingConfig()
-        scheduling.config.modified = {}
-        scheduling.config.save = lambda: None
+    def assert_postponed_by_clear_stronghold(self, zones):
+        """运行一次要塞清理，确认写入了下次检查时间。"""
+        stronghold = self.make_scheduling(cls=OpsiStronghold)
+        weekly = current_time() + timedelta(days=2)
+        monthly = current_time() + timedelta(days=20)
 
         with (
-            patch.object(scheduling, 'get_yellow_coins', return_value=49999),
-            patch.object(
-                scheduling,
-                '_get_explore_scheduling_phase',
-                return_value=scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE,
+            patch.object(stronghold, 'cl1_ap_preserve'),
+            patch.object(stronghold, 'os_map_goto_globe'),
+            patch.object(stronghold, 'globe_update'),
+            patch.object(stronghold, 'find_siren_stronghold', side_effect=zones),
+            patch.object(stronghold, 'os_globe_goto_map'),
+            patch.object(stronghold, 'globe_enter'),
+            patch.object(stronghold, 'zone_init'),
+            patch.object(stronghold, 'os_order_execute'),
+            patch.object(stronghold, 'run_stronghold'),
+            patch.object(stronghold, 'handle_fleet_repair_by_config'),
+            patch.object(stronghold, 'handle_fleet_resolve'),
+            patch.object(stronghold, '_handle_coin_task_no_content', return_value=True),
+            patch(
+                'module.os.tasks.scheduling.get_nearest_weekday_date',
+                return_value=weekly,
             ),
-            patch.object(scheduling, '_get_scheduling_action_point', return_value=(1200, 500)),
-            patch.object(scheduling, '_dispatch_coin_task') as dispatch,
-            patch.object(scheduling, '_execute_hazard1_leveling') as hazard,
+            patch('module.os.tasks.scheduling.get_os_next_reset', return_value=monthly),
         ):
-            scheduling.run_smart_scheduling_once()
+            stronghold.clear_stronghold()
 
-        dispatch.assert_called_once()
-        hazard.assert_not_called()
+        expected = (min(weekly, monthly) + OpsiScheduling.RESET_CHECK_GRACE).isoformat()
+        self.assertEqual(self.state_of(stronghold)[self.NEXT_CHECK_KEY], expected)
 
-    def test_completed_explore_below_coin_target_enters_coin_task(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.task_call_calls = []
-        explore.config.task_call = lambda *args, **kwargs: explore.config.task_call_calls.append((args, kwargs))
+    def test_records_postpone_when_no_stronghold_is_found(self):
+        self.assert_postponed_by_clear_stronghold(zones=[None])
+
+    def test_records_postpone_after_clearing_the_last_stronghold(self):
+        self.assert_postponed_by_clear_stronghold(zones=[Mock(), None])
+
+
+class CoinCheckDelayConfig(StrongholdPostponeConfig):
+    """提供隐秘/深渊延迟检查天数所需的配置接口。"""
+
+    def __init__(self, state=None, delay_days=0, task_command='OpsiScheduling'):
+        super().__init__(state=state)
+        self.delay_days = delay_days
+        self.task = SimpleNamespace(command=task_command)
+
+    def cross_get(self, keys, default=None):
+        if keys == 'OpsiScheduling.OpsiScheduling.ObscureAbyssalCheckDelayDays':
+            return self.delay_days
+        return super().cross_get(keys, default=default)
+
+
+class TestObscureAbyssalCheckDelay(unittest.TestCase):
+    """隐秘/深渊打完后延迟指定天数再检查，0 表示每轮都检查。"""
+
+    OBSCURE_KEY = OpsiScheduling.STATE_KEY_OBSCURE_CLEARED_AT
+    ABYSSAL_KEY = OpsiScheduling.STATE_KEY_ABYSSAL_CLEARED_AT
+
+    def make_scheduling(self, state=None, delay_days=0, task_command='OpsiScheduling'):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = CoinCheckDelayConfig(
+            state=state,
+            delay_days=delay_days,
+            task_command=task_command,
+        )
+        return scheduling
+
+    @staticmethod
+    def state_of(scheduling):
+        return scheduling.config.cross_get('OpsiScheduling.Storage.Storage')
+
+    def dispatch(self, scheduling, coin_tasks=('OpsiObscure', 'OpsiAbyssal')):
+        """派发一轮补黄币，返回真正被代理执行的任务名。"""
+        executed = []
+
+        def run_once(task_name, ap_preserve):
+            executed.append(task_name)
+            return True
+
         with (
-            patch.object(explore, 'get_yellow_coins', return_value=49999),
-            patch.object(explore, '_set_explore_scheduling_phase') as set_phase,
+            patch.object(scheduling, '_get_enabled_coin_tasks', return_value=list(coin_tasks)),
+            patch.object(scheduling, '_run_scheduled_coin_task_once', side_effect=run_once),
+            patch.object(scheduling, '_notify_coin_task_proxy'),
         ):
-            explore._finish_explore_scheduling()
-        set_phase.assert_called_once_with(explore.EXPLORE_SCHEDULING_PHASE_COIN_TASK)
-        self.assertEqual(
-            explore.config.task_call_calls,
-            [(('OpsiScheduling',), {'force_call': True})],
+            scheduling._dispatch_coin_task(
+                yellow_coins=1000,
+                total_ap=5000,
+                coin_target=2000,
+                meow_ap_preserve=1000,
+            )
+        return executed
+
+    def handle_no_content(self, scheduling, task_display, log_message):
+        """走真实的无内容处理函数，捕获结束任务时抛出的 TaskEnd。"""
+        with (
+            patch.object(scheduling, 'is_smart_scheduling_enabled', return_value=False),
+            self.assertRaises(TaskEnd),
+        ):
+            scheduling._handle_coin_task_no_content(task_display, log_message)
+
+    def test_zero_delay_checks_every_round_despite_cleared_state(self):
+        scheduling = self.make_scheduling(
+            state={
+                self.OBSCURE_KEY: (current_time() - timedelta(hours=1)).isoformat(),
+                self.ABYSSAL_KEY: (current_time() - timedelta(hours=2)).isoformat(),
+            },
+            delay_days=0,
         )
 
-    def test_new_month_resets_stale_phase(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.storage = {
-            explore.EXPLORE_SCHEDULING_MONTH_KEY: 'old',
-            explore.EXPLORE_SCHEDULING_PHASE_KEY: explore.EXPLORE_SCHEDULING_PHASE_CL1,
-        }
-        with patch('module.os.map.get_os_next_reset') as next_reset:
-            next_reset.return_value = __import__('datetime').datetime(2026, 9, 1, 3)
-            self.assertEqual(
-                explore._get_explore_scheduling_phase(),
-                explore.EXPLORE_SCHEDULING_PHASE_EXPLORE,
+        # 每轮派发只代理执行一个任务，两个任务分别到期待派发
+        self.assertEqual(self.dispatch(scheduling, coin_tasks=('OpsiObscure',)), ['OpsiObscure'])
+        self.assertEqual(self.dispatch(scheduling, coin_tasks=('OpsiAbyssal',)), ['OpsiAbyssal'])
+
+    def test_skips_both_obscure_and_abyssal_within_delay_days(self):
+        scheduling = self.make_scheduling(
+            state={
+                self.OBSCURE_KEY: (current_time() - timedelta(hours=1)).isoformat(),
+                self.ABYSSAL_KEY: (current_time() - timedelta(hours=2)).isoformat(),
+            },
+            delay_days=3,
+        )
+
+        with self.assertRaises(TaskEnd):
+            self.dispatch(scheduling)
+
+        # 推迟期内直接跳过，打完记录保持不变
+        state = self.state_of(scheduling)
+        self.assertIn(self.OBSCURE_KEY, state)
+        self.assertIn(self.ABYSSAL_KEY, state)
+        self.assertEqual(
+            scheduling.config.task_delay_calls,
+            [((), {'server_update': '00:00', 'task': 'OpsiScheduling'})],
+        )
+
+    def test_checks_again_after_delay_days_have_passed(self):
+        scheduling = self.make_scheduling(
+            state={self.OBSCURE_KEY: (current_time() - timedelta(days=4)).isoformat()},
+            delay_days=3,
+        )
+
+        executed = self.dispatch(scheduling, coin_tasks=('OpsiObscure',))
+
+        self.assertEqual(executed, ['OpsiObscure'])
+        self.assertNotIn(self.OBSCURE_KEY, self.state_of(scheduling))
+
+    def test_postpone_is_capped_at_next_monthly_reset(self):
+        cleared_at = current_time() - timedelta(hours=1)
+        scheduling = self.make_scheduling(
+            state={self.OBSCURE_KEY: cleared_at.isoformat()},
+            delay_days=30,
+        )
+        reset = current_time() + timedelta(days=5)
+
+        with patch('module.os.tasks.scheduling.get_os_next_reset_after', return_value=reset):
+            postpone = scheduling._get_coin_task_check_postpone_time('OpsiObscure')
+
+        # 30 天太长，被下次大世界重置截断，重置后照常检查
+        self.assertEqual(postpone, reset + OpsiScheduling.RESET_CHECK_GRACE)
+
+    def test_postpone_uses_delay_days_before_reset(self):
+        cleared_at = current_time() - timedelta(hours=1)
+        scheduling = self.make_scheduling(
+            state={self.ABYSSAL_KEY: cleared_at.isoformat()},
+            delay_days=3,
+        )
+        reset = current_time() + timedelta(days=10)
+
+        with patch('module.os.tasks.scheduling.get_os_next_reset_after', return_value=reset):
+            postpone = scheduling._get_coin_task_check_postpone_time('OpsiAbyssal')
+
+        self.assertEqual(postpone, cleared_at + timedelta(days=3))
+
+    def test_ignores_broken_cleared_state_and_checks_again(self):
+        scheduling = self.make_scheduling(
+            state={self.ABYSSAL_KEY: 'not-a-time'},
+            delay_days=3,
+        )
+
+        executed = self.dispatch(scheduling, coin_tasks=('OpsiAbyssal',))
+
+        self.assertEqual(executed, ['OpsiAbyssal'])
+        self.assertNotIn(self.ABYSSAL_KEY, self.state_of(scheduling))
+
+    def test_records_cleared_time_when_storage_is_empty(self):
+        now = datetime(2026, 9, 16, 12, 0, 0)
+        for task_command, display, message, state_key in (
+            ('OpsiObscure', '隐秘海域', '隐秘海域没有可执行内容', self.OBSCURE_KEY),
+            ('OpsiAbyssal', '深渊坐标', '深渊坐标没有可执行内容', self.ABYSSAL_KEY),
+        ):
+            with self.subTest(task=task_command):
+                scheduling = self.make_scheduling(delay_days=3, task_command=task_command)
+
+                with patch('module.os.tasks.scheduling.current_time', return_value=now):
+                    self.handle_no_content(scheduling, display, message)
+
+                self.assertEqual(self.state_of(scheduling)[state_key], now.isoformat())
+
+    def test_zero_delay_never_records_cleared_time(self):
+        scheduling = self.make_scheduling(delay_days=0, task_command='OpsiAbyssal')
+
+        with patch(
+            'module.os.tasks.scheduling.current_time',
+            return_value=datetime(2026, 9, 16, 12, 0, 0),
+        ):
+            self.handle_no_content(scheduling, '深渊坐标', '深渊坐标没有可执行内容')
+
+        self.assertEqual(self.state_of(scheduling), {})
+
+    def test_does_not_record_for_stronghold_and_meowfficer(self):
+        now = datetime(2026, 9, 16, 12, 0, 0)
+        for task_command, display, message in (
+            ('OpsiStronghold', '塞壬要塞', '塞壬要塞没有可执行内容'),
+            ('OpsiMeowfficerFarming', '耄耋相接', '耄耋相接没有可执行内容'),
+        ):
+            with self.subTest(task=task_command):
+                scheduling = self.make_scheduling(delay_days=3, task_command=task_command)
+
+                with patch('module.os.tasks.scheduling.current_time', return_value=now):
+                    self.handle_no_content(scheduling, display, message)
+
+                state = self.state_of(scheduling)
+                self.assertNotIn(self.OBSCURE_KEY, state)
+                self.assertNotIn(self.ABYSSAL_KEY, state)
+
+    @staticmethod
+    def next_reset_after(reset, following):
+        """模拟真实实现：返回基准时间之后的第一（或第二）次重置。"""
+        return lambda moment: reset if moment < reset else following
+
+    def test_does_not_skip_past_the_monthly_reset(self):
+        # 10-31 打空、延迟 3 天，11-01 重置会刷新隐秘/深渊，不能再顺延到 11-03
+        cleared_at = datetime(2026, 10, 31, 10, 0)
+        reset = datetime(2026, 11, 1, 0, 0)
+        scheduling = self.make_scheduling(
+            state={self.OBSCURE_KEY: cleared_at.isoformat()},
+            delay_days=3,
+        )
+        next_reset_after = self.next_reset_after(reset, datetime(2026, 12, 1))
+
+        with patch('module.os.tasks.scheduling.get_os_next_reset_after',
+                   side_effect=next_reset_after):
+            # 重置前：截止时间被截断到重置 + 缓冲
+            with patch('module.os.tasks.scheduling.current_time',
+                       return_value=datetime(2026, 10, 31, 12, 0)):
+                self.assertEqual(
+                    scheduling._get_coin_task_check_postpone_time('OpsiObscure'),
+                    reset + OpsiScheduling.RESET_CHECK_GRACE,
+                )
+            # 重置后：到点必须恢复检查，而不是继续用到 11-03 的原始截止时间
+            with patch('module.os.tasks.scheduling.current_time',
+                       return_value=reset + OpsiScheduling.RESET_CHECK_GRACE):
+                self.assertIsNone(
+                    scheduling._get_coin_task_check_postpone_time('OpsiObscure')
+                )
+
+        self.assertNotIn(self.OBSCURE_KEY, self.state_of(scheduling))
+
+    def test_checks_again_right_after_the_monthly_reset(self):
+        cleared_at = datetime(2026, 10, 31, 10, 0)
+        reset = datetime(2026, 11, 1, 0, 0)
+        scheduling = self.make_scheduling(
+            state={self.OBSCURE_KEY: cleared_at.isoformat()},
+            delay_days=3,
+        )
+
+        with (
+            patch('module.os.tasks.scheduling.current_time',
+                  return_value=reset + OpsiScheduling.RESET_CHECK_GRACE),
+            patch('module.os.tasks.scheduling.get_os_next_reset_after',
+                  side_effect=self.next_reset_after(reset, datetime(2026, 12, 1))),
+        ):
+            executed = self.dispatch(scheduling, coin_tasks=('OpsiObscure',))
+
+        self.assertEqual(executed, ['OpsiObscure'])
+
+    def test_long_delay_expires_at_the_monthly_reset(self):
+        # 30 天延迟从 10-20 算起本会到 11-19，重置后必须立即恢复检查
+        cleared_at = datetime(2026, 10, 20, 10, 0)
+        reset = datetime(2026, 11, 1, 0, 0)
+        scheduling = self.make_scheduling(
+            state={self.OBSCURE_KEY: cleared_at.isoformat()},
+            delay_days=30,
+        )
+
+        with (
+            patch('module.os.tasks.scheduling.current_time',
+                  return_value=reset + OpsiScheduling.RESET_CHECK_GRACE),
+            patch('module.os.tasks.scheduling.get_os_next_reset_after',
+                  side_effect=self.next_reset_after(reset, datetime(2026, 12, 1))),
+        ):
+            self.assertIsNone(
+                scheduling._get_coin_task_check_postpone_time('OpsiObscure')
             )
 
-    def test_completed_explore_at_coin_target_does_not_call_scheduling(self):
-        explore = OpsiExplore.__new__(OpsiExplore)
-        explore.config = ExploreSchedulingConfig()
-        explore.config.task_call_calls = []
-        explore.config.task_call = lambda *args, **kwargs: explore.config.task_call_calls.append((args, kwargs))
-        with (
-            patch.object(explore, 'get_yellow_coins', return_value=50000),
-            patch.object(explore, '_set_explore_scheduling_phase') as set_phase,
-        ):
-            explore._finish_explore_scheduling()
-        set_phase.assert_called_once_with(explore.EXPLORE_SCHEDULING_PHASE_COMPLETED)
-        self.assertEqual(explore.config.task_call_calls, [])
+        self.assertNotIn(self.OBSCURE_KEY, self.state_of(scheduling))
 
-    def test_independent_hazard1_yields_during_closed_loop_cl1(self):
-        hazard = OpsiHazard1Leveling.__new__(OpsiHazard1Leveling)
-        hazard.config = ExploreSchedulingConfig()
-        hazard.config.task_delay = lambda *args, **kwargs: None
-        hazard.config.task_stop = lambda: (_ for _ in ()).throw(TaskEnd)
-        with (
-            patch.object(hazard, '_is_explore_scheduling_enabled', return_value=True),
-            patch.object(hazard, '_get_explore_scheduling_phase', return_value=hazard.EXPLORE_SCHEDULING_PHASE_CL1),
+
+class TestOsResetRemainDays(unittest.TestCase):
+    """大世界重置时间的计算基准与剩余天数语义。"""
+
+    def test_next_reset_after_anchors_on_the_given_moment(self):
+        now = current_time()
+
+        self.assertEqual(get_os_next_reset_after(now), get_os_next_reset())
+        # 40 天前的记录，其「之后第一次重置」必然早于从今天算出的下一次重置
+        self.assertLess(
+            get_os_next_reset_after(now - timedelta(days=40)),
+            get_os_next_reset(),
+        )
+
+    def test_remain_days_counts_calendar_days(self):
+        # 8-29 距 9-01 还有 3 个自然日，不能用整天数向下取整算成 2
+        for moment, expected in (
+            (datetime(2026, 8, 29, 0, 0), 3),
+            (datetime(2026, 8, 29, 12, 0), 3),
+            (datetime(2026, 8, 30, 12, 0), 2),
+            (datetime(2026, 8, 31, 23, 0), 1),
         ):
-            with self.assertRaises(TaskEnd):
-                hazard.run_hazard1_leveling_once()
+            with self.subTest(moment=moment):
+                with (
+                    patch('module.config.utils.get_os_next_reset',
+                          return_value=datetime(2026, 9, 1)),
+                    patch('module.config.utils.current_time', return_value=moment),
+                ):
+                    self.assertEqual(get_os_reset_remain_days(), expected)
+
+
+class TestMonthEndCleanupGrace(unittest.TestCase):
+    """月底强制消耗行动力：按自然日触发，且不受隐秘/深渊延迟检查影响。"""
+
+    def make_scheduling(self, state=None, delay_days=0, cleanup_days=1):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = CoinCheckDelayConfig(
+            state=state,
+            delay_days=delay_days,
+            task_command='OpsiScheduling',
+        )
+        scheduling.cleanup_days = cleanup_days
+        return scheduling
+
+    def cleanup_active_at(self, scheduling, moment):
+        """在指定时间点判断月末清理是否启动，剩余天数走真实实现。"""
+        with (
+            patch('module.config.utils.get_os_next_reset',
+                  return_value=datetime(2026, 9, 1)),
+            patch('module.config.utils.current_time', return_value=moment),
+            patch.object(scheduling, '_config_enabled', return_value=True),
+            patch.object(
+                scheduling,
+                '_get_month_end_cleanup_days',
+                return_value=scheduling.cleanup_days,
+            ),
+            # 用整天数（不足一天向下取整）会在重置前一天中午就启动，已改为自然日
+            patch(
+                'module.os.tasks.scheduling.get_os_reset_remain',
+                side_effect=AssertionError('月末清理不应再用整天数判断剩余天数'),
+            ),
+        ):
+            return scheduling._is_month_end_cleanup_active()
+
+    def test_cleanup_starts_at_the_configured_calendar_days(self):
+        # 用户反馈：设置 2 天却在 8-29 就跑了，按自然日应当 8-30 才启动
+        scheduling = self.make_scheduling(cleanup_days=2)
+
+        self.assertFalse(self.cleanup_active_at(scheduling, datetime(2026, 8, 29, 12, 0)))
+        self.assertTrue(self.cleanup_active_at(scheduling, datetime(2026, 8, 30, 0, 30)))
+
+    def test_cleanup_starts_on_the_last_day_when_set_to_one(self):
+        scheduling = self.make_scheduling(cleanup_days=1)
+
+        self.assertFalse(self.cleanup_active_at(scheduling, datetime(2026, 8, 30, 23, 0)))
+        self.assertTrue(self.cleanup_active_at(scheduling, datetime(2026, 8, 31, 0, 30)))
+
+    def test_cleanup_pulls_coin_tasks_despite_the_check_delay(self):
+        # 延迟 3 天仍生效（记录是刚写的），月末清理每一轮依旧要拉起隐秘/深渊
+        moment = datetime(2026, 10, 31, 12, 0)
+        cleared = moment - timedelta(hours=1)
+        scheduling = self.make_scheduling(
+            state={
+                OpsiScheduling.STATE_KEY_OBSCURE_CLEARED_AT: cleared.isoformat(),
+                OpsiScheduling.STATE_KEY_ABYSSAL_CLEARED_AT: cleared.isoformat(),
+            },
+            delay_days=3,
+        )
+        scheduling.clear_obscure = Mock()
+        scheduling.clear_abyssal = Mock()
+        scheduling.clear_stronghold = Mock()
+
+        with (
+            patch('module.os.tasks.scheduling.current_time', return_value=moment),
+            self.assertRaises(TaskEnd),
+            patch.object(
+                scheduling,
+                '_run_with_opsi_task_context',
+                side_effect=lambda task, func, *args, **kwargs: func(*args, **kwargs),
+            ),
+            patch.object(scheduling, '_run_scheduled_meowfficer_farming'),
+            patch.object(scheduling, '_run_month_end_shop_purchase'),
+            patch.object(scheduling, '_delay_smart_scheduling_to_server_update'),
+            patch.object(scheduling, 'notify_push'),
+            patch.object(
+                scheduling,
+                '_get_scheduling_action_point',
+                side_effect=[(5000, 1000), (400, 100), (400, 100)],
+            ),
+        ):
+            # 记录仍在推迟期内（正常派发路径会跳过），但月末清理照样拉起隐秘/深渊
+            self.assertEqual(
+                scheduling._get_coin_task_check_postpone_time('OpsiObscure'),
+                datetime(2026, 11, 1, 2, 0),
+            )
+            scheduling._run_month_end_cleanup(500, 1000, 5000, 1000)
+
+        scheduling.clear_obscure.assert_called_once()
+        scheduling.clear_abyssal.assert_called_once()

@@ -25,12 +25,18 @@ OpsiScheduling - 智能调度+模块
     - CoinTaskMixin: 黄币补充任务的通用 Mixin 类（供其他任务继承使用）
 """
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from module.config.config import Function, name_to_function
 from module.config.deep import deep_get
 from module.config.time_source import now as current_time
-from module.config.utils import get_os_reset_remain
+from module.config.utils import (
+    get_nearest_weekday_date,
+    get_os_next_reset,
+    get_os_next_reset_after,
+    get_os_reset_remain,
+    get_os_reset_remain_days,
+)
 
 from module.logger import logger
 from module.os.map import OSMap
@@ -41,8 +47,7 @@ class CoinTaskMixin:
     """
     黄币补充任务的通用 Mixin 类。
     
-    提供黄币补充任务（OpsiExplore、OpsiObscure、OpsiAbyssal、
-    OpsiStronghold、OpsiMeowfficerFarming）
+    提供黄币补充任务（OpsiObscure、OpsiAbyssal、OpsiStronghold、OpsiMeowfficerFarming）
     所需的通用功能，包括配置读取、通知与无内容标记。
     
     使用方法:
@@ -52,7 +57,6 @@ class CoinTaskMixin:
     
     # 任务名称映射（用于通知显示）
     TASK_NAMES = {
-        'OpsiExplore': '每月开荒',
         'OpsiMeowfficerFarming': '耄耋相接',
         'OpsiObscure': '隐秘海域',
         'OpsiAbyssal': '深渊坐标',
@@ -61,8 +65,7 @@ class CoinTaskMixin:
     
     # 配置路径常量
     CONFIG_PATH_CL1_PRESERVE = 'OpsiHazard1Leveling.OpsiHazard1Leveling.OperationCoinsPreserve'
-    # 各黄币补充任务独立开关的配置路径
-    CONFIG_PATH_ENABLE_EXPLORE = 'OpsiScheduling.OpsiScheduling.EnableExplore'
+    # 四个独立任务开关的配置路径
     CONFIG_PATH_ENABLE_MEOWFFICER = 'OpsiScheduling.OpsiScheduling.EnableMeowfficerFarming'
     CONFIG_PATH_ENABLE_OBSCURE = 'OpsiScheduling.OpsiScheduling.EnableObscure'
     CONFIG_PATH_ENABLE_ABYSSAL = 'OpsiScheduling.OpsiScheduling.EnableAbyssal'
@@ -82,6 +85,13 @@ class CoinTaskMixin:
     STATE_KEY_AP_REPLENISH_ACTIVE = 'ApReplenishActive'
     STATE_KEY_SCHEDULING_MODE = 'SchedulingMode'
     STATE_KEY_MONTH_END_CLEANUP_FIRST_RUN = 'MonthEndCleanupFirstRun'
+    STATE_KEY_STRONGHOLD_NEXT_CHECK = 'StrongholdNextCheck'
+    STATE_KEY_OBSCURE_CLEARED_AT = 'ObscureClearedAt'
+    STATE_KEY_ABYSSAL_CLEARED_AT = 'AbyssalClearedAt'
+    # 大世界重置/刷新后留出的检查缓冲：刷新瞬间就去查可能扑空
+    RESET_CHECK_GRACE = timedelta(hours=2)
+    # 隐秘/深渊打完后延迟检查的天数配置
+    CONFIG_PATH_OBSCURE_ABYSSAL_CHECK_DELAY = 'OpsiScheduling.OpsiScheduling.ObscureAbyssalCheckDelayDays'
     SCHEDULING_MODE_COIN_TARGET = 'coin_target'
     SCHEDULING_MODE_ACTION_POINT = 'action_point'
     SCHEDULING_MODE_MONTH_END_CLEANUP = 'month_end_cleanup'
@@ -96,11 +106,15 @@ class CoinTaskMixin:
     TASK_NAME_MEOWFFICER_FARMING = 'OpsiMeowfficerFarming'
     TASK_NAME_HAZARD1_LEVELING = 'OpsiHazard1Leveling'
     TASK_NAME_SCHEDULING = 'OpsiScheduling'
-    TASK_NAME_EXPLORE = 'OpsiExplore'
     TASK_NAME_OBSCURE = 'OpsiObscure'
     TASK_NAME_ABYSSAL = 'OpsiAbyssal'
     TASK_NAME_STRONGHOLD = 'OpsiStronghold'
     AP_NOTIFY_MIN_INTERVAL_MINUTES = 30
+    # 会因「已打完」延迟检查的任务 → 打完时间的状态键
+    COIN_TASK_CLEAR_STATE_KEYS = {
+        TASK_NAME_OBSCURE: STATE_KEY_OBSCURE_CLEARED_AT,
+        TASK_NAME_ABYSSAL: STATE_KEY_ABYSSAL_CLEARED_AT,
+    }
 
     def _config_enabled(self, keys, default=False):
         """
@@ -669,7 +683,6 @@ class CoinTaskMixin:
         
         # 检查每个任务的独立开关
         task_config_map = {
-            self.TASK_NAME_EXPLORE: self.CONFIG_PATH_ENABLE_EXPLORE,
             'OpsiStronghold': self.CONFIG_PATH_ENABLE_STRONGHOLD,
             'OpsiObscure': self.CONFIG_PATH_ENABLE_OBSCURE,
             'OpsiAbyssal': self.CONFIG_PATH_ENABLE_ABYSSAL,
@@ -677,14 +690,8 @@ class CoinTaskMixin:
         }
         
         for task_name, config_path in task_config_map.items():
-            if not self._config_enabled(keys=config_path):
-                continue
-            if (
-                task_name == self.TASK_NAME_EXPLORE
-                and not self._is_explore_scheduling_enabled()
-            ):
-                continue
-            enabled_tasks.append(task_name)
+            if self._config_enabled(keys=config_path):
+                enabled_tasks.append(task_name)
 
         # 按照 OpsiScheduling_TaskPriority 配置的顺序进行过滤和排序
         try:
@@ -702,6 +709,151 @@ class CoinTaskMixin:
         
         return enabled_tasks
 
+    def _get_next_stronghold_check_time(self):
+        """
+        获取塞壬要塞下次可能的刷新时间。
+
+        要塞数量有限：每周（服务器周一 0 点）刷新 1 个，每月 1 日随大世界重置
+        再刷新。清除干净后要等到这两个时间点才会有新的，因此取其中较早的一个。
+
+        Returns:
+            datetime.datetime: 下次检查要塞的时间（本地时间）。
+        """
+        next_weekly = get_nearest_weekday_date(0)
+        next_monthly = get_os_next_reset()
+        return min(next_weekly, next_monthly) + self.RESET_CHECK_GRACE
+
+    def _postpone_stronghold_check(self, reason):
+        """
+        记录塞壬要塞已清除干净，把下次检查推迟到要塞刷新之后。
+
+        要塞打完就没了，继续搜索只是反复遍历全球地图、拖慢补黄币流程，
+        因此记录时间点，期间直接跳过要塞检查。
+
+        Args:
+            reason (str): 记录原因（仅用于日志）。
+        """
+        next_check = self._get_next_stronghold_check_time()
+        self._set_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_NEXT_CHECK,
+            next_check.isoformat(),
+        )
+        logger.info(f'[大世界-智能调度+] {reason}，塞壬要塞检查推迟到 {next_check}')
+
+    def _get_stronghold_check_postpone_time(self):
+        """
+        读取塞壬要塞的下次检查时间。
+
+        Returns:
+            datetime.datetime | None: 仍在推迟中返回该时间；没有记录、记录损坏
+                或已到检查时间则返回 None（到期时顺带清理记录以便重新搜索）。
+        """
+        value = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_NEXT_CHECK
+        )
+        if not value:
+            return None
+
+        try:
+            next_check = datetime.fromisoformat(value)
+        except (TypeError, ValueError):
+            logger.warning(f'[大世界-智能调度+] 塞壬要塞下次检查时间无效: {value}，重新搜索要塞')
+            self._clear_smart_scheduling_state_value(
+                self.STATE_KEY_STRONGHOLD_NEXT_CHECK
+            )
+            return None
+
+        if current_time() >= next_check:
+            self._clear_smart_scheduling_state_value(
+                self.STATE_KEY_STRONGHOLD_NEXT_CHECK
+            )
+            return None
+
+        return next_check
+
+    def _get_obscure_abyssal_check_delay_days(self):
+        """
+        读取隐秘/深渊打完后的延迟检查天数。
+
+        Returns:
+            int: 延迟天数，0 表示每轮都检查。
+        """
+        try:
+            days = int(self.config.cross_get(
+                keys=self.CONFIG_PATH_OBSCURE_ABYSSAL_CHECK_DELAY,
+                default=0,
+            ) or 0)
+        except (TypeError, ValueError):
+            logger.warning('[大世界-智能调度+] 隐秘/深渊延迟检查天数无效，按 0 处理')
+            return 0
+        return max(days, 0)
+
+    def _postpone_coin_task_check(self, task_name, reason):
+        """
+        记录隐秘/深渊已打完，延迟指定天数内不再检查。
+
+        大世界每月重置会刷新隐秘/深渊，推迟不会跨过打完之后的第一次重置；
+        重置后记录作废，照常检查。
+
+        Args:
+            task_name (str): 黄币补充任务名（仅隐秘/深渊会记录）。
+            reason (str): 记录原因（仅用于日志）。
+        """
+        state_key = self.COIN_TASK_CLEAR_STATE_KEYS.get(task_name)
+        if state_key is None:
+            return
+        days = self._get_obscure_abyssal_check_delay_days()
+        if days <= 0:
+            return
+        self._set_smart_scheduling_state_value(state_key, current_time().isoformat())
+        task_display = self.TASK_NAMES.get(task_name, task_name)
+        logger.info(
+            f'[大世界-智能调度+] {reason}，{task_display}最多 {days} 天后重新检查'
+            f'（不跨大世界重置）'
+        )
+
+    def _get_coin_task_check_postpone_time(self, task_name):
+        """
+        读取隐秘/深渊的下次检查时间。
+
+        推迟截止时间为「打完时间 + 延迟天数」，且不晚于打完之后的第一次大世界重置加缓冲。
+
+        Returns:
+            datetime.datetime | None: 仍在推迟中返回该时间；没有记录、天数为 0、
+                记录损坏、记录早于上次重置或已到检查时间则返回 None
+                （到期时顺带清理记录）。
+        """
+        state_key = self.COIN_TASK_CLEAR_STATE_KEYS.get(task_name)
+        if state_key is None:
+            return None
+        days = self._get_obscure_abyssal_check_delay_days()
+        if days <= 0:
+            return None
+
+        value = self._get_smart_scheduling_state_value(state_key)
+        if not value:
+            return None
+
+        try:
+            cleared_at = datetime.fromisoformat(value)
+        except (TypeError, ValueError):
+            logger.warning(f'[大世界-智能调度+] {task_name} 打完时间无效: {value}，重新检查')
+            self._clear_smart_scheduling_state_value(state_key)
+            return None
+
+        next_check = cleared_at + timedelta(days=days)
+        # 封顶基准取「记录时间之后的第一次重置」，不能用「现在之后的下一次重置」：
+        # 后者会在记录跨过重置后跳到下下次，封顶失效，重置完仍要继续跳过若干天。
+        # 记录早于上次重置时该基准落在过去，推迟立即到期，重置后照常检查。
+        reset_check = get_os_next_reset_after(cleared_at) + self.RESET_CHECK_GRACE
+        if next_check > reset_check:
+            next_check = reset_check
+        if current_time() >= next_check:
+            self._clear_smart_scheduling_state_value(state_key)
+            return None
+
+        return next_check
+
     def _handle_coin_task_no_content(self, task_display_name, log_message):
         """
         处理黄币补充任务没有可执行内容的情况。
@@ -709,6 +861,8 @@ class CoinTaskMixin:
         logger.info(f'[大世界-智能调度+] {log_message}，准备结束当前任务')
         task_name = self._get_current_coin_task_name()
         logger.info(f'[大世界-智能调度+] 处理任务: {task_name}')
+        # 仓库取空即「已打完」，按配置延迟 X 天内不再检查
+        self._postpone_coin_task_check(task_name, log_message)
 
         if self.is_running_smart_scheduling_task():
             if '没有更多' not in log_message:
@@ -933,20 +1087,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             ap_preserve=ap_preserve,
         )
 
-    def _handoff_scheduled_explore(self):
-        """将未完成的每月开荒交给独立任务队列执行。"""
-        if (
-            self._get_explore_scheduling_phase()
-            != self.EXPLORE_SCHEDULING_PHASE_EXPLORE
-        ):
-            self._smart_scheduling_no_content_task = self.TASK_NAME_EXPLORE
-            return
-
-        self._delay_smart_scheduling_to_server_update('切换至每月开荒')
-        self.config.task_call(self.TASK_NAME_EXPLORE, force_call=True)
-        logger.info('[大世界-智能调度+] 已将每月开荒交给任务队列执行')
-        self.config.task_stop()
-
     def _run_scheduled_coin_task_once(self, task_name, ap_preserve):
         """由智能调度+代理执行一轮黄币补充任务。"""
         if not hasattr(self, '_smart_scheduling_no_content_task'):
@@ -955,9 +1095,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
         task_display = self.TASK_NAMES.get(task_name, task_name)
         logger.info(f'[大世界-智能调度+] 代理执行一轮{task_display}')
-        if task_name == self.TASK_NAME_EXPLORE:
-            self._handoff_scheduled_explore()
-        elif task_name == self.TASK_NAME_MEOWFFICER_FARMING:
+        if task_name == self.TASK_NAME_MEOWFFICER_FARMING:
             self._run_scheduled_meowfficer_farming(ap_preserve)
         elif task_name == self.TASK_NAME_OBSCURE:
             if not hasattr(self, 'clear_obscure'):
@@ -999,40 +1137,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         if not self.is_in_opsi_explore():
             return False
 
-        phase_getter = getattr(self, '_get_explore_scheduling_phase', None)
-        phase = (
-            phase_getter()
-            if callable(phase_getter) and self._is_explore_scheduling_enabled()
-            else None
-        )
-        current_task = getattr(getattr(self.config, 'task', None), 'command', None)
-        if phase in (
-            self.EXPLORE_SCHEDULING_PHASE_EXPLORE,
-            self.EXPLORE_SCHEDULING_PHASE_CL1,
-            self.EXPLORE_SCHEDULING_PHASE_COIN_TASK,
-        ) and current_task in ('OpsiScheduling', 'OpsiPreventActionPointOverflow'):
-            return False
-
         self._delay_smart_scheduling_to_server_update('每月开荒+正在运行')
         self.config.task_stop()
-        return True
-
-    def _return_to_explore_when_coins_low(self, yellow_coins, cl1_preserve):
-        """侵蚀 1 阶段黄币降到下限时切回未完成的开荒。"""
-        if not self._is_explore_scheduling_enabled():
-            return False
-        if self._get_explore_scheduling_phase() != self.EXPLORE_SCHEDULING_PHASE_CL1:
-            return False
-        if yellow_coins >= cl1_preserve:
-            return False
-
-        self._clear_coin_replenish_target()
-        self._clear_ap_replenish_active()
-        self._set_explore_scheduling_phase(self.EXPLORE_SCHEDULING_PHASE_EXPLORE)
-        logger.info(
-            f'[大世界-智能调度+] 侵蚀1黄币 {yellow_coins} < 下限 {cl1_preserve}，'
-            '开荒阶段重新纳入补币任务优先级'
-        )
         return True
 
     def run_smart_scheduling_once(self):
@@ -1045,8 +1151,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             return
 
         yellow_coins = self.get_yellow_coins()
-        cl1_preserve = self._get_smart_scheduling_operation_coins_preserve()
-        self._return_to_explore_when_coins_low(yellow_coins, cl1_preserve)
         total_ap, current_ap = self._get_scheduling_action_point()
 
         # 月末清理行动力检查（优先级最高，先于黄币和侵蚀1调度）
@@ -1081,14 +1185,10 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     self.config.task_stop()
                     return
 
+        cl1_preserve = self._get_smart_scheduling_operation_coins_preserve()
         cl1_ap_preserve = self._get_effective_cl1_ap_preserve()
         meow_ap_preserve = self._get_coin_task_action_point_preserve()
         coin_target_scheduling = self._is_coin_target_scheduling_enabled()
-        explore_phase = (
-            self._get_explore_scheduling_phase()
-            if self._is_explore_scheduling_enabled()
-            else None
-        )
         self._sync_smart_scheduling_mode_state(coin_target_scheduling)
         coin_replenish_active = self._is_coin_replenish_active()
         ap_replenish_active = self._is_ap_replenish_active()
@@ -1106,14 +1206,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             )
 
         try:
-            if coin_target_scheduling and (
-                explore_phase in (
-                    self.EXPLORE_SCHEDULING_PHASE_EXPLORE,
-                    self.EXPLORE_SCHEDULING_PHASE_COIN_TASK,
-                )
-                or yellow_coins < cl1_preserve
-                or coin_replenish_active
-            ):
+            if coin_target_scheduling and (yellow_coins < cl1_preserve or coin_replenish_active):
                 coin_target, start_coins, return_threshold = self._get_coin_replenish_target(
                     yellow_coins,
                     cl1_preserve,
@@ -1125,18 +1218,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 if yellow_coins >= coin_target:
                     logger.info(f'[大世界-智能调度+] 黄币已补足 ({yellow_coins} >= {coin_target})，恢复侵蚀1练级')
                     self._clear_coin_replenish_target()
-                    if explore_phase == self.EXPLORE_SCHEDULING_PHASE_EXPLORE:
-                        self._set_explore_scheduling_phase(
-                            self.EXPLORE_SCHEDULING_PHASE_CL1
-                        )
-                    elif explore_phase == self.EXPLORE_SCHEDULING_PHASE_COIN_TASK:
-                        self._set_explore_scheduling_phase(
-                            self.EXPLORE_SCHEDULING_PHASE_COMPLETED
-                        )
-                        self._delay_smart_scheduling_to_server_update(
-                            '每月开荒已完成且黄币补足'
-                        )
-                        self.config.task_stop()
                 else:
                     logger.info(f'[大世界-智能调度+] 黄币未补足 ({yellow_coins} < {coin_target})，需要执行黄币补充任务')
                     if total_ap <= meow_ap_preserve:
@@ -1277,20 +1358,32 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             logger.error('[大世界-智能调度+] 没有启用任何黄币补充任务，停止智能调度+')
             self.notify_push(
                 title='[AzurPilot] 智能调度+ - 未启用黄币补充任务',
-                content='请至少启用每月开荒、耄耋相接、隐秘海域、深渊坐标或塞壬要塞中的一项',
+                content='请至少启用耄耋相接、隐秘海域、深渊坐标或塞壬要塞中的一项',
             )
             self._delay_smart_scheduling_to_server_update('未启用黄币补充任务')
             self.config.task_stop()
 
+        # 黄币补充任务（耄耋相接等）自身会执行战略搜索与事件检索，
+        # 跳过初始化自律寻敌可避免对刚清理过的海域重复全图重扫。
+        self.handle_first_auto_search(run=False)
         task_names = '、'.join([self.TASK_NAMES.get(task, task) for task in all_coin_tasks])
         logger.info(f'[大世界-智能调度+] 启用的黄币补充任务: {task_names}')
 
-        coin_task_initialized = False
+        skipped_tasks = []
         for task_name in all_coin_tasks:
-            if task_name != self.TASK_NAME_EXPLORE and not coin_task_initialized:
-                # 补币任务自行检索事件，跳过初始化重扫；开荒仍直接交接任务队列。
-                self.handle_first_auto_search(run=False)
-                coin_task_initialized = True
+            if task_name == self.TASK_NAME_STRONGHOLD:
+                postpone_until = self._get_stronghold_check_postpone_time()
+            else:
+                postpone_until = self._get_coin_task_check_postpone_time(task_name)
+            if postpone_until is not None:
+                task_display = self.TASK_NAMES.get(task_name, task_name)
+                logger.info(
+                    f'[大世界-智能调度+] {task_display}已全部清除，跳过本轮检查，'
+                    f'下次检查 {postpone_until}'
+                )
+                skipped_tasks.append(task_display)
+                continue
+
             if self._run_scheduled_coin_task_once(task_name, meow_ap_preserve):
                 self._notify_coin_task_proxy(
                     yellow_coins,
@@ -1301,7 +1394,10 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 )
                 return
 
-        logger.warning('[大世界-智能调度+] 智能调度+启用的黄币补充任务均无可执行内容，结束本轮智能调度+')
+        message = '智能调度+启用的黄币补充任务均无可执行内容'
+        if skipped_tasks:
+            message += f'（本轮跳过: {"、".join(skipped_tasks)}）'
+        logger.warning(f'[大世界-智能调度+] {message}，结束本轮智能调度+')
         self._delay_smart_scheduling_to_server_update('黄币补充任务均无可执行内容')
         self.config.task_stop()
 
@@ -1402,7 +1498,10 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         触发条件：
             1. MonthEndActionPointCleanupEnable 开关已开启
             2. MonthEndActionPointCleanupDays > 0
-            3. 距大世界重置剩余天数 <= MonthEndActionPointCleanupDays
+            3. 距大世界重置剩余自然天数 <= MonthEndActionPointCleanupDays
+
+        按自然日计算：设置 N 天即最后 N 个自然日。用整天数（不足一天向下取整）
+        会在重置前一天的中午就跳成 N，导致提前半天开始清理。
 
         Returns:
             bool: 是否启用月末清理。
@@ -1412,7 +1511,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         cleanup_days = self._get_month_end_cleanup_days()
         if cleanup_days <= 0:
             return False
-        remain = get_os_reset_remain()
+        remain = get_os_reset_remain_days()
         active = remain <= cleanup_days
         logger.info(
             f'[大世界-月末清理] 清理天数={cleanup_days}, 重置剩余={remain}, '
@@ -1486,8 +1585,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
         执行流程：
             1. 首次运行时先调出塞壬要塞
-            2. 每轮循环：短猫相接 → 商店购买 → 隐秘海域 → 深渊坐标
+            2. 每轮循环：隐秘海域 → 深渊坐标 → 短猫相接 → 商店购买
             3. 循环直到总行动力 <= 保留值 或 所有任务无可执行内容
+
+        不受隐秘/深渊的「延迟检查」影响：这里直接代跑子任务，不经过
+        _dispatch_coin_task 的推迟判断，每一轮都照常拉起隐秘海域与深渊坐标。
 
         Args:
             month_end_preserve (int): 月末清理行动力保留值。

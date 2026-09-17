@@ -9,6 +9,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from requests import Response
+
 from alas import AzurLaneAutoScript
 import module.statistics.daily_summary as daily_summary
 import module.notify.notify as notify_module
@@ -19,7 +21,12 @@ from tests.test_daily_summary import sample_facts, summary_config, valid_report_
 
 class TestDailySummaryService(unittest.TestCase):
     def setUp(self):
-        self.temporary_directory = tempfile.TemporaryDirectory()
+        # Windows 上 SQLite 文件在最后一个连接关闭后仍可能被短暂占用
+        # （后台线程收尾、杀毒扫描等），cleanup 会抛 WinError 32/145。
+        # 临时目录本来就在 %TEMP%，清不掉不该判定用例失败。
+        self.temporary_directory = tempfile.TemporaryDirectory(
+            ignore_cleanup_errors=True
+        )
         self.store = DailySummaryStore(
             Path(self.temporary_directory.name) / 'daily_summary.db'
         )
@@ -512,6 +519,11 @@ class TestDailySummaryNotify(unittest.TestCase):
 
             def notify(self, **kwargs):
                 self.kwargs = kwargs
+                # onepush 成功时返回 requests.Response；handle_notify 明确把
+                # None（请求异常被 onepush 吞掉）判为失败，所以假实现不能返回 None。
+                response = Response()
+                response.status_code = 200
+                return response
 
         notifier = FakeCustom()
         with (

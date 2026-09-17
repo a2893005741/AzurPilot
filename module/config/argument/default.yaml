@@ -6,6 +6,12 @@
 
 # ==================== Farm ====================
 
+GemsFarming:
+  EnemyPriority:
+    EnemyScaleBalanceWeight: S1_enemy_first
+ThreeOilLowCost:
+  EnemyPriority:
+    EnemyScaleBalanceWeight: S1_enemy_first
 OperationHandover:
   Scheduler:
     Enable: false

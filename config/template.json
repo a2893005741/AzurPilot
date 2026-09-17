@@ -147,6 +147,10 @@
       "TelemetryReport": true,
       "BugReport": true
     },
+    "Backup": {
+      "Enable": true,
+      "KeepDays": 7
+    },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": false,
       "ForceScheduledRestart": false,
@@ -558,7 +562,7 @@
       "Fleet2Onsen": false
     },
     "EnemyPriority": {
-      "EnemyScaleBalanceWeight": "default_mode"
+      "EnemyScaleBalanceWeight": "S1_enemy_first"
     },
     "Storage": {
       "Storage": {}
@@ -651,7 +655,7 @@
       "Fleet2Onsen": false
     },
     "EnemyPriority": {
-      "EnemyScaleBalanceWeight": "default_mode"
+      "EnemyScaleBalanceWeight": "S1_enemy_first"
     },
     "Storage": {
       "Storage": {}

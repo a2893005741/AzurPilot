@@ -783,6 +783,20 @@
         "value": true
       }
     },
+    "Backup": {
+      "Enable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "KeepDays": {
+        "type": "input",
+        "value": 7,
+        "validate": [
+          1,
+          3650
+        ]
+      }
+    },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": {
         "type": "checkbox",
@@ -2892,7 +2906,7 @@
     "EnemyPriority": {
       "EnemyScaleBalanceWeight": {
         "type": "select",
-        "value": "default_mode",
+        "value": "S1_enemy_first",
         "option": [
           "default_mode",
           "S3_enemy_first",
@@ -3431,7 +3445,7 @@
     "EnemyPriority": {
       "EnemyScaleBalanceWeight": {
         "type": "select",
-        "value": "default_mode",
+        "value": "S1_enemy_first",
         "option": [
           "default_mode",
           "S3_enemy_first",

@@ -261,6 +261,7 @@ class RewardTacticalClass(Dock):
     books: SelectedGrids
     tactical_finish = []
     dock_select_index = 0
+    pending_ship_confirm = False
 
     def _tactical_books_get(self, skip_first_screenshot=True):
         """
@@ -671,6 +672,8 @@ class RewardTacticalClass(Dock):
         if not self.appear(TACTICAL_CLASS_START, offset=(30, 30), interval=2):
             return False, False
 
+        # 已进入教材页，后续船坞预选不再属于本次技能确认。
+        self.pending_ship_confirm = False
         study_finished = False
         if self._tactical_books_choose():
             self.dock_select_index = 0
@@ -684,14 +687,21 @@ class RewardTacticalClass(Dock):
         if not self.appear(DOCK_CHECK, offset=(20, 20), interval=3):
             return False, False
         if self.dock_selected():
-            # When you click a ship from page_main -> dock,
-            # this ship will be selected default in tactical dock,
-            # so we need click BACK_ARROW to clear selected state
-            logger.info('[战术-船坞] 船坞中有预选舰船，重新进入')
-            self.device.click(BACK_ARROW)
+            if self.pending_ship_confirm:
+                # 预选的是刚确认过技能的那位学员，退出船坞会把它换成别人
+                logger.info('[战术-船坞] 确认继续学习的舰船')
+                self.device.click(SHIP_CONFIRM)
+            else:
+                # When you click a ship from page_main -> dock,
+                # this ship will be selected default in tactical dock,
+                # so we need click BACK_ARROW to clear selected state
+                logger.info('[战术-船坞] 船坞中有预选舰船，重新进入')
+                self.device.click(BACK_ARROW)
+            self.pending_ship_confirm = False
             self.interval_reset([BOOK_EMPTY_POPUP, DOCK_CHECK], interval=3)
             return True, False
 
+        self.pending_ship_confirm = False
         study_finished = False
         # If not enable or can not fina a suitable ship
         if not self.config.AddNewStudent_Enable:
@@ -735,6 +745,9 @@ class RewardTacticalClass(Dock):
             if not self._tactical_skill_choose():
                 study_finished = True
                 self.device.click(BACK_ARROW)
+            else:
+                # 继续确认同一学员，避免返回船坞后误换成另一艘船。
+                self.pending_ship_confirm = True
         else:
             logger.info('[战术-技能] 不学习技能但有技能确认界面，关闭')
             study_finished = True

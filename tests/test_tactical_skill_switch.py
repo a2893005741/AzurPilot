@@ -224,6 +224,38 @@ class TestSkillConfirmGate(unittest.TestCase):
         handler._tactical_skill_choose.assert_called_once_with()
         handler.device.click.assert_not_called()
 
+    def test_confirms_same_student_after_skill_choice(self):
+        from module.retire.assets import SHIP_CONFIRM
+
+        handler = self._handler(True, False)
+        handler.dock_selected = Mock(return_value=True)
+        handler._handle_tactical_skill_confirm(False)
+        self.assertTrue(handler.pending_ship_confirm)
+
+        self.assertEqual(handler._handle_tactical_dock(), (True, False))
+
+        handler.device.click.assert_called_once_with(SHIP_CONFIRM)
+        self.assertFalse(handler.pending_ship_confirm)
+
+    def test_book_page_clears_pending_ship_confirmation(self):
+        handler = self._handler(True, False)
+        handler._tactical_books_choose = Mock(return_value=True)
+        handler.interval_clear = Mock()
+        handler._handle_tactical_skill_confirm(False)
+
+        self.assertEqual(handler._handle_tactical_books_start(), (True, False))
+
+        self.assertFalse(handler.pending_ship_confirm)
+
+    def test_discards_unrelated_preselected_ship(self):
+        handler = self._handler(True, False)
+        handler.dock_selected = Mock(return_value=True)
+
+        self.assertEqual(handler._handle_tactical_dock(), (True, False))
+
+        handler.device.click.assert_called_once_with(BACK_ARROW)
+        self.assertFalse(handler.pending_ship_confirm)
+
     def test_finishes_when_no_upgradable_skill_left(self):
         handler = self._handler(True, False, choose_result=False)
 

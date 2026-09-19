@@ -274,6 +274,7 @@ class GeneratedConfig:
 
     # 配置组 `Emotion`
     Emotion_Mode = 'calculate'  # calculate, ignore, calculate_ignore
+    Emotion_IgnoreShipwreck = False
     Emotion_Fleet1Value = 119
     Emotion_Fleet1Record = datetime.datetime(2020, 1, 1, 0, 0)
     Emotion_Fleet1Control = 'prevent_green_face'  # keep_exp_bonus, prevent_green_face, prevent_yellow_face, prevent_red_face
@@ -375,6 +376,10 @@ class GeneratedConfig:
     EventShop_BuyURShip = 2  # 0, 1, 2
     EventShop_PresetFilter = 'all'  # all, custom
     EventShop_CustomFilter = 'EquipUR > EquipSSR > Cube > GachaTicket\n> Array > Chip > CatT3 \n> Meta > SkinBox\n> Oil > Coin > Medal > ExpBookT1 > FoodT1\n> DR > PR\n> AugmentCore > AugmentEnhanceT2 > AugmentChangeT2 > AugmentChangeT1\n> CatT2 > CatT1 > PlateGeneralT3 > PlateT3 > BoxT4\n> ShipSSR'
+
+    # 配置组 `ShopAdvanced`
+    ShopAdvanced_Mode = 'legacy'  # legacy, advanced
+    ShopAdvanced_Script = ''
 
     # 配置组 `Commission`
     Commission_PresetFilter = 'cube'  # cube, cube_24h, chip, chip_24h, oil, custom

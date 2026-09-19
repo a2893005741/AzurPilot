@@ -14,7 +14,7 @@ from starlette.applications import Starlette
 class TestMcpConnection(unittest.IsolatedAsyncioTestCase):
     async def test_standalone_and_mounted_transport(self):
         from mcp_server_sse import app, configure_auth
-        from module.webui import mcp_auth
+        from module.runtime import mcp_auth
 
         for mounted in (False, True):
             with self.subTest(mounted=mounted):

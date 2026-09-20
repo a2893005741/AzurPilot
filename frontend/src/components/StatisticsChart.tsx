@@ -251,7 +251,7 @@ export function StatisticsChart({series, initialMode = 'line'}: {series: StatSer
             aria-label={ui('stats.chartType')}
             value={mode}
             onChange={event => {
-              const nextMode = event.target.value
+              const nextMode = event.target.value === 'candlestick' ? 'candlestick' : 'line'
               setMode(nextMode)
               if (nextMode === 'candlestick' && bucket === 0) {
                 setBucket(60)

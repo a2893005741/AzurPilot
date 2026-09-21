@@ -97,9 +97,16 @@ test('玻璃主题长页面滚动时两侧栏保持贴合视口', async ({page})
   await expect(page.locator('.right-rail')).toBeVisible()
   await expect(page.locator('.loading')).toHaveCount(0)
 
-  const content = page.locator('main').first()
-  await expect(content).toBeVisible()
-  await content.evaluate((node) => node.scrollTo(0, 500))
+  await page.evaluate(() => {
+    const candidates = [document.scrollingElement, ...document.querySelectorAll<HTMLElement>('*')]
+    const target = candidates
+      .filter((node): node is HTMLElement => node instanceof HTMLElement && node.scrollHeight - node.clientHeight >= 500)
+      .sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0]
+    if (!target) throw new Error('未找到可滚动内容区')
+    target.setAttribute('data-e2e-scroll-target', '')
+    target.scrollTo(0, 500)
+  })
+  const content = page.locator('[data-e2e-scroll-target]')
   await expect.poll(() => content.evaluate((node) => node.scrollTop)).toBe(500)
 
   const sidebar = (await page.locator('.sidebar').boundingBox())!

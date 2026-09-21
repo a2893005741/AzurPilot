@@ -138,7 +138,7 @@ class OSAsh(UI, MapEventHandler):
     4. 检查信标任务的下次执行时间，距今超过 30 分钟才允许调用
 
     Attributes:
-        _ash_fully_collected (bool): 信标数据是否已收集满（达到每日上限或持有上限）。
+        _ash_fully_collected (bool): 当天信标数据是否已达到每日上限。
     """
     _ash_fully_collected = False
 
@@ -180,8 +180,10 @@ class OSAsh(UI, MapEventHandler):
             # 而任务本身又无事可做、延迟到次日，导致每轮重复触发形成死循环。
             return 0
         elif status >= 200:
-            logger.info('[META作战] 信标数据达到持有上限')
-            self._ash_fully_collected = True
+            # 当前持有量达到上限只表示暂时不需要继续收集，不能视为当天任务已完成。
+            # 信标任务每次消耗 100 点数据：第一次任务可能把 200 点降到 100 点，
+            # 此时仍需保留第二次任务的触发机会。当天是否完成由 daily >= 200 决定。
+            logger.info('[META作战] 信标数据达到持有上限，保留每日任务触发状态')
 
         if status < 0:
             status = 0

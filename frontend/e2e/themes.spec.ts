@@ -96,7 +96,7 @@ test('玻璃主题长页面滚动时两侧栏保持贴合视口', async ({page})
   await page.goto('/#/i/testpilot/task/Alas')
   await expect(page.locator('.right-rail')).toBeVisible()
 
-  const content = page.locator('.instance-page-main')
+  const content = page.locator('.task-config-settings')
   await expect(content).toBeVisible()
   await content.evaluate((node) => node.scrollTo(0, 500))
   await expect.poll(() => content.evaluate((node) => node.scrollTop)).toBe(500)

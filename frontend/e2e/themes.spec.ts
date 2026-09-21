@@ -96,8 +96,10 @@ test('玻璃主题长页面滚动时两侧栏保持贴合视口', async ({page})
   await page.goto('/#/i/testpilot/task/Alas')
   await expect(page.locator('.right-rail')).toBeVisible()
 
-  await page.evaluate(() => scrollTo(0, 500))
-  await expect.poll(() => page.evaluate(() => scrollY)).toBe(500)
+  const content = page.locator('.instance-page-main')
+  await expect(content).toBeVisible()
+  await content.evaluate((node) => node.scrollTo(0, 500))
+  await expect.poll(() => content.evaluate((node) => node.scrollTop)).toBe(500)
 
   const sidebar = (await page.locator('.sidebar').boundingBox())!
   const rail = (await page.locator('.right-rail').boundingBox())!

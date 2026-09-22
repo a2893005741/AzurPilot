@@ -20,8 +20,15 @@
 }
 body {background: var(--bg); background-attachment: fixed}
 #root {isolation: isolate}
-.wallpaper {position: fixed; inset: 0; z-index: -1; pointer-events: none; background: none}
-.wallpaper img, .wallpaper video {width: 100%; height: 100%; object-fit: cover; opacity: 1}
+.wallpaper {position: fixed; inset: 0; z-index: -1; pointer-events: none; background: none; overflow: hidden}
+.wallpaper img, .wallpaper video {position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover}
+.wallpaper-media {opacity: 1; backface-visibility: hidden; transform: translateZ(0)}
+.wallpaper-media.wallpaper-hidden {opacity: 0}
+.wallpaper-fade-in {animation: wallpaper-fade-in var(--dur-5, .36s) cubic-bezier(.16, 1, .3, 1) both}
+@keyframes wallpaper-fade-in {
+  from {opacity: 0}
+  to {opacity: 1}
+}
 .lucide {stroke-width: 1.75}
 
 /* 兼容前缀必须先于标准属性，避免生产压缩后只保留 WebKit 的模糊声明。 */
@@ -163,13 +170,28 @@ main:focus {outline: none}
 .button:active:not(:disabled) {filter: brightness(.94)}
 .icon-button {width: 36px; height: 36px; border-radius: 50%; color: var(--muted)}
 .text-button {font-size: 12px; min-height: 36px; padding: 6px 8px}
-.panel, .resource-card, .summary-metrics section {
+.panel, .resource-card {
   background: var(--glass-tint);
   -webkit-backdrop-filter: blur(24px) saturate(130%);
   backdrop-filter: blur(24px) saturate(130%);
   border: 1px solid var(--glass-edge);
   border-radius: 26px;
   box-shadow: var(--glass-shadow);
+}
+.summary-metrics-panel .summary-metric-card,
+.summary-metrics-panel .summary-metrics section {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.summary-metrics-panel .summary-metric-card:hover,
+.summary-metrics-panel .summary-metrics section:hover {
+  background: color-mix(in srgb, var(--surface) 35%, transparent);
+  border-color: color-mix(in srgb, var(--glass-edge) 60%, transparent);
+  transform: none;
 }
 
 .panel-heading {min-height: 62px; padding: 18px 22px}

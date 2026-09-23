@@ -41,6 +41,7 @@ PaddleOCR
 docs/*
 !docs/modules/
 .claude
+.dsh
 # Created by .ignore support plugin (hsz.mobi)
 
 ### JetBrains template

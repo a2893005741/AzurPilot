@@ -536,10 +536,11 @@ class OpsiAshBeacon(Meta):
         # 信标或档案页面
         elif self.appear(BEACON_LIST, offset=(20, 20)) \
                 or self.appear(DOSSIER_LIST, offset=(20, 20)):
+            # 奖励页代表当前信标血条已经清空，优先于残留的攻击标记。
+            if self.appear(BEACON_REWARD, offset=(20, 20)):
+                return MetaState.COMPLETE
             if self.appear(HELP_ENTER, offset=(30, 30)):
                 return MetaState.ATTACKING
-            elif self.appear(BEACON_REWARD, offset=(20, 20)):
-                return MetaState.COMPLETE
             return MetaState.INIT
         elif self.appear(ASH_SHOWDOWN, offset=(30, 30)):
             return MetaState.INIT

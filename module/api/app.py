@@ -89,11 +89,18 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
             return PlainTextResponse('评分报告尚未生成，请先运行「指挥喵评分」任务。', status_code=404)
         return FileResponse(path, media_type='text/html', headers={'Cache-Control': 'no-cache'})
 
+    from module.api.android import routes as android_routes
     routes = [Route('/healthz', health),
               Route('/reports/meowfficer_score', meowfficer_score_report),
               WebSocketRoute('/api/v1/ws', gateway.endpoint)]
+    routes.extend(android_routes(configs, runtime))
     if (dist / 'assets').is_dir():
         routes.append(Mount('/assets', StaticFiles(directory=dist / 'assets')))
+    # 科研掉落的物品图标直接用仓库里的模板图，不走前端构建，
+    # 这样补了新模板立刻生效，不用重新 npm build。
+    research_items = root / 'assets' / 'stats' / 'research_items'
+    if research_items.is_dir():
+        routes.append(Mount('/research-items', StaticFiles(directory=research_items)))
     if mount_mcp:
         from mcp_server_sse import create_app as create_mcp_app, configure_auth
         configure_auth(password, public_bind=bool(password))

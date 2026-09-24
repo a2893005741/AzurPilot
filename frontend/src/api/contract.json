@@ -432,7 +432,8 @@
               "opsi",
               "commission",
               "ships",
-              "loot"
+              "loot",
+              "research"
             ],
             "title": "Category",
             "type": "string"
@@ -465,6 +466,23 @@
               "month"
             ],
             "title": "Period",
+            "type": "string"
+          },
+          "series": {
+            "default": 0,
+            "maximum": 20,
+            "minimum": 0,
+            "title": "Series",
+            "type": "integer"
+          },
+          "scope": {
+            "default": "series",
+            "enum": [
+              "series",
+              "gold",
+              "consumable"
+            ],
+            "title": "Scope",
             "type": "string"
           }
         },
@@ -728,6 +746,21 @@
           }
         },
         "title": "AuthParams",
+        "type": "object"
+      }
+    },
+    "announcement.get": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          }
+        },
+        "title": "AnnouncementParams",
         "type": "object"
       }
     },

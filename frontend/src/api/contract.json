@@ -479,7 +479,6 @@
             "default": "series",
             "enum": [
               "series",
-              "gold",
               "consumable"
             ],
             "title": "Scope",

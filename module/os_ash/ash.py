@@ -147,11 +147,9 @@ class OSAsh(UI, MapEventHandler):
         通过 OCR 读取余烬信标的收集进度。
 
         Returns:
-            int: 当前持有的信标点数。今日累计已收集满时仍返回当前持有量，
-                因为这些点数仍可用于攻击信标。
+            int: 信标记录仪当前点数；状态被遮挡时返回 0。今日累计已收集满时
+                仍返回当前持有量，因为这些点数仍可用于攻击信标。
         """
-        if self._ash_fully_collected:
-            return 0
         if self.image_color_count(ASH_COLLECT_STATUS, color=(235, 235, 235), threshold=30, count=20):
             logger.info('[META作战] 信标状态：可收集')
             ocr_collect = DigitCounter(

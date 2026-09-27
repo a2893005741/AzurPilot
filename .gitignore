@@ -15,6 +15,8 @@ config/*.yaml
 !config/deploy.*.yaml
 config/*.json
 config/*.db
+config/*/config.db*
+config/*/account.destroyed
 config/tmp*
 !config/template*.json
 *.pyw
@@ -42,6 +44,7 @@ docs/*
 !docs/modules/
 .claude
 .dsh
+.agents
 # Created by .ignore support plugin (hsz.mobi)
 
 ### JetBrains template

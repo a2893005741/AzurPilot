@@ -270,7 +270,7 @@ export function createMockState({ empty = false } = {}) {
     ]
     return rows.join('\n')
   }
-  // 注入覆盖各种真实日志形态的演示数据：各级别、分割线、居中标题、属性对齐、多行消息与异常堆栈。
+  // 注入覆盖各种真实日志形态的演示数据：各级别、分割线、居中标题、属性对齐、多行消息、海图识别、透视边缘、表格与异常堆栈。
   function seedLogShowcase(name) {
     const seed = (text, level = 'INFO') => log(name, text, level)
     const bare = (text, level = 'INFO') => logRaw(name, text, level)
@@ -290,18 +290,157 @@ export function createMockState({ empty = false } = {}) {
     seed('COMMISSION')
     bare(rule('─', 'SUB_STAGE'))
     seed('SUB_STAGE')
-    seed('<<< HR3 >>>')
+    seed('<<< 查找所有舰队 >>>')
     seed('[META作战] 战斗结束并回到正确页面')
-    seed(`${'flag'.padStart(22)}: True`)
+
+    // 1. 海域透视与边缘线识别（完整闭合 vs 边缘缺失对比）
+    // 样例 A: 四边完整闭合 (全绿高亮)
+    seed('[地图-透视] 0.045s  _   水平: 7 (7 内部, 0 边缘)')
+    seed('[地图-透视] 边缘: /_\\    垂直: 8 (8 内部, 0 边缘)')
+
+    // 样例 B: 右边缘与下边缘缺失 (视角滑至海域右下角，右/下红虚线警示)
+    seed('[地图-透视] 0.041s      水平: 5 (5 内部, 0 边缘)')
+    seed('[地图-透视] 边缘: /_     垂直: 6 (6 内部, 0 边缘)')
+
+    // 样例 C: 单应性左边缘缺失 (单应性位置偏左，左红虚线警示)
+    seed('[地图-单应性] 0.038s  _   边缘线: 1 水平, 2 垂直')
+    seed('[地图-单应性] 边缘:  _\\   单应位置: (  4,   2)')
+
+    // 2. 连续右对齐属性块 (attr_align)
+    seed(`${padDisplay('摄像机', 22)}: (4, 3)`)
+    seed(`${padDisplay('摄像机修正', 22)}: (4, 3) -> (5, 3)`)
+    seed(`${padDisplay('之前中心偏移', 22)}: (12, -4)`)
+    seed(`${padDisplay('敌舰覆盖', 22)}: [C3, D4, E2]`)
+
+    // 3. 局部海图视野 (view.show)
+    seed('.. .. ++ ++ -- -- -- --')
+    seed('.. ++ ++ -- 1M -- -- --')
+    seed('++ ++ -- -- -- -- 2C --')
+    seed('-- -- FL -- -- -- ++ ++')
+    seed('-- -- -- MY -- ++ ++ ++')
+
+    // 4. 全局海图主网格 (map.show)
+    seed('[地图-显示]   A  B  C  D  E  F  G  H')
+    seed(' 1 ++ ++ ++ -- -- -- -- --')
+    seed(' 2 ++ ++ ++ -- 1M -- -- --')
+    seed(' 3 -- -- -- -- -- -- 2C --')
+    seed(' 4 -- -- FL -- -- -- -- --')
+    seed(' 5 -- -- -- -- MY ++ ++ ++')
+    seed(' 6 -- -- -- -- -- ++ ++ ++')
+    seed(' 7 ++ ++ ++ -- -- -- -- --')
+
+    // 5. 寻路代价网格 (map.show_cost)
+    seed('      A    B    C    D    E    F    G    H')
+    seed(' 1 9999 9999 9999    4    5    6    7    8')
+    seed(' 2 9999 9999 9999    3    4    5    6    7')
+    seed(' 3    3    2    1    2    3    4    5    6')
+    seed(' 4    2    1    0    1    2    3    4    5')
+    seed(' 5    3    2    1    2    3 9999 9999 9999')
+    seed(' 6    4    3    2    3    4 9999 9999 9999')
+    seed(' 7 9999 9999 9999    4    5    6    7    8')
+
+    // 6. 大世界雷达扫描 (radar.show)
+    seed('-- -- -- -- -- -- -- -- -- --')
+    seed('-- AK -- PO -- RE -- -- 1E --')
+    seed('-- -- -- -- -- == == -- -- --')
+    seed('-- -- FL -- -- == == -- EX --')
+    seed('-- AR -- -- ME -- -- -- -- SD')
+    seed('-- QU -- -- -- -- EN -- -- --')
+
+    // 7.1 Rich Table: 设备基准测试 (Device Benchmark)
+    bare([
+      '                                                                        Benchmark Result                                                                        ',
+      '                                                          ┌──────────────┬──────────┬──────┬─────────┐                                                          ',
+      '                                                          │ Device       │  Method  │  FPS │ Latency │                                                          ',
+      '                                                          ├──────────────┼──────────┼──────┼─────────┤                                                          ',
+      '                                                          │ MuMuPlayer12 │ nemu_ipc │ 58.4 │  0.005s │                                                          ',
+      '                                                          │ MuMuPlayer12 │    u2    │ 18.2 │  0.052s │                                                          ',
+      '                                                          │ MuMuPlayer12 │  adb_nc  │ 24.1 │  0.038s │                                                          ',
+      '                                                          └──────────────┴──────────┴──────┴─────────┘                                                          '
+    ].join('\n'))
+
+    // 7.2 Rich Table: 截图方式性能测试 (Screenshot Benchmark)
+    bare([
+      '                                                                      Screenshot Benchmark                                                                      ',
+      '                                                          ┌──────────────┬────────┬─────────┐                                                           ',
+      '                                                          │ Screenshot   │  Time  │  Speed  │                                                           ',
+      '                                                          ├──────────────┼────────┼─────────┤                                                           ',
+      '                                                          │ nemu_ipc     │ 0.005s │ Fastest │                                                           ',
+      '                                                          │ DroidCast    │ 0.018s │  Fast   │                                                           ',
+      '                                                          │ uiautomator2 │ 0.052s │ Medium  │                                                           ',
+      '                                                          │ ADB          │ 0.319s │  Slow   │                                                           ',
+      '                                                          │ aScreenCap   │ Failed │ Failed  │                                                           ',
+      '                                                          └──────────────┴────────┴─────────┘                                                           '
+    ].join('\n'))
+
+    // 7.3 Rich Table: 控制点击方式测试 (Click Benchmark)
+    bare([
+      '                                                                         Click Benchmark                                                                        ',
+      '                                                          ┌──────────────┬────────┬─────────┐                                                           ',
+      '                                                          │ Control      │  Time  │  Speed  │                                                           ',
+      '                                                          ├──────────────┼────────┼─────────┤                                                           ',
+      '                                                          │ minitouch    │ 0.012s │ Fastest │                                                           ',
+      '                                                          │ ADB_NC       │ 0.038s │  Fast   │                                                           ',
+      '                                                          │ uiautomator2 │ 0.052s │  Fast   │                                                           ',
+      '                                                          │ ADB          │ 0.120s │ Medium  │                                                           ',
+      '                                                          └──────────────┴────────┴─────────┘                                                           '
+    ].join('\n'))
+
+    // 7.4 Rich Table: OCR 识别基准摘要 (OCR Benchmark Summary)
+    bare([
+      '                                                                        OCR基准测试摘要                                                                         ',
+      '                                        ┌──────────┬──────────┬──────────────────┬──────────┬────────┬────────┐                                         ',
+      '                                        │ Model    │ Dataset  │ Accuracy         │ Avg Time │ Rating │ Status │                                         ',
+      '                                        ├──────────┼──────────┼──────────────────┼──────────┼────────┼────────┤                                         ',
+      '                                        │ CRNN     │ general  │ 100.00% (50/50)  │ 12.345 ms│ Fast   │  PASS  │                                         ',
+      '                                        │ Paddle   │ button   │  96.00% (48/50)  │ 28.120 ms│ Good   │  PASS  │                                         ',
+      '                                        │ CNS      │ number   │  85.00% (42/50)  │  8.500 ms│ Fast   │ Warning│                                         ',
+      '                                        └──────────┴──────────┴──────────────────┴──────────┴────────┴────────┘                                         '
+    ].join('\n'))
+
+    // 7.5 Rich Table: 指挥喵评分汇总 (Meowfficer Score Summary)
+    bare([
+      '                                                                           评分汇总                                                                             ',
+      '                                                            ┌────────┬────────┬──────────┬──────┬────────┐                                                      ',
+      '                                                            │ 来源   │ 指挥喵 │ 口径     │ 档位 │ 参考分 │                                                      ',
+      '                                                            ├────────┼────────┼──────────┼──────┼────────┤                                                      ',
+      '                                                            │ 喵窝-1 │ 莫桑   │ 战列旗舰 │  T0  │ 96/100 │                                                      ',
+      '                                                            │ 喵窝-2 │ 小吉丸 │ 驱逐雷击 │  T1  │ 85/100 │                                                      ',
+      '                                                            │ 喵窝-3 │ 伯克   │ 巡洋雷击 │  T2  │ 72/100 │                                                      ',
+      '                                                            └────────┴────────┴──────────┴──────┴────────┘                                                      '
+    ].join('\n'))
+
+    // 7.6 ASCII Table: 经典 ASCII 字符画表格 (Legacy ASCII Table)
+    bare([
+      '                                                                    Legacy ASCII Benchmark                                                                      ',
+      '                                                          +--------------+--------+--------+                                                            ',
+      '                                                          |  Screenshot  |  Time  | Speed  |                                                            ',
+      '                                                          +--------------+--------+--------+                                                            ',
+      '                                                          |     ADB      | 0.319s |  Fast  |                                                            ',
+      '                                                          | uiautomator2 | 0.476s | Medium |                                                            ',
+      '                                                          |  aScreenCap  | Failed | Failed |                                                            ',
+      '                                                          +--------------+--------+--------+                                                            '
+    ].join('\n'))
+
     seed('带有路径 E:\\AzurPilot\\module\\os_ash\\meta.py 和 True/False/None', 'WARNING')
     seed('大括号 { [ ( ) ] }，相对路径 ./relative/path/log.txt')
     seed(`多行消息：当前任务队列\n${indent}Commission（进行中）\n${indent}Research（等待下一轮）`)
+
+    // 9. 统一错误上下文 (error_context) 与完整堆栈
     seed('[错误] 任务执行发生未处理异常（opsi_ash_beacon）\n'
       + `${indent}原因：程序抛出了 ScriptEnd，具体原因需要结合下方堆栈定位。\n`
       + `${indent}影响：当前任务无法确认执行结果，调度器将尝试重启恢复。\n`
       + `${indent}建议：查看错误现场中的 log.txt、截图和完整堆栈，确认是否需要更新资源或提交问题。\n`
       + `${indent}异常：ScriptEnd: [心情-保底] 计算模式红脸弹窗，心情清零并延时\n`
       + stackTraceText().split('\n').map(line => indent + line).join('\n'), 'ERROR')
+
+    // 10. LLM 智能分析报告
+    bare(rule('═', '[LLM] LLM 错误分析'))
+    seed('[LLM] 正在调用 LLM 分析异常原因...')
+    seed('[LLM] 该错误已被 LLM 分析过，直接复用上次的分析结果以节省 API ...')
+    seed(`[LLM] \n[LLM 分析报告 (由 gpt-4o-mini 提供, 复用缓存)]\n### 根本原因\n任务在执行 \`opsi_ash_beacon\` 时遇到了心情归零保底机制，触发了 \`ScriptEnd\` 正常流程中断。\n\n### 处置建议\n1. 检查调度设置中的心情恢复时长；\n2. 确认大世界信标是否已进入冷却状态。`)
+    bare(rule('═', '[LLM] LLM 分析结束'))
+
     seed('CRITICAL 级别消息，用于验证最高级别配色', 'CRITICAL')
     seed('DEBUG 级别消息，级别筛选为 ALL 时同样可见', 'DEBUG')
     bare(rule('─'))

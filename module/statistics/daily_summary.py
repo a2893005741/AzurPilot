@@ -260,6 +260,8 @@ class DailySummaryService:
             'server': server,
             'window_start': window_start,
             'window_end': window_end,
+            # 清理与窗口判定使用同一参考时间，避免补跑或测试时按真实时钟误删本期记录。
+            'now': now,
             'llm_api_key': getattr(config, 'Error_LlmApiKey', ''),
             'llm_api_base': getattr(config, 'Error_LlmApiBase', ''),
             'llm_model': getattr(config, 'Error_LlmModel', ''),
@@ -366,7 +368,7 @@ class DailySummaryService:
                 pass
         finally:
             try:
-                self.store.cleanup(keep_days=DAILY_SUMMARY_KEEP_DAYS)
+                self.store.cleanup(now=request.get('now'), keep_days=DAILY_SUMMARY_KEEP_DAYS)
             except Exception as error:
                 logger.warning(f'[日报] 清理过期记录失败，已忽略: {type(error).__name__}')
             with self._idle_condition:

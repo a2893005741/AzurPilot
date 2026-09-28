@@ -1478,9 +1478,13 @@
       "name": "Operation handover settings",
       "help": ""
     },
-    "Count": {
-      "name": "Handover count",
-      "help": "How many sorties this Operation Handover runs\n0 means the minimum the game allows: in that case the task is disabled unless Consume all Handover Books is on"
+    "BattleCount": {
+      "name": "Battle count",
+      "help": "Battles per batch (0-999). Zero skips regular batches but keeps enabled weekly book consumption and maintenance plans. The task is disabled only when no plan is enabled."
+    },
+    "FullDelegationBookCount": {
+      "name": "Full delegation books",
+      "help": "Number of full delegation books to use in one batch."
     },
     "AutoSupplementTime": {
       "name": "Auto supplement time",
@@ -3519,6 +3523,12 @@
       "name": "Allow Corrosion 1 leveling during exploration",
       "help": "If enabled, Corrosion 1 Leveling will not be postponed. Use with caution, as you might run out of Action Points for exploration."
     },
+    "EnableSmartScheduling": {
+      "name": "Use smart scheduling",
+      "help": "During exploration, switch to Corrosion 1 when coins reach the smart scheduling upper bound, then resume exploration below the lower bound. Smart scheduling and coin-target scheduling must both be enabled.",
+      "True": "True",
+      "False": "False"
+    },
     "ExploreProgress": {
       "name": "Monthly exploration progress",
       "help": "Shows the current completion percentage of monthly exploration."
@@ -3855,6 +3865,12 @@
     "OperationCoinsReturnThreshold": {
       "name": "Return when supply coins below X",
       "help": "During the yellow coin acquisition task, obtain (increase) X Combat Supply Vouchers in total, then return to Corrosion 1 Leveling."
+    },
+    "EnableExplore": {
+      "name": "Enable Monthly Exploration",
+      "help": "Use Monthly Exploration as a smart-scheduling task to replenish OpSi coins.",
+      "True": "Enabled",
+      "False": "Disabled"
     },
     "EnableMeowfficerFarming": {
       "name": "Enable meowfficer farming",

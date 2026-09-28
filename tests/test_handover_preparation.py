@@ -2,7 +2,7 @@
 
 import unittest
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -25,7 +25,9 @@ class TestHandoverPreparation(unittest.TestCase):
             'BattleCount': 7, 'FullDelegationBookCount': 3,
             'AutoSupplementTime': False, 'UseHandoverBook': False,
             'ConsumeAllBook': False, 'ConsumeAllBookWeekday': 'sun',
-            'ConsumeAllBookTime': '00:00', 'ConsumeAllBookRecord': None,
+            # 上游把记录改为可见 datetime，并新增隐藏的委托结束时间；2020-01-01 即未触发。
+            'ConsumeAllBookTime': '00:00', 'ConsumeAllBookRecord': datetime(2020, 1, 1),
+            'CommissionEnd': datetime(2020, 1, 1),
             'MaintainOverride': False, 'OilLimit': 1000,
         })
         self.assertEqual(result['Scheduler']['SuccessInterval'], '30-60')

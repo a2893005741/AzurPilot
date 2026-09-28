@@ -12048,12 +12048,20 @@
       }
     },
     "OperationHandover": {
-      "Count": {
+      "BattleCount": {
         "type": "input",
         "value": 1,
         "validate": [
           0,
           999
+        ]
+      },
+      "FullDelegationBookCount": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          15
         ]
       },
       "AutoSupplementTime": {
@@ -13772,6 +13780,14 @@
         "type": "checkbox",
         "value": false
       },
+      "EnableSmartScheduling": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
       "ExploreProgress": {
         "type": "textarea",
         "value": "",
@@ -14926,6 +14942,14 @@
       "OperationCoinsReturnThreshold": {
         "type": "input",
         "value": 20000
+      },
+      "EnableExplore": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
       },
       "EnableMeowfficerFarming": {
         "type": "checkbox",

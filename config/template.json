@@ -2289,7 +2289,8 @@
       "DefeatWithdraw": "withdraw_stop"
     },
     "OperationHandover": {
-      "Count": 1,
+      "BattleCount": 1,
+      "FullDelegationBookCount": 0,
       "AutoSupplementTime": false,
       "UseHandoverBook": false,
       "ConsumeAllBook": false,
@@ -2662,6 +2663,7 @@
       "ForceRun": false,
       "LastZone": 0,
       "AllowHazard1Leveling": false,
+      "EnableSmartScheduling": false,
       "ExploreProgress": null
     },
     "OpsiFleet": {
@@ -2955,6 +2957,7 @@
       "OperationCoinsPreserve": 40000,
       "ActionPointPreserve": 200,
       "OperationCoinsReturnThreshold": 20000,
+      "EnableExplore": false,
       "EnableMeowfficerFarming": true,
       "EnableObscure": false,
       "EnableAbyssal": false,

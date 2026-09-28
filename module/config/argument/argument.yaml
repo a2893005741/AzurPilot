@@ -452,9 +452,14 @@ Campaign:
     value: withdraw_stop
     option: [ withdraw_continue, switch_fleet, withdraw_stop ]
 OperationHandover:
-  Count:
+  BattleCount:
+    type: input
     value: 1
     validate: [0, 999]
+  FullDelegationBookCount:
+    type: input
+    value: 0
+    validate: [0, 15]
   AutoSupplementTime: false
   UseHandoverBook: false
   ConsumeAllBook:
@@ -1264,6 +1269,10 @@ OpsiExplore:
   ForceRun: false
   LastZone: 0
   AllowHazard1Leveling: false
+  EnableSmartScheduling:
+    type: checkbox
+    value: false
+    option: [true, false]
   ExploreProgress:
     type: textarea
     display: disabled
@@ -1401,6 +1410,10 @@ OpsiScheduling:
     value: 200
   OperationCoinsReturnThreshold:
     value: 20000
+  EnableExplore:
+    type: checkbox
+    value: false
+    option: [true, false]
   EnableMeowfficerFarming:
     type: checkbox
     value: true

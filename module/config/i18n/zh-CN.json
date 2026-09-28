@@ -1478,9 +1478,13 @@
       "name": "作战委托设置",
       "help": ""
     },
-    "Count": {
-      "name": "委托次数",
-      "help": "本次作战委托要执行的关卡次数\n 如果为0还不开启“一键消耗作战全权委托书”，本任务会被直接关闭，如果想集中消耗作战委托书请设置为0"
+    "BattleCount": {
+      "name": "作战次数",
+      "help": "每批作战次数（0–999）。0 跳过普通批次；已启用的每周清书和维护日计划仍保留。只有未启用任何计划时才关闭任务。"
+    },
+    "FullDelegationBookCount": {
+      "name": "全权委托书数量",
+      "help": "每批使用的作战全权委托书数量。"
     },
     "AutoSupplementTime": {
       "name": "自动补充时间",
@@ -3519,6 +3523,12 @@
       "name": "允许开荒期间运行侵蚀1练级",
       "help": "开启后将不会推迟侵蚀1练级任务，慎用，没体力开荒就老实了。"
     },
+    "EnableSmartScheduling": {
+      "name": "接入智能调度",
+      "help": "开荒期间黄币达到智能调度上限时切换侵蚀1，黄币降到下限后继续开荒。需同时启用智能调度和黄币目标调度。",
+      "True": "True",
+      "False": "False"
+    },
     "ExploreProgress": {
       "name": "每月开荒Plus进度",
       "help": "显示当前每月开荒Plus的完成百分比"
@@ -3855,6 +3865,12 @@
     "OperationCoinsReturnThreshold": {
       "name": "作战补给凭证低于 X 时返航",
       "help": "在黄币获取任务时 共获取(增加) X 个作战补给凭证后返回侵蚀1练级"
+    },
+    "EnableExplore": {
+      "name": "启用每月开荒",
+      "help": "智能调度Plus中是否启用每月开荒任务来补充黄币",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableMeowfficerFarming": {
       "name": "启用耄耋相接",

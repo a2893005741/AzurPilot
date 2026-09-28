@@ -234,7 +234,8 @@ class GeneratedConfig:
     Campaign_DefeatWithdraw = 'withdraw_stop'  # withdraw_continue, switch_fleet, withdraw_stop
 
     # 配置组 `OperationHandover`
-    OperationHandover_Count = 1
+    OperationHandover_BattleCount = 1
+    OperationHandover_FullDelegationBookCount = 0
     OperationHandover_AutoSupplementTime = False
     OperationHandover_UseHandoverBook = False
     OperationHandover_ConsumeAllBook = False  # True, False
@@ -660,6 +661,7 @@ class GeneratedConfig:
     OpsiExplore_ForceRun = False
     OpsiExplore_LastZone = 0
     OpsiExplore_AllowHazard1Leveling = False
+    OpsiExplore_EnableSmartScheduling = False  # True, False
     OpsiExplore_ExploreProgress = None
 
     # 配置组 `OpsiShop`
@@ -742,6 +744,7 @@ class GeneratedConfig:
     OpsiScheduling_OperationCoinsPreserve = 40000
     OpsiScheduling_ActionPointPreserve = 200
     OpsiScheduling_OperationCoinsReturnThreshold = 20000
+    OpsiScheduling_EnableExplore = False  # True, False
     OpsiScheduling_EnableMeowfficerFarming = True  # True, False
     OpsiScheduling_EnableObscure = False  # True, False
     OpsiScheduling_EnableAbyssal = False  # True, False

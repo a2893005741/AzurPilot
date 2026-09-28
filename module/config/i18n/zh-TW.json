@@ -1478,9 +1478,13 @@
       "name": "作戰委託設定",
       "help": ""
     },
-    "Count": {
-      "name": "委託次數",
-      "help": "本次作戰委託要執行的關卡次數\n0 表示降到遊戲允許的最少次數：這時如果不開啟「一鍵消耗作戰全權委託書」，本任務會直接被關閉"
+    "BattleCount": {
+      "name": "作戰次數",
+      "help": "每批作戰次數（0–999）。0 跳過普通批次；已啟用的每週清書和維護日計畫仍保留。只有未啟用任何計畫時才關閉任務。"
+    },
+    "FullDelegationBookCount": {
+      "name": "全權委託書數量",
+      "help": "每批使用的作戰全權委託書數量。"
     },
     "AutoSupplementTime": {
       "name": "自動補充時間",
@@ -3519,6 +3523,12 @@
       "name": "允許開荒期間執行侵蝕1練級",
       "help": "開啟後將不會推遲侵蝕1練級任務，慎用，沒體力開荒就老實了。"
     },
+    "EnableSmartScheduling": {
+      "name": "接入智慧調度",
+      "help": "開荒期間黃幣達到智慧調度上限時切換侵蝕1，黃幣降到下限後繼續開荒。需同時啟用智慧調度和黃幣目標調度。",
+      "True": "True",
+      "False": "False"
+    },
     "ExploreProgress": {
       "name": "每月開荒進度",
       "help": "顯示當前每月開荒的完成百分比"
@@ -3855,6 +3865,12 @@
     "OperationCoinsReturnThreshold": {
       "name": "作戰補給憑證低於 X 時返航",
       "help": "在黃幣獲取任務時 共獲取(增加) X 個作戰補給憑證後返回侵蝕1練級"
+    },
+    "EnableExplore": {
+      "name": "啟用每月開荒",
+      "help": "智慧排程Plus中是否啟用每月開荒任務來補充黃幣",
+      "True": "已啟用",
+      "False": "未啟用"
     },
     "EnableMeowfficerFarming": {
       "name": "啟用短貓相接",

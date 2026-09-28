@@ -44,6 +44,8 @@ else:
 
 
 class ExpOnBookSelect(DigitCounter):
+    """教材选择界面经验 OCR 识别器。"""
+
     def pre_process(self, image):
         # 图像格式类似 `NEXT:1900+500/5800`，其中 500 为绿色，其余为白色
 
@@ -123,6 +125,8 @@ class ExpOnBookSelect(DigitCounter):
 
 
 class ExpOnSkillSelect(Ocr):
+    """技能选择界面经验与满级状态 OCR 识别器。"""
+
     def pre_process(self, image):
         # 转换为灰度图
         r, g, b = cv2.split(image)
@@ -155,6 +159,8 @@ BOOK_FILTER = Filter(
 
 
 class Book:
+    """技能教材数据类，包含类型、品质及经验值识别逻辑。"""
+
     color_genre = {
         1: (214, 69, 74),  # 攻击，红色
         2: (115, 178, 255),  # 防御，蓝色
@@ -924,6 +930,14 @@ class RewardTacticalClass(Dock):
         return True
 
     def select_suitable_ship(self):
+        """在船坞中筛选并选中一艘适合学习技能的舰船。
+
+        根据配置设置收藏过滤和阵营筛选（跳过 META 舰船），
+        选择等级大于等于配置最低要求的舰船并确认。
+
+        Returns:
+            bool: 成功选中舰船返回 True，无可用舰船返回 False。
+        """
         logger.hr('选择合适舰船')
 
         # 根据配置设置收藏筛选

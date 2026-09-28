@@ -159,9 +159,7 @@ class OpsiExplore(OSMap):
             )
 
     def _os_explore_task_delay(self):
-        """
-        在大世界探索期间延迟其他大世界任务。
-        """
+        """在大世界探索期间延迟其他大世界任务。"""
         logger.info('每月开荒+运行中，延迟其他大世界任务')
         with self.config.multi_set():
             next_run = self.config.Scheduler_NextRun
@@ -181,11 +179,10 @@ class OpsiExplore(OSMap):
                     self.config.cross_set(keys=keys, value=next_run)
 
     def _os_explore(self):
-        """
-        月初探索所有危险区域。
+        """月初探索所有危险海域区域。
 
-        按配置顺序逐一前往各区域，已完成安全海域的区域会跳过。
-        失败的区域 ID 会记录到 _os_explore_failed_zone。
+        按配置顺序逐一前往各海域，已完成安全海域的区域会自动跳过。
+        失败的区域 ID 会记录到 `_os_explore_failed_zone`。
 
         Pages:
             in: page_os, 大世界地图
@@ -290,6 +287,14 @@ class OpsiExplore(OSMap):
             end()
 
     def os_explore(self):
+        """执行大世界每月开荒任务主流程。
+
+        循环执行开荒逻辑，若遇到探索异常则返回母港重新尝试；
+        连续失败时抛出异常提示检查未完成事件。
+
+        Raises:
+            GameStuckError: 开荒重试失败且无法解锁目标海域时抛出。
+        """
         self._delay_explore_for_scheduling_phase()
         for _ in range(2):
             try:

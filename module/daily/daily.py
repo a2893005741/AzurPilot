@@ -52,6 +52,11 @@ class Daily(Combat):
     emergency_module_development = False
 
     def is_active(self):
+        """检测当前每日任务关卡是否处于开放（活跃）状态。
+
+        Returns:
+            bool: 活跃开放返回 True，否则返回 False。
+        """
         color = get_color(image=self.device.image, area=DAILY_ACTIVE.area)
         color = np.array(color).astype(float)
         color = (np.max(color) + np.min(color)) / 2
@@ -125,6 +130,7 @@ class Daily(Combat):
         return False
 
     def next(self):
+        """切换到下一个每日任务条目。"""
         self.daily_current += 1
         logger.info(f'[每日任务] 切换到 {self.daily_current}')
         if self.daily_current > 7:
@@ -132,11 +138,17 @@ class Daily(Combat):
         self._start_daily_switch(DAILY_NEXT)
 
     def prev(self):
+        """切换到上一个每日任务条目。"""
         self.daily_current -= 1
         logger.info(f'[每日任务] 切换到 {self.daily_current}')
         self._start_daily_switch(DAILY_PREV)
 
     def handle_daily_additional(self):
+        """处理每日任务流程中的附加弹窗（如大舰队弹窗）。
+
+        Returns:
+            bool: 是否处理了弹窗。
+        """
         if self.handle_guild_popup_cancel():
             return True
         return self.appear(GUILD_POPUP_CONFIRM, offset=self._popup_offset) \
@@ -228,6 +240,11 @@ class Daily(Combat):
 
     @property
     def supply_line_disruption_index(self):
+        """获取破交作战在当前轮次下的任务索引。
+
+        Returns:
+            int: 破交作战索引号。
+        """
         if self.emergency_module_development:
             return 2
         else:
@@ -235,6 +252,11 @@ class Daily(Combat):
 
     @property
     def empty_index(self):
+        """获取当前轮次下未开放的空白任务索引。
+
+        Returns:
+            int: 空白任务索引号。
+        """
         if self.emergency_module_development:
             return 4
         else:
@@ -349,6 +371,11 @@ class Daily(Combat):
                 return True
 
     def daily_check(self, n=None):
+        """记录已完成检查的每日任务索引。
+
+        Args:
+            n (int, optional): 任务索引，默认使用 daily_current。
+        """
         if not n:
             n = self.daily_current
         self.daily_checked.append(n)
@@ -356,6 +383,7 @@ class Daily(Combat):
         logger.info(f'已检查列表: {self.daily_checked}')
 
     def daily_run_one(self):
+        """执行单次每日任务检查与出击处理。"""
         logger.hr('每日运行一次', level=1)
         self.ui_ensure(page_daily)
         self.device.sleep(0.2)
@@ -420,6 +448,7 @@ class Daily(Combat):
                 break
 
     def daily_run(self):
+        """执行所有每日任务的完整检查循环，直到遍历完全部 7 项任务。"""
         self.daily_checked = [0]
 
         while 1:

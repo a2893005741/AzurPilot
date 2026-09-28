@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 统计图表（折线图、柱状图、堆叠图）渲染组件。
+ */
+
 import type {ReactNode, KeyboardEvent as ReactKeyboardEvent} from 'react'
 import { Select } from './FormControls'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -225,6 +229,9 @@ export function StatisticsChart({series, heading = true, expanded = false, onTog
     const container = element.current
     const chart = echarts.getInstanceByDom(container) ?? echarts.init(container, undefined, {locale: language.startsWith('zh') ? 'ZH' : 'EN'})
 
+    /* 重绘只取决于下面这几个 CSS 变量。这个观察者还会被与图表无关的 <html> style
+       写入触发（例如指针光效的 --mx/--my），所以先比签名再决定要不要重建。 */
+    let renderedSignature = ''
     function render() {
       const colors = getComputedStyle(document.documentElement)
       const text = colors.getPropertyValue('--text').trim() || '#82929f'
@@ -233,6 +240,10 @@ export function StatisticsChart({series, heading = true, expanded = false, onTog
       const secondary = minimal ? colors.getPropertyValue('--secondary').trim() : '#de7861'
       const surface = colors.getPropertyValue('--surface').trim()
       const border = colors.getPropertyValue('--border').trim()
+      const accentSoft = colors.getPropertyValue('--accent-soft').trim()
+      const signature = `${theme}|${text}|${primary}|${secondary}|${surface}|${border}|${accentSoft}`
+      if (signature === renderedSignature) return
+      renderedSignature = signature
       const colorFor = (item: typeof seriesData[number]) => isSingle ? (minimal ? primary : item.color) : item.color
 
       let yAxes: any[] = []

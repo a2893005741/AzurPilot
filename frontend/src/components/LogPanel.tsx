@@ -1,5 +1,9 @@
+/**
+ * @fileoverview 实例实时控制台日志面板组件。
+ */
+
 import { Select } from './FormControls'
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { ArrowDownUp, Download, LayoutGrid, Pause, Play, Search, Terminal, Trash2 } from 'lucide-react'
 import { api } from '../api/client'
@@ -16,6 +20,45 @@ export const LOG_ENTRY_LIMIT = 1000
 
 /** 日志跟随的每帧步长上限（像素）；距离更近时按距离收比例。 */
 export const MAX_FOLLOW_STEP = 24
+
+export const safeRaf = (cb: FrameRequestCallback): number => {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    return window.requestAnimationFrame(cb)
+  }
+  return setTimeout(cb, 16) as unknown as number
+}
+
+export const safeCancelRaf = (id: number | null) => {
+  if (id === null) return
+  if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
+    window.cancelAnimationFrame(id)
+  } else {
+    clearTimeout(id)
+  }
+}
+
+export interface LogBufferState {
+  entries: LogEntry[]
+  reset: boolean
+  cursor: number | null
+}
+
+/**
+ * 将高频推送的流式日志加入微批缓冲队列
+ * 若收到 reset 信号，则清除前置缓冲并标记 reset，后序同一批次的 entries 连续追加
+ */
+export function queueLogEvent(
+  buffer: LogBufferState,
+  data: { entries: LogEntry[]; reset?: boolean; cursor: number }
+): void {
+  if (data.reset) {
+    buffer.reset = true
+    buffer.entries = [...data.entries]
+  } else {
+    buffer.entries.push(...data.entries)
+  }
+  buffer.cursor = data.cursor
+}
 
 /** 跟随步长：远时按上限匀速，近时按距离收比例，新日志逐帧滚入而不跳到末尾。 */
 export function followStep(remaining: number, maxStep = MAX_FOLLOW_STEP) {
@@ -107,7 +150,7 @@ function renderSearchHighlights(text: string, searchLower: string, keyPrefix: st
   return <span key={keyPrefix}>{nodes}</span>
 }
 
-export function LogLine({entry, search, isCenter, fresh}: {entry: LogEntry; search: string; isCenter?: boolean; fresh?: boolean}) {
+export const LogLine = memo(function LogLine({entry, search, isCenter, fresh}: {entry: LogEntry; search: string; isCenter?: boolean; fresh?: boolean}) {
   const rawText = entry.text.replace(/[\r\n]+$/, '')
   const trimmed = rawText.trim()
   const freshClass = fresh ? ' motion-enter' : ''
@@ -177,7 +220,7 @@ export function LogLine({entry, search, isCenter, fresh}: {entry: LogEntry; sear
       <span className="log-msg">{highlightText(rawText, search)}</span>
     </div>
   )
-}
+})
 
 const LOG_LEVELS = ['ALL', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
 
@@ -218,6 +261,36 @@ export function LogPanel({active = true}: {active?: boolean}) {
   /* 已渲染到的最大日志 id：大于它的增量行做入场动画（初始加载不播）。 */
   const freshFrom = useRef<number | null>(null)
 
+  /** 流式日志微批处理缓冲队列，防止高频 WebSocket 推送造成密集 React 重绘 */
+  const logBuffer = useRef<LogBufferState & { rafId: number | null }>({
+    entries: [],
+    reset: false,
+    cursor: null,
+    rafId: null,
+  })
+
+  const flushBuffer = useRef(() => {})
+  flushBuffer.current = () => {
+    const buf = logBuffer.current
+    if (buf.rafId !== null) {
+      safeCancelRaf(buf.rafId)
+      buf.rafId = null
+    }
+    const { entries: bufEntries, reset: bufReset, cursor: bufCursor } = buf
+    if (bufEntries.length === 0 && !bufReset && bufCursor === null) return
+
+    buf.entries = []
+    buf.reset = false
+    buf.cursor = null
+
+    if (bufCursor !== null) {
+      setFloor(previous => bufCursor < previous ? 0 : previous)
+    }
+    if (bufEntries.length > 0 || bufReset) {
+      setEntries(previous => mergeLogEntries(previous, bufEntries, bufReset))
+    }
+  }
+
   useEffect(() => {
     setLevel(loadLogLevel(instance))
     setDescending(loadLogDescending(instance))
@@ -247,21 +320,61 @@ export function LogPanel({active = true}: {active?: boolean}) {
   useEffect(() => {
     if (connection !== 'ready') return
     let active = true
+    const buf = logBuffer.current
+    if (buf.rafId !== null) {
+      safeCancelRaf(buf.rafId)
+      buf.rafId = null
+    }
+    buf.entries = []
+    buf.reset = false
+    buf.cursor = null
+
     setFloor(0)
     setEntries([])
     void api.request('logs.get', {instance}).then(value => {
       if (active) setEntries(previous => mergeLogEntries(previous, value.entries))
     }).catch(error => notify(error.message, true))
-    return () => { active = false }
+    return () => {
+      active = false
+      if (buf.rafId !== null) {
+        safeCancelRaf(buf.rafId)
+        buf.rafId = null
+      }
+      buf.entries = []
+      buf.reset = false
+      buf.cursor = null
+    }
   }, [connection, instance, notify])
 
-  useEffect(() => api.onEvent(event => {
-    if (event.topic !== 'logs') return
-    const data = event.data as LogsData
-    if (data.instance !== instance) return
-    setFloor(previous => data.cursor < previous ? 0 : previous)
-    setEntries(previous => mergeLogEntries(previous, data.entries, data.reset))
-  }), [instance])
+  useEffect(() => {
+    const unsubscribe = api.onEvent(event => {
+      if (event.topic !== 'logs') return
+      const data = event.data as LogsData
+      if (data.instance !== instance) return
+
+      const buf = logBuffer.current
+      queueLogEvent(buf, data)
+
+      if (buf.rafId === null) {
+        buf.rafId = safeRaf(() => {
+          buf.rafId = null
+          flushBuffer.current()
+        })
+      }
+    })
+
+    return () => {
+      unsubscribe()
+      const buf = logBuffer.current
+      if (buf.rafId !== null) {
+        safeCancelRaf(buf.rafId)
+        buf.rafId = null
+      }
+      buf.entries = []
+      buf.reset = false
+      buf.cursor = null
+    }
+  }, [instance])
 
   useLayoutEffect(() => {
     freshFrom.current = entries.at(-1)?.id ?? null
@@ -270,28 +383,33 @@ export function LogPanel({active = true}: {active?: boolean}) {
   useLayoutEffect(() => {
     if (!active || !follow || !scroll.current) return
     const container = scroll.current
-    /* 只改日志容器自身的滚动位置，不会像尾部元素的 scrollIntoView 那样连带滚动整个页面。 */
-    const target = descending ? 0 : container.scrollHeight - container.clientHeight
-    /* 与目标相距超过一屏：直接落位，不做逐帧滚入。 */
-    if (Math.abs(target - container.scrollTop) > container.clientHeight) {container.scrollTop = target; return}
+    /* 量与写都放进 rAF：layout effect 阶段刚改完 DOM，此刻读 scrollHeight 会强制同步布局；
+       每帧只在帧首读一次 scrollTop、帧尾写一次。
+       只改日志容器自身的滚动位置，不会像尾部元素的 scrollIntoView 那样连带滚动整个页面。 */
     let frame = requestAnimationFrame(function step() {
-      const remaining = target - container.scrollTop
-      if (Math.abs(remaining) <= 1) {container.scrollTop = target; return}
-      container.scrollTop += followStep(remaining)
+      const top = container.scrollTop
+      const target = descending ? 0 : container.scrollHeight - container.clientHeight
+      const remaining = target - top
+      /* 与目标相距超过一屏：直接落位，不做逐帧滚入。 */
+      if (Math.abs(remaining) > container.clientHeight) {container.scrollTop = target; return}
+      if (Math.abs(remaining) <= 1) {if (remaining !== 0) container.scrollTop = target; return}
+      container.scrollTop = top + followStep(remaining)
       frame = requestAnimationFrame(step)
     })
     return () => cancelAnimationFrame(frame)
   }, [entries, follow, active, descending])
 
+  const searchLower = search.trim().toLowerCase()
   const visible = entries.filter(entry =>
     entry.id > floor &&
     (level === 'ALL' || entry.level === level) &&
-    entry.text.toLowerCase().includes(search.toLowerCase())
+    (!searchLower || entry.text.toLowerCase().includes(searchLower))
   )
   // 倒序只反转渲染顺序；相邻行的居中标题判断是对称的（前后都要求是分割线），不受影响。
   const ordered = descending ? [...visible].reverse().slice(0, LOG_ENTRY_LIMIT) : visible.slice(-LOG_ENTRY_LIMIT)
 
   function download() {
+    flushBuffer.current()
     const url = URL.createObjectURL(new Blob([visible.map(entry => entry.text).join('\n')], {type: 'text/plain;charset=utf-8'}))
     const link = document.createElement('a')
     link.href = url
@@ -314,12 +432,23 @@ export function LogPanel({active = true}: {active?: boolean}) {
         <button
           className={`icon-button ${viewMode === 'cards' ? 'filter-active' : ''}`}
           onClick={toggleViewMode}
-          aria-label={viewMode === 'cards' ? '切换为经典终端' : '切换为卡片视图'}
-          title={viewMode === 'cards' ? '当前：全部卡片式视图（点击切换经典终端）' : '当前：经典终端视图（点击切换卡片视图）'}
+          aria-label={viewMode === 'cards' ? ui('log.viewModeClassic') : ui('log.viewModeCards')}
+          title={viewMode === 'cards' ? ui('log.viewModeCardsTitle') : ui('log.viewModeClassicTitle')}
         >
-          <LayoutGrid size={15} />
+          {viewMode === 'cards' ? <LayoutGrid size={15} /> : <Terminal size={15} />}
         </button>
-        <button className="icon-button" onClick={() => setFloor(entries.at(-1)?.id ?? 0)} aria-label={ui('log.clearView')}>
+        <button
+          className="icon-button"
+          onClick={() => {
+            const lastId = Math.max(
+              entries.at(-1)?.id ?? 0,
+              logBuffer.current.entries.at(-1)?.id ?? 0
+            )
+            flushBuffer.current()
+            setFloor(lastId)
+          }}
+          aria-label={ui('log.clearView')}
+        >
           <Trash2 size={15} />
         </button>
         <button className="text-button" onClick={download} aria-label={ui('log.export')}>
@@ -338,10 +467,10 @@ export function LogPanel({active = true}: {active?: boolean}) {
         </Select>
         <span>{ui('log.recent', {count: entries.length})}</span>
       </div>}
-      <div className="log-content" ref={scroll} aria-label={ui('log.content')}>
+      <div className={`log-content ${viewMode === 'cards' ? 'log-cards-mode' : ''}`} ref={scroll} aria-label={ui('log.content')}>
         {visible.length ? (
           viewMode === 'cards' ? (
-            <LogCardView entries={ordered} search={search} />
+            <LogCardView entries={ordered} search={search} scrollRef={scroll} />
           ) : (
             ordered.map((entry, index) => {
               const prev = ordered[index - 1]

@@ -31,6 +31,8 @@ class CampaignPtContinueTests(unittest.TestCase):
         runner.status_get_gems = Mock()
         runner.get_coin = Mock(return_value=10000)
         runner.get_oil = Mock(return_value=10000)
+        # 本用例只验证 PT 上限；裸 CampaignEvent 没有地图信息，心情延期交给独立用例覆盖。
+        runner.delay_event_for_emotion = Mock(return_value=False)
         campaign.auto_search_oil_limit_triggered = False
         campaign.map_is_auto_search = True
         campaign.is_in_map = Mock(return_value=False)

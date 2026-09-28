@@ -28,6 +28,9 @@ class FarmingStageNavigationTests(unittest.TestCase):
         campaign.campaign_ensure_aside_20241219 = Mock()
         campaign.campaign_ensure_chapter = Mock()
         # 新活动共用 A/C 入口，导航只确定目标难度，需在准备页真正切换。
+        # 模拟画面中没有撤退按钮和关卡详情弹窗；导航循环里的弹窗检查会直接读取
+        # 截图，而 campaign 自身的 appear 未被接管，因此固定为未处理。
+        campaign.handle_campaign_ui_additional = Mock(return_value=False)
         campaign.ensure_campaign_ui(name)
         runner.hard_mode_override()
         state = dict(page='stage', mode=current_mode, pending=None, shots=0, retired=False)

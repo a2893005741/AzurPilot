@@ -908,10 +908,8 @@ class Cl1Database:
                             return
                         if purple_coins is None and "purple_coins" not in last:
                             return
+            # 快照按月分区且只在数值变化时追加，保留整月历史供月度统计使用。
             snapshots.append(snapshot)
-            # 保留最近 500 条记录，避免数据过大
-            if len(snapshots) > 500:
-                snapshots = snapshots[-500:]
             data["coins_snapshots"] = snapshots
             self._save_stats_in_connection(conn, instance, month, data)
 

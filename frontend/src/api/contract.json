@@ -2553,6 +2553,11 @@
           "title": "Pure",
           "type": "boolean"
         },
+        "entry": {
+          "default": false,
+          "title": "Entry",
+          "type": "boolean"
+        },
         "inputs": {
           "items": {
             "$ref": "#/$defs/PortDefinition"

@@ -1,5 +1,6 @@
 """浏览器测试专用服务，使用临时配置并禁止真实游戏进程。"""
 import json
+import os
 import shutil
 import tempfile
 from datetime import datetime
@@ -18,6 +19,9 @@ def main():
     # E2E 只验证背景偏好与同源代理行为，不应依赖公网随机图 API。
     # 否则多个页面同时触发 10 秒级服务端解析会占满 WebSocket worker，
     # 让无关的 schema/config 请求排队并产生级联超时。
+    # 首屏会并发请求总览与公告；真实 NTP 校时和公告拉取同样会占住 worker，
+    # 冷启动时把任务配置页拖过 5 秒断言上限，因此一并离线化。
+    os.environ['AZURPILOT_NTP_DISABLE'] = '1'
     background_svg = b'<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><rect width="1280" height="720" fill="#9acbff"/></svg>'
     with tempfile.TemporaryDirectory(prefix='azurpilot-ui-') as directory, \
             tempfile.TemporaryDirectory(prefix='azurpilot-ui-keys-') as keys, \
@@ -25,7 +29,8 @@ def main():
             patch('module.runtime.account_tpm.TpmProtector.available', return_value=False), \
             patch('module.api.background_service.resolve',
                   side_effect=lambda url: {'final_url': url, 'content_type': 'image/svg+xml'}), \
-            patch('module.api.app.proxy_fetch', return_value=(background_svg, 'image/svg+xml')):
+            patch('module.api.app.proxy_fetch', return_value=(background_svg, 'image/svg+xml')), \
+            patch('module.base.api_client.ApiClient.get_announcement', return_value=None):
         root = fixture(directory)
         shutil.copytree(ROOT / 'frontend/dist', root / 'frontend/dist')
         path = root / 'config/testpilot.json'

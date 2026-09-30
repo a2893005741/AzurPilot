@@ -1,5 +1,44 @@
 import { expect, test } from '@playwright/test'
 
+test('PR1096 模拟预览焦点、区域键盘与窄屏布局回归', async ({page}) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.theme', 'light')
+    localStorage.setItem('azurpilot.material', 'glass')
+    localStorage.setItem('azurpilot.language', 'zh-CN')
+    localStorage.setItem('azurpilot.background', JSON.stringify({source: 'off'}))
+  })
+  await page.goto('/#/interface')
+  const opener = page.getByRole('button', {name: '预览假实例页', exact: true})
+  await opener.click()
+  const preview = page.getByRole('dialog', {name: '预览假实例页', exact: true})
+  await expect(preview).toHaveAttribute('aria-modal', 'true')
+  const first = preview.locator('a[href]').first()
+  await expect(first).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  const last = preview.locator('.inspector-footer button')
+  await expect(last).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(first).toBeFocused()
+  const tabs = preview.getByRole('tab')
+  await tabs.first().focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(tabs.nth(1)).toBeFocused()
+  await expect(tabs.nth(1)).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('End')
+  await expect(tabs.last()).toBeFocused()
+  await page.keyboard.press('Home')
+  await expect(tabs.first()).toBeFocused()
+  for (const width of [375, 420]) {
+    await page.setViewportSize({width, height: 800})
+    await expect(preview.locator('.mock-preview-shell')).toHaveCSS('width', `${width}px`)
+  }
+  await page.screenshot({path: 'test-results/pr1096-preview-narrow.png'})
+  await page.setViewportSize({width: 1440, height: 1100})
+  await last.click()
+  await expect(preview).toHaveCount(0)
+  await expect(opener).toBeFocused()
+})
+
 test('画布框选、快捷键、中键平移与同色连接规则', async ({page}) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
@@ -833,6 +872,9 @@ test('移动端窄屏下调度程序支持画布、卡片库与属性三态切�
   await page.setViewportSize({width: 414, height: 896})
   await page.goto('/#/i/demo-alt/task/SchedulerProgram')
   await expect(page.locator('.program-editor')).toBeVisible()
+  const mobileEditorBox = (await page.locator('.program-editor').boundingBox())!
+  const mobileTopbarBox = (await page.locator('.topbar').boundingBox())!
+  expect(Math.abs(mobileEditorBox.x - mobileTopbarBox.x)).toBeLessThan(1)
   const mobileNav = page.locator('.program-mobile-panels')
   await expect(mobileNav).toBeVisible()
   const canvasBtn = mobileNav.getByRole('button', {name: '画布', exact: true})
@@ -906,7 +948,25 @@ test('调度程序在全量六套主题下背景与控件对比度正常无白�
   const darkBg = await page.locator('.program-workspace').evaluate(el => getComputedStyle(el).backgroundColor)
   const darkRgb = darkBg.match(/\d+/g)?.map(Number) ?? [255, 255, 255]
   expect(darkRgb[0]).toBeLessThan(80)
+  const darkEditorBox = (await page.locator('.program-editor').boundingBox())!
+  const darkTopbarBox = (await page.locator('.topbar').boundingBox())!
+  expect(Math.abs(darkEditorBox.x - darkTopbarBox.x)).toBeLessThan(1)
+  expect(await page.locator('.program-editor').evaluate(el => getComputedStyle(el).borderTopLeftRadius)).toBe('26px')
   await page.screenshot({path: 'test-results/scheduler-theme-dark.png'})
+  const entry = page.locator('.react-flow__node').filter({has: page.locator('.program-card-title', {hasText: '程序入口'})}).first()
+  const entryBox = (await entry.boundingBox())!
+  const libraryBox = (await page.locator('.program-library').boundingBox())!
+  expect(entryBox.width).toBeGreaterThan(150)
+  expect(entryBox.x).toBeGreaterThan(libraryBox.x + libraryBox.width)
+  await expect(page.locator('.program-properties')).toBeHidden()
+  await entry.click()
+  await expect(page.locator('.program-properties')).toBeVisible()
+  const selectedBox = (await entry.boundingBox())!
+  expect(Math.abs(selectedBox.x - entryBox.x)).toBeLessThan(3)
+  await page.getByRole('button', {name: '展开画布', exact: true}).click()
+  const expandedBox = (await entry.boundingBox())!
+  expect(Math.abs(expandedBox.x - selectedBox.x)).toBeLessThan(3)
+  await page.getByRole('button', {name: '显示面板', exact: true}).click()
 
   // 2. 测试经典旧版深色 (legacy-dark)
   await page.evaluate(() => {
@@ -927,6 +987,7 @@ test('调度程序在全量六套主题下背景与控件对比度正常无白�
   await expect(page.locator('.program-editor')).toBeVisible()
   const minimalBackdrop = await page.locator('.program-library').evaluate(el => getComputedStyle(el).backdropFilter)
   expect(minimalBackdrop).toBe('none')
+  expect(await page.locator('.program-card').first().evaluate(el => getComputedStyle(el).boxShadow)).toBe('none')
   await page.screenshot({path: 'test-results/scheduler-theme-minimal.png'})
 
   // 4. 测试极致紧凑主题 (extreme)
@@ -937,6 +998,7 @@ test('调度程序在全量六套主题下背景与控件对比度正常无白�
   await expect(page.locator('.program-editor')).toBeVisible()
   const extremeBackdrop = await page.locator('.program-library').evaluate(el => getComputedStyle(el).backdropFilter)
   expect(extremeBackdrop).toBe('none')
+  expect(await page.locator('.program-card').first().evaluate(el => getComputedStyle(el).borderTopLeftRadius)).toBe('0px')
   await page.screenshot({path: 'test-results/scheduler-theme-extreme.png'})
 
   // 5. 测试经典旧版浅色 (legacy-light)
@@ -953,7 +1015,56 @@ test('调度程序在全量六套主题下背景与控件对比度正常无白�
   })
   await page.reload()
   await expect(page.locator('.program-editor')).toBeVisible()
+  const lightEditorBox = (await page.locator('.program-editor').boundingBox())!
+  const lightTopbarBox = (await page.locator('.topbar').boundingBox())!
+  expect(Math.abs(lightEditorBox.x - lightTopbarBox.x)).toBeLessThan(1)
+  expect(await page.locator('.program-editor').evaluate(el => getComputedStyle(el).borderTopLeftRadius)).toBe('26px')
   await page.screenshot({path: 'test-results/scheduler-theme-light.png', fullPage: true})
+})
+
+test('调度编辑区按实际宽度切换面板，并跟随玻璃材质参数', async ({page}) => {
+  await page.setViewportSize({width: 1180, height: 850})
+  await page.goto('/#/i/demo-alt/task/SchedulerProgram')
+  const editor = page.locator('.program-editor')
+  await expect(editor).toBeVisible()
+  await expect(editor).toHaveClass(/is-compact/)
+  await expect(page.locator('.program-mobile-panels')).toBeVisible()
+  await expect(page.locator('.program-library')).toBeHidden()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+
+  await page.locator('.program-mobile-panels').getByRole('button', {name: '卡片库'}).click()
+  await expect(page.locator('.program-library')).toBeVisible()
+  await page.locator('.program-library').getByRole('button', {name: '读取资源', exact: true}).click()
+  await expect(page.locator('.program-library')).toBeHidden()
+
+  const glass = await page.evaluate(() => {
+    const root = document.documentElement
+    root.dataset.material = 'glass'
+    root.style.setProperty('--theme-surface-alpha', '44%')
+    root.style.setProperty('--theme-sidebar-alpha', '52%')
+    const workspace = document.querySelector('.program-workspace')!
+    const toolbar = document.querySelector('.program-toolbar')!
+    const library = document.querySelector('.program-library')!
+    return {workspace: getComputedStyle(workspace).backgroundColor, toolbar: getComputedStyle(toolbar).backgroundColor, library: getComputedStyle(library).backgroundColor}
+  })
+  await page.screenshot({path: 'test-results/scheduler-editor-compact-glass.png'})
+  await page.locator('.program-mobile-panels').getByRole('button', {name: '卡片库'}).click()
+  await expect(page.locator('.program-mobile-panels').getByRole('button', {name: '卡片库'})).toHaveClass(/active/)
+  await expect(page.locator('.program-mobile-panels').getByRole('button', {name: '画布', exact: true})).not.toHaveClass(/active/)
+  await expect(page.locator('.program-library')).toBeVisible()
+  await page.screenshot({path: 'test-results/scheduler-editor-compact-glass-library.png'})
+  await page.locator('.program-mobile-panels').getByRole('button', {name: '画布', exact: true}).click()
+  const plain = await page.evaluate(() => {
+    document.documentElement.dataset.material = 'plain'
+    const workspace = document.querySelector('.program-workspace')!
+    const toolbar = document.querySelector('.program-toolbar')!
+    const library = document.querySelector('.program-library')!
+    return {workspace: getComputedStyle(workspace).backgroundColor, toolbar: getComputedStyle(toolbar).backgroundColor, library: getComputedStyle(library).backgroundColor}
+  })
+  expect(glass.workspace).not.toBe(plain.workspace)
+  expect(glass.toolbar).not.toBe(plain.toolbar)
+  expect(glass.library).not.toBe(plain.library)
+  await page.screenshot({path: 'test-results/scheduler-editor-compact-plain.png'})
 })
 
 test('卡片语义化图标呈现、全卡片排列与终结节点无下一步出口', async ({page}) => {
@@ -1007,6 +1118,12 @@ test('卡片语义化图标呈现、全卡片排列与终结节点无下一步�
   if (await compareNode.count() > 0) {
     await compareNode.screenshot({path: 'test-results/scheduler-card-compare.png'})
   }
+  await page.getByRole('button', {name: '定位入口', exact: true}).click()
+  await expect.poll(async () => {
+    const entryBox = await entryNode.boundingBox()
+    const libraryBox = await page.locator('.program-library').boundingBox()
+    return entryBox && libraryBox ? entryBox.x - (libraryBox.x + libraryBox.width) : -1
+  }).toBeGreaterThan(0)
 })
 
 

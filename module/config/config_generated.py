@@ -213,6 +213,7 @@ class GeneratedConfig:
     Enhance_ShipToEnhance = 'all'  # all, favourite
     Enhance_Filter = None
     Enhance_CheckPerCategory = 5
+    Enhance_KeepCommonCV = True
 
     # 配置组 `OldRetire`
     OldRetire_N = True
@@ -429,6 +430,7 @@ class GeneratedConfig:
     AddNewStudent_Enable = False
     AddNewStudent_Favorite = False
     AddNewStudent_MinLevel = 50
+    AddNewStudent_MaxLevel = 0
 
     # 配置组 `Research`
     Research_UseCube = 'only_05_hour'  # always_use, only_05_hour, only_no_project, do_not_use

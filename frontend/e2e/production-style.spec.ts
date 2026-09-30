@@ -26,4 +26,5 @@ test('生产构建保留高斯模糊且资源图标能够解码', async ({page})
   // 无障碍模式仍应关闭模糊，防止调整前缀顺序破坏降级样式。
   await page.emulateMedia({forcedColors: 'active'})
   await expect(page.locator('.sidebar')).toHaveCSS('backdrop-filter', 'none')
+  await expect(page.locator('.resource-card').first()).toHaveCSS('backdrop-filter', 'none')
 })

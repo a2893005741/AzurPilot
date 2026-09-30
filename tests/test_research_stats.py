@@ -144,7 +144,12 @@ class ResearchStatsTodayMonthTest(unittest.TestCase):
     """今日 / 本月计数：按记录时间戳分桶，时间戳缺失时不计入任何一桶。"""
 
     def setUp(self):
-        now = datetime.now()
+        # 夹具需要「今天」与「本月 1 号」是不同的两天，跟着真实日期走时每月 1 号两者重合，
+        # 今日桶会把 1 号那条也算进去。固定汇总层时钟到月中，仍走真实的分桶逻辑。
+        now = datetime(2026, 9, 15, 12, 0, 0)
+        clock = patch.object(RESEARCH_STATS, 'datetime', wraps=datetime)
+        clock.start().now.return_value = now
+        self.addCleanup(clock.stop)
         first_this_month = now.replace(day=1, hour=0, minute=0)
         old = now - timedelta(days=200)
         self.now = now
@@ -164,7 +169,7 @@ class ResearchStatsTodayMonthTest(unittest.TestCase):
         # 今天 2 张 + 本月 1 号 3 张 + 200 天前 5 张；没有时间戳的那条不进窗口
         self.assertEqual(item['amount'], 10)
         self.assertEqual(item['today'], 2)
-        # 「本月」= 今天那条 + 本月 1 号那条；即使今天就是 1 号，两条也在同一个月里
+        # 「本月」= 今天那条 + 本月 1 号那条，两条都落在固定时钟所在的月份里
         self.assertEqual(item['month'], 5)
         self.assertEqual(summary['today'], 2)
         self.assertEqual(summary['month'], 5)

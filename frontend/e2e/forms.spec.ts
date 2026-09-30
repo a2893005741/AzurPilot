@@ -21,6 +21,9 @@ test('共享表单保留键盘交互、密码切换与原生值类型', async ({
   await toggle.focus()
   await page.keyboard.press('Space')
   await expect(toggle).toHaveAttribute('aria-checked', 'false')
+  // 卡片入场动画把整块面板从 scale(.975) 放大到 1，动画期间量到的盒高比实际小 1px，
+  // 首屏时序一变就会误判触摸目标不达标。等错峰动画收尾后再量静态尺寸。
+  await expect(page.locator('.motion-card-stagger')).toHaveCount(0)
   // 实测盒高会带亚像素小数，取整以免测量噪声把尺寸判成不达标。
   expect(Math.round((await toggle.boundingBox())!.height)).toBeGreaterThanOrEqual(44)
   await expect(page.getByRole('switch', {name: '禁用开关'})).toBeDisabled()

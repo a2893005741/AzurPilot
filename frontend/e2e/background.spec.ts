@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test'
 
 test('背景代抓和上传携带授权令牌，未授权 HTTP 请求被拒绝', async ({page, request}) => {
+  // 宿主系统关闭透明效果时壁纸层整体 display:none，本用例验证的是代抓授权而非降级样式，
+  // 固定无障碍偏好避免在这类机器上误判。
+  const session = await page.context().newCDPSession(page)
+  await session.send('Emulation.setEmulatedMedia', {features: [{name: 'prefers-reduced-transparency', value: 'no-preference'}]})
   await page.addInitScript(() => {
     localStorage.setItem('azurpilot.theme', 'light')
     localStorage.setItem('azurpilot.material', 'glass')

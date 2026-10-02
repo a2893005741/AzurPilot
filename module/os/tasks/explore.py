@@ -158,6 +158,28 @@ class OpsiExplore(OSMap):
                 f'{coin_target}，闭环完成'
             )
 
+    def _os_explore_end(self):
+        """保存开荒完成状态，唤起已启用的独立补扫任务，并推进智能调度闭环阶段。"""
+        reset = get_os_next_reset().isoformat()
+        state = self.config.OpsiExplore_MeowfficerCleanupState
+        if isinstance(state, dict) and state.get('reset') != reset:
+            raise GameStuckError('开荒期间跨月，停止本轮收尾，下次重新开荒')
+        logger.info('每月开荒+已完成，延迟到下次重置')
+        next_reset = get_os_next_reset()
+        logger.attr('大世界下次重置', next_reset)
+        logger.info('[大世界-探索] 如需重新运行，请清除 OpsiExplore.Scheduler.NextRun 并设置 OpsiExplore.OpsiExplore.LastZone=0')
+        with self.config.multi_set():
+            self.config.OpsiExplore_LastZone = 0
+            self.config.OpsiExplore_MeowfficerCleanupState = {'reset': reset, 'phase': 'done'}
+            self.config.OpsiExplore_ExploreProgress = '已完成百分之100.00'
+            self.config.OpsiExplore_SpecialRadar = False
+            self.config.task_delay(target=next_reset)
+            self.config.task_call('OpsiExploreCleanup', force_call=False)
+            self.config.task_call('OpsiDaily', force_call=False)
+            self.config.task_call('OpsiShop', force_call=False)
+            self._finish_explore_scheduling()
+        self.config.task_stop()
+
     def _os_explore_task_delay(self):
         """在大世界探索期间延迟其他大世界任务。"""
         logger.info('每月开荒+运行中，延迟其他大世界任务')
@@ -189,21 +211,6 @@ class OpsiExplore(OSMap):
             out: page_os, 大世界地图
         """
 
-        def end():
-            logger.info('每月开荒+已完成，延迟到下次重置')
-            next_reset = get_os_next_reset()
-            logger.attr('大世界下次重置', next_reset)
-            logger.info('[大世界-探索] 如需重新运行，请清除 OpsiExplore.Scheduler.NextRun 并设置 OpsiExplore.OpsiExplore.LastZone=0')
-            with self.config.multi_set():
-                self.config.OpsiExplore_LastZone = 0
-                self.config.OpsiExplore_ExploreProgress = '已完成百分之100.00'
-                self.config.OpsiExplore_SpecialRadar = False
-                self.config.task_delay(target=next_reset)
-                self.config.task_call('OpsiDaily', force_call=False)
-                self.config.task_call('OpsiShop', force_call=False)
-                self._finish_explore_scheduling()
-            self.config.task_stop()
-
         logger.hr('大世界-每月开荒+', level=1)
         full_order = [int(f.strip(' \t\r\n')) for f in self.config.OS_EXPLORE_FILTER.split('>')]
         total_zones = len(full_order)
@@ -232,7 +239,7 @@ class OpsiExplore(OSMap):
             raise ScriptError(f'Invalid last_zone: {last_zone}')
 
         if not len(order):
-            end()
+            self._os_explore_end()
             return
 
         # 首次进入开荒前也检查一次，避免已有高额黄币时先进入一个海域。
@@ -278,13 +285,13 @@ class OpsiExplore(OSMap):
             self.handle_after_auto_search()
             # 到达最后一个区域
             if zone == order[-1]:
-                end()
+                self._os_explore_end()
             self._switch_to_smart_scheduling_after_zone()
             self.config.check_task_switch()
 
-        # 最后一个区域若本身已是安全海域，上面的战斗分支不会触发 end()。
+        # 最后一个区域若本身已是安全海域，上面的战斗分支不会触发收尾。
         if order and self.config.OpsiExplore_LastZone == order[-1]:
-            end()
+            self._os_explore_end()
 
     def os_explore(self):
         """执行大世界每月开荒任务主流程。
@@ -296,6 +303,16 @@ class OpsiExplore(OSMap):
             GameStuckError: 开荒重试失败且无法解锁目标海域时抛出。
         """
         self._delay_explore_for_scheduling_phase()
+        state = self.config.OpsiExplore_MeowfficerCleanupState
+        reset = get_os_next_reset().isoformat()
+        if isinstance(state, dict) and state.get('reset') != reset:
+            with self.config.multi_set():
+                self.config.OpsiExplore_LastZone = 0
+                self.config.OpsiExplore_ExploreProgress = '已完成百分之0.00'
+                self.config.OpsiExplore_MeowfficerCleanupState = None
+            state = None
+        if state is None:
+            self.config.OpsiExplore_MeowfficerCleanupState = {'reset': reset, 'phase': 'explore'}
         for _ in range(2):
             try:
                 self._os_explore()

@@ -126,6 +126,7 @@ flowchart BT
 | `archive.py` | `OpsiArchive` | `os_archive` | 档案坐标购买与清理（延迟到周三） |
 | `month_boss.py` | `OpsiMonthBoss` | `clear_month_boss` | 月度 Boss（适应性预检查 203/203/156） |
 | `explore.py` | `OpsiExplore` | `os_explore` | 每月开荒+（逐区解锁，失败重试后抛 `GameStuckError`） |
+| `explore_cleanup.py` | `OpsiExploreCleanup` | `os_explore_cleanup` | 普通海域事件补扫（开荒完成后按原顺序补查，使用独立月度断点） |
 | `cross_month.py` | `OpsiCrossMonth` | `os_cross_month(_end)` | 等到重置前 10 分钟抢清每日+ |
 | `fleet_auto_change.py` | `OpsiFleetAutoChange` | `run()` | 练级队列轮换舰队 |
 | `task_context.py` | 上下文管理器 | —— | 代理任务的临时身份与延迟请求（见下） |
@@ -192,6 +193,8 @@ flowchart TD
 5. 无事可做 → `task_delay` 到行动力恢复时间或服务器刷新。
 
 代理执行用 `_run_with_opsi_task_context(任务名, 函数)`：临时换身份 → 调用子任务的 `run_*_once` → 恢复身份。`ActionPointLimit` 在代理层被翻译为「达到保留值，正常返回」。
+
+决策读到的行动力会随代理调用传给子任务（`fresh_ap`）：侵蚀 1 开工检查、耄耋相接指定海域循环在读数足够时复用该读数跳过重复的行动点弹窗（每次弹窗 = 一组 `ACTION_POINT_REMAIN_OS` + `ACTION_POINT_CANCEL` 点击）；行动力不足时子任务仍照常开弹窗开箱/购买。
 
 ### 防溢出任务（OpsiPreventActionPointOverflow）
 
@@ -272,7 +275,10 @@ OCR：行动力面板 / 黄币 / 紫币 ──▶ 决策（智能调度+ 状态�
 
 ## 13. 缓存与持久化
 
-- 进度状态全部持久化在配置文件：`OpsiExplore_LastZone`、智能调度+ 的状态键（`_get_smart_scheduling_state_value`，存于配置而非内存，防进程重启丢账）、各任务 `NextRun/LastRun`。
+- 进度状态全部持久化在配置文件：`OpsiExplore_LastZone`、`OpsiExploreCleanup_State`、智能调度+ 的状态键（`_get_smart_scheduling_state_value`，存于配置而非内存，防进程重启丢账）、各任务 `NextRun/LastRun`。
+- “普通海域事件补扫”是独立任务 `OpsiExploreCleanup`，使用自己的 `Scheduler.Enable`、`Progress` 和 `State`。初始化游戏前检查 `OpsiExplore.ExploreProgress` 是否为 `已完成百分之100.00`，已有开荒月度标记时还检查月份，避免沿用上月完成状态；不满足则提示重新运行每月开荒并延期。每月开荒完成后只唤起已启用的补扫任务，不在开荒任务内部执行补扫。
+- 补扫按原开荒顺序严格进入普通海域（`DANGEROUS`），不选择或刷新安全海域（`SAFE`）。每张图先全图识别，再处理地图事件并逐队检查雷达；找到一种事件后仍检查其他舰队。沿用现有事件及战斗逻辑，不使用侵蚀一的固定坐标挪队。进入同一海域也重新确认类型，不把“当前海域相同”当作已经进入目标地图。
+- 补扫状态保存月份、原始顺序、下一海域索引和尝试次数，成功退出当前图才推进断点。重启续扫，本月完成后延迟到下次重置；跨月先清除补扫自己的旧进度。单图三次未完成后请求检查，修复原因后可在停止实例时将 `OpsiExploreCleanup.OpsiExploreCleanup.State.attempts` 改为 `0`。旧开关和旧补扫断点通过配置迁移进入独立任务；开荒自身的月度标记不会被当成补扫进度。
 - `OSStatus._last_yellow_coins` 内存缓存仅作 OCR 失败降级。
 - 代理上下文（`_opsi_task_context`）存活于一次任务调用栈，退出即恢复——它刻意不持久化，防止代理身份泄漏到下一个任务。
 
@@ -301,6 +307,7 @@ OCR：行动力面板 / 黄币 / 紫币 ──▶ 决策（智能调度+ 状态�
 - **`is_in_opsi_explore` 是全包的路由闸门**。开荒期间（任务启用且 next_run 早于重置前 12 小时）几乎所有任务都要让路；新任务不要绕过这个检查。跨月任务用 `false_func` 覆盖它是刻意的例外。
 - **`os_init` 的首次自律寻敌是决策点不是固定动作**。智能调度+ 与防溢出代理会把该决策延后（`_smart_scheduling_first_auto_search_pending`），改动 `os_init` 时保持该挂起机制，否则会重复全图扫描浪费 AP。
 - **行动力语义分「总/当前」**：决策用总行动力（含箱子），实际进入海域用当前行动力；混用会造成 `ActionPointLimit` 误判或箱子漏开。
+- **行动力读数复用有严格前提**。`fresh_ap` 只允许在「刚读到、且读数与复用点之间没有任何行动力消耗」时传入（目前仅智能调度+ 决策读 → 同轮代理子任务，且必须在同一 `OS_ACTION_POINT_BOX_USE` 上下文中，保证含箱口径一致）；复用判定 `action_point_reusable()` 必须与开弹窗行为完全等价（当前行动力达到开工线且总行动力高于保留值），不满足时必须照常 `action_point_set` 开箱/购买，独立运行的侵蚀 1 / 耄耋相接也保持自行读数的原路径。
 - **黄币 OCR 必须双读**。单次读取会拿到弹窗遮挡下的错误值；`get_yellow_coins` 的连续一致确认与缓存回退是有意为之。
 - **敏感任务默认值**：`OpsiCrossMonth/OpsiObscure/OpsiAbyssal` 的 `Sensitive: true` 意味着运行到一半失败会让调度器停机（等待人工），新增高危任务时才追加，勿扩大范围。
 - **月末清理优先于黄币/CL1 调度**。`run_smart_scheduling_once` 的分支顺序是产品行为（月底清 AP 避免浪费），重排决策顺序会改变玩家收益。

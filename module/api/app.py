@@ -111,6 +111,7 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
         return FileResponse(path, media_type='text/html', headers={'Cache-Control': 'no-cache'})
 
     from module.api.android import routes as android_routes
+
     def background_authorized(request, *, allow_query=False):
         """背景 HTTP 能力令牌只通过已授权的 WebSocket 下发，不复用访问密码。"""
         supplied = request.headers.get('x-azurpilot-background-token', '')
@@ -142,7 +143,8 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
         if not target:
             return JSONResponse({'error': '缺少 url 参数。'}, status_code=400)
         try:
-            data, content_type = proxy_fetch(target)
+            # 代抓走线程池：同步 requests 会占住事件循环，一次下载最长 20 秒。
+            data, content_type = await asyncio.to_thread(proxy_fetch, target)
         except Exception as error:
             return JSONResponse({'error': str(error)}, status_code=400)
         return Response(data, media_type=content_type, headers={'Cache-Control': 'no-cache'})

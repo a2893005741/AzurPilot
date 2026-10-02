@@ -201,6 +201,8 @@ class CleanupTests(unittest.TestCase):
         runner = OpsiExplore.__new__(OpsiExplore)
         runner.config = SimpleNamespace(
             OpsiExplore_MeowfficerCleanupState=None, multi_set=nullcontext,
+            # fork 的开荒闭环收尾会读取开关，这里按默认值（关闭）返回。
+            cross_get=lambda keys, default=None: default,
             task_delay=Mock(), task_call=Mock(), task_stop=Mock(side_effect=TaskEnd))
         with self.assertRaises(TaskEnd):
             runner._os_explore_end()

@@ -1463,7 +1463,7 @@ OpsiScheduling:
     option: [true, false]
   TaskPriority:
     type: textarea
-    value: OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming
+    value: OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming
   ObscureAbyssalCheckDelayDays:
     value: 0
   MonthEndActionPointCleanupEnable:

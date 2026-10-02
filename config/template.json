@@ -2992,7 +2992,7 @@
       "EnableObscure": false,
       "EnableAbyssal": false,
       "EnableStronghold": false,
-      "TaskPriority": "OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming",
+      "TaskPriority": "OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming",
       "ObscureAbyssalCheckDelayDays": 0,
       "MonthEndActionPointCleanupEnable": false,
       "MonthEndActionPointCleanupDays": 0,

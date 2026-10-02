@@ -15116,7 +15116,7 @@
       },
       "TaskPriority": {
         "type": "textarea",
-        "value": "OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
+        "value": "OpsiExplore > OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
       },
       "ObscureAbyssalCheckDelayDays": {
         "type": "input",

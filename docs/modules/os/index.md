@@ -190,7 +190,7 @@ flowchart TD
 
 `run_smart_scheduling()` = `while True: run_smart_scheduling_once(); check_task_switch()`。单轮决策优先级：
 
-1. **开荒拦截**：`is_in_opsi_explore()`（OpsiExplore 已启用且 next_run 早于重置前 12 小时）→ 延迟到服务器刷新。
+1. **开荒拦截**：`is_in_opsi_explore()`（OpsiExplore 已启用且 next_run 早于重置前 12 小时）→ 延迟到服务器刷新。开荒闭环处于 `explore`/`cl1`/`coin_task` 阶段时不拦截（见下文「开荒闭环」）。
 2. **月末清理**（若启用）：各子任务使用月末行动力保留值，子任务之间重新读取行动力；达到保留线后停止清理及普通调度。月底最后一天 2 小时后重查，其余日期延迟到服务器刷新；首次要塞检查按大世界重置周期记录。
 3. **黄币判定**：两种模式均读取智能调度自身的黄币保留值；黄币目标调度补到「保留值 + 回补阈值」后返回侵蚀 1，体力调度补到行动力保留线后结束补币，黄币仍不足则延期。`_dispatch_coin_task` 每次代理执行一轮补币任务。
 4. **AP 判定**：总行动力达到 CL1 保留线时发送通知并延迟到服务器刷新；补币行动力不足时，普通智能调度同样延期，防溢出代理可改为清理当前真实行动力。
@@ -199,6 +199,21 @@ flowchart TD
 代理执行用 `_run_with_opsi_task_context(任务名, 函数)`：临时换身份 → 调用子任务的 `run_*_once` → 恢复身份。`ActionPointLimit` 在代理层被翻译为「达到保留值，正常返回」。
 
 决策读到的行动力会随代理调用传给子任务（`fresh_ap`）：侵蚀 1 开工检查、耄耋相接指定海域循环在读数足够时复用该读数跳过重复的行动点弹窗（每次弹窗 = 一组 `ACTION_POINT_REMAIN_OS` + `ACTION_POINT_CANCEL` 点击）；行动力不足时子任务仍照常开弹窗开箱/购买。
+
+### 开荒闭环（每月开荒 ⇄ 智能调度+）
+
+与上游智能开荒（`OpsiSmartExplore`，要求每月开荒关闭）互斥的另一套方案：开荒仍由每月开荒任务执行，智能调度+ 负责在开荒与侵蚀 1 之间切换。需要同时启用 `OpsiExplore.OpsiExplore.EnableSmartScheduling`、`OpsiScheduling.Scheduler.Enable`、`OpsiScheduling.OpsiScheduling.EnableExplore` 与黄币目标调度（`UseSmartSchedulingOperationCoinsPreserve`），判定见 `MissionHandler._is_explore_scheduling_enabled()`。
+
+阶段存于 `OpsiScheduling.Storage.Storage` 的 `ExploreSchedulingPhase`，按大世界重置周期自动回到 `explore`：
+
+| 阶段 | 进入条件 | 行为 |
+| --- | --- | --- |
+| `explore` | 每月初；或 `cl1` 阶段黄币低于保留值、已处于补黄币过程中 | 每月开荒作为补币任务按 `TaskPriority` 参与排序，被选中时交给任务队列（`_handoff_scheduled_explore`） |
+| `cl1` | 开荒中某海域结算后黄币达到「保留值 + 回补阈值」且总行动力高于侵蚀 1 保留值；或 `explore` 阶段经补币任务达到补币目标 | 开荒推迟到下次重置，独立侵蚀 1 任务让位，由智能调度+ 代理 |
+| `coin_task` | 开荒完成时黄币未达补币目标 | 走普通补币任务，补足后进入 `completed` |
+| `completed` | 开荒完成且黄币达标 | 智能调度+ 按普通黄币目标调度运行 |
+
+`cl1` 切回 `explore` 由 `_return_to_explore_when_coins_low()` 在每轮决策开头判断：除黄币低于保留值外，已有补黄币过程（`CoinReplenishStart` 存在）也会切回，否则补币开始后黄币回升到保留值以上时，开荒交接会一直被判定为无内容。已有实例的 `TaskPriority` 不含 `OpsiExplore` 时，开荒排在所有补币任务之后。回归用例见 `tests/test_opsi_explore_scheduling.py`。
 
 ### 防溢出任务（OpsiPreventActionPointOverflow）
 

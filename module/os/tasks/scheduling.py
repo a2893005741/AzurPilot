@@ -1215,9 +1215,12 @@ class OpsiScheduling(SmartExploreMixin, CoinTaskMixin, OSMap):
         return True
 
     def _return_to_explore_when_coins_low(self, yellow_coins, cl1_preserve):
-        """侵蚀 1 阶段黄币降到下限时切回未完成的开荒。
+        """侵蚀 1 阶段需要补黄币时切回未完成的开荒。
 
-        只把阶段改回开荒，由补币任务优先级决定何时把开荒交给任务队列。
+        触发条件为黄币低于下限，或已处于补黄币过程中。后者覆盖补币已开始、
+        黄币回升到下限以上但未达目标的情况，避免阶段停在侵蚀 1 时开荒交接
+        被判定为无内容。只把阶段改回开荒，由补币任务优先级决定何时把开荒
+        交给任务队列。
 
         Returns:
             bool: 是否切回开荒阶段。
@@ -1226,14 +1229,18 @@ class OpsiScheduling(SmartExploreMixin, CoinTaskMixin, OSMap):
             return False
         if self._get_explore_scheduling_phase() != self.EXPLORE_SCHEDULING_PHASE_CL1:
             return False
-        if yellow_coins >= cl1_preserve:
+        if yellow_coins >= cl1_preserve and not self._is_coin_replenish_active():
             return False
 
+        reason = (
+            f'< 下限 {cl1_preserve}' if yellow_coins < cl1_preserve
+            else '处于补黄币过程中'
+        )
         self._clear_coin_replenish_target()
         self._clear_ap_replenish_active()
         self._set_explore_scheduling_phase(self.EXPLORE_SCHEDULING_PHASE_EXPLORE)
         logger.info(
-            f'[大世界-智能调度+] 侵蚀1黄币 {yellow_coins} < 下限 {cl1_preserve}，'
+            f'[大世界-智能调度+] 侵蚀1黄币 {yellow_coins} {reason}，'
             '开荒阶段重新纳入补币任务优先级'
         )
         return True

@@ -321,6 +321,33 @@ class TestExploreSchedulingEnable(unittest.TestCase):
         clear_ap.assert_called_once()
         self.assertEqual(scheduling.config.task_call_calls, [])
 
+    def test_cl1_active_replenish_above_lower_bound_returns_to_explore(self):
+        # 复现实机状态：补币在修复前已开始，黄币回升到下限以上但未达目标，阶段仍为 cl1。
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = ExploreSchedulingConfig()
+        with (
+            patch.object(scheduling, '_get_explore_scheduling_phase', return_value=scheduling.EXPLORE_SCHEDULING_PHASE_CL1),
+            patch.object(scheduling, '_is_coin_replenish_active', return_value=True),
+            patch.object(scheduling, '_set_explore_scheduling_phase') as set_phase,
+            patch.object(scheduling, '_clear_coin_replenish_target') as clear_coin,
+            patch.object(scheduling, '_clear_ap_replenish_active'),
+        ):
+            switched = scheduling._return_to_explore_when_coins_low(36001, 30000)
+        self.assertTrue(switched)
+        set_phase.assert_called_once_with(scheduling.EXPLORE_SCHEDULING_PHASE_EXPLORE)
+        clear_coin.assert_called_once()
+
+    def test_cl1_without_replenish_above_lower_bound_stays_in_cl1(self):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = ExploreSchedulingConfig()
+        with (
+            patch.object(scheduling, '_get_explore_scheduling_phase', return_value=scheduling.EXPLORE_SCHEDULING_PHASE_CL1),
+            patch.object(scheduling, '_is_coin_replenish_active', return_value=False),
+            patch.object(scheduling, '_set_explore_scheduling_phase') as set_phase,
+        ):
+            self.assertFalse(scheduling._return_to_explore_when_coins_low(36001, 30000))
+        set_phase.assert_not_called()
+
     def test_explore_phase_below_upper_bound_uses_coin_task_priority(self):
         scheduling = OpsiScheduling.__new__(OpsiScheduling)
         scheduling.config = ExploreSchedulingConfig()

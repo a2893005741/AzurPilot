@@ -76,6 +76,8 @@ Node.js >= 22.12（推荐 24），首次准备用 `npm ci --prefix frontend`。
 - 构建部署：`npm run build` 产出 `dist/`。gui.py 启动时检查前端源码摘要，缺产物或源码变化时自动执行 `npm ci` 与构建；Docker 多阶段构建预装静态产物。
 - 构建使用相对 base（`base: './'`）：远程访问经 `/<peer_id>/` 前缀式反代加载，绝对路径会 404。
 
+新版浅色/深色主题在宽度大于 950px 时使用顶栏与任务右栏的合并网格，并由 `main` 滚动。宽度不超过 950px 时右栏改为固定定位抽屉、不占正文高度，长内容由页面滚动；桌面的右栏定位与外壳锁高规则不能作用到移动端。布局验收需要检查正文实际位于视口内、滚动可达，以及抽屉开关前后正文位置不变，不能只检查 DOM 中存在文字。
+
 ## 16. 修改注意事项
 
 - **生成产物红线**：`src/api/generated.ts` 与 `src/api/contract.json` 由 `uv run python -m dev_tools.export_api_schema` 生成，禁止手改；CI 会重新生成并用 `git diff --exit-code` 校验。新增 API 方法的顺序：先定义后端参数模型与路由，再运行生成器，然后更新 `src/api/types.ts` 响应类型与对应测试；不得通过方法名反射任意 Python 属性。

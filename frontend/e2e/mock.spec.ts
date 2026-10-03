@@ -582,6 +582,50 @@ test('移动端放大布局无横向溢出，单栏导航可以收起', async ({
   await page.screenshot({path: 'test-results/mock-mobile.png', fullPage: true, animations: 'disabled'})
 })
 
+for (const theme of ['light', 'dark'] as const) {
+  test(`${theme} 移动端正文可见且任务抽屉不占位`, async ({page}) => {
+    await page.emulateMedia({reducedMotion: 'reduce'})
+    await page.addInitScript(value => localStorage.setItem('azurpilot.theme', value), theme)
+    const topbar = page.locator('.topbar')
+    const main = page.locator('.main-shell > main')
+    const firstResource = page.locator('.resource-card').first()
+    const rail = page.locator('.right-rail')
+    for (const width of [390, 950]) {
+      await page.setViewportSize({width, height: 740})
+      await page.goto('/#/i/demo-main/overview')
+      await expect(firstResource).toBeInViewport({ratio: .95})
+      const topbarBox = (await topbar.boundingBox())!
+      const mainBox = (await main.boundingBox())!
+      expect(mainBox.y).toBeLessThanOrEqual(topbarBox.y + topbarBox.height + 1)
+      await expect(rail).toHaveCSS('position', 'fixed')
+      await expect(rail).toBeHidden()
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      // 必须能真的向下滚动，不能只检查 DOM 中存在正文。
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await expect(firstResource).toBeInViewport({ratio: .95})
+      await page.getByRole('button', {name: '打开调度与任务', exact: true}).click()
+      await expect(rail).toBeInViewport({ratio: .95})
+      expect((await main.boundingBox())!.y).toBeCloseTo(mainBox.y, 0)
+      await rail.getByRole('button', {name: '关闭调度与任务', exact: true}).click()
+      await expect(rail).toBeHidden()
+      await page.getByRole('button', {name: '打开导航', exact: true}).click()
+      await expect(page.locator('.sidebar')).toBeInViewport({ratio: .95})
+      await page.getByRole('button', {name: '关闭导航', exact: true}).click()
+    }
+    for (const width of [951, 1440]) {
+      await page.setViewportSize({width, height: 740})
+      await expect(main).toBeInViewport({ratio: .95})
+      await expect(firstResource).toBeInViewport({ratio: .95})
+      await expect(rail).toHaveCSS('position', 'relative')
+      await expect(rail).toBeInViewport({ratio: .95})
+      expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBeLessThanOrEqual(740)
+      await expect(main).toHaveCSS('overflow-y', 'auto')
+    }
+  })
+}
+
 test('窄窗口调度器入口位于左侧标题栏且可展开右栏', async ({page}) => {
   await page.setViewportSize({width: 950, height: 844})
   await page.goto('/#/i/demo-main/overview')

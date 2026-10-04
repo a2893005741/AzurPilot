@@ -19,6 +19,20 @@ export interface UpdateStatus {
 interface Commit { sha: string; author: string; date: string; message: string }
 export interface CommitHistory { entries: Commit[]; total: number; hasMore: boolean; localHead: string | null; upstreamHead: string | null }
 export interface Field { type: string; value: Value; mode?: string; display?: string; option?: Value[]; validate?: string | number[]; preserve_empty?: boolean }
+/** 侧栏内容检索的一条命中：要么是任务名，要么是某个配置项。 */
+export interface SearchContentHit {
+  task: string
+  key: string
+  label: string
+  help: string
+  values: string
+}
+
+export interface SearchContentResult {
+  tasks: SearchContentHit[]
+  options: SearchContentHit[]
+}
+
 export interface Schema {
   menu: Record<string, { menu: string; page: string; tasks: string[] }>
   args: Record<string, Record<string, Record<string, Field>>>
@@ -46,7 +60,12 @@ export interface Logs { instance: string; cursor: number; reset: boolean; entrie
 export interface Preview { instance: string; image: string | null; capturedAt: string | null }
 export interface Statistics { instance: string; resource: string; points: {time: string; value: number}[]; truncated: boolean }
 export interface StatPoint {time: string; value: number; source?: string}
-export interface StatSeries {key: string; label: string; points: StatPoint[]}
+export interface StatSeries {key: string; label: string; icon?: string; points: StatPoint[]}
+export interface StatPointCompact {t: number; v: number; s?: string}
+export interface StatSeriesCompact {key: string; label: string; icon?: string; points: StatPointCompact[]}
+/** 数值按顺序对应报表的共用时间轴。 */
+export interface StatSeriesColumn {key: string; label: string; icon?: string; values: number[]; sources?: string[]}
+export type StatSeriesWire = StatSeriesCompact | StatSeriesColumn
 export interface StatTable {title: string; columns: string[]; rows: Scalar[][]; note?: string; defaultSort?: TableSort}
 export interface TableSort {index: number; descending: boolean}
 export interface StatisticsReport {
@@ -56,6 +75,12 @@ export interface StatisticsReport {
   series: StatSeries[]; tables: StatTable[]; notes: string[]
   /** 大世界掉落专用：任务筛选选项（含当前时间窗口内没有记录的任务），count 表示窗口内掉落记录数。 */
   taskOptions?: {key: string; label: string; count: number}[]
+}
+
+export interface StatisticsReportWire extends Omit<StatisticsReport, 'series'> {
+  /** 共用时间轴（微秒整数）。 */
+  axis?: number[]
+  series: StatSeriesWire[]
 }
 /** 指挥喵评分的单条天赋。`kind` 为 `special`（彩天赋）时高亮，`inferred` 表示这条由识别推断而来。 */
 export interface MeowfficerTalent { name: string; level?: number; kind?: string; inferred?: boolean }
@@ -107,6 +132,8 @@ export interface BackgroundGalleryEntry {
 }
 
 export interface Results {
+  'stock.status': StockExchangeStatus
+  'stock.request': {status:number;data:unknown;etag:string;serverTime:number}
   'opsi.simulator.status': OpsiSimulatorStatus
   'opsi.simulator.start': OpsiSimulatorStatus
   'opsi.simulator.stop': OpsiSimulatorStatus
@@ -137,6 +164,7 @@ export interface Results {
   'auth.login': {authenticated: boolean}
   'events.subscribe': {topics: string[]; instance: string | null}
   'schema.get': Schema
+  'search.content': SearchContentResult
   'instances.list': Instance[]
   'instances.create': Config
   'instances.importable': Array<{name: string; modified: number}>
@@ -152,7 +180,7 @@ export interface Results {
   'logs.get': Logs
   'preview.capture': Preview
   'statistics.resources': Statistics
-  'statistics.report': StatisticsReport
+  'statistics.report': StatisticsReportWire
   'statistics.refreshLoot': {refreshed: boolean}
   'meowfficer.scoreReport': MeowfficerScoreReport
   'meowfficer.clearReport': {cleared: boolean; removed: string[]}
@@ -161,6 +189,8 @@ export interface Results {
   'startup.get': {enabled: boolean; remember: boolean}
   'startup.set': {enabled: boolean; remember: boolean}
 }
+
+export interface StockExchangeStatus {url: string; instance:string; instanceId:string; bindingKey:string; bound: boolean; boundUsername:string; authenticated:boolean; message: string; lastObservedAt: number; snapshot: {instance: string; actionPoints: number; observedAt: number} | null}
 
 export interface AccountStatus {
   destroyed?: boolean

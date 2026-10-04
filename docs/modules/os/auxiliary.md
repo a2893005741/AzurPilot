@@ -89,7 +89,7 @@ module/os_simulator/
 
 | 类 | 要点 |
 | --- | --- |
-| `ActionPointHandler(UI, MapEventHandler)` | 行动力核心。`ActionPointLimit` 异常携带 `current/total/cost/preserve`，`delay_minutes` 属性可按恢复速率换算延迟；`ActionPointBuyCounter` 把 OCR 结果 `05` 修正为 `0/5`（购买次数），JP 服字体单独分支。`handle_action_point(..., avoid_ap_overflow=True)` 在开箱会溢出时拒绝并抛 `ActionPointLimit`——这是智能调度与防溢出任务所有「资源延迟」的源头 |
+| `ActionPointHandler(UI, MapEventHandler)` | 行动力核心。`ActionPointLimit` 异常携带 `current/total/cost/preserve`，`delay_minutes` 属性可按恢复速率换算延迟；`ActionPointBuyCounter` 把 OCR 结果 `05` 修正为 `0/5`（购买次数），JP 服字体单独分支。`handle_action_point(..., avoid_ap_overflow=True)` 在开箱会溢出时拒绝并抛 `ActionPointLimit`。智能调度在同一面板已安全首读且含箱口径一致时传 `skip_first_read=True`，只省掉补充前的重复读取，使用或购买后的确认读取保留 |
 | `MapEventHandler(EnemySearchingHandler)` | 大世界地图事件总入口：掉落页、档案弹窗、游戏提示、余烬弹窗、剧情跳过、`FleetLockSwitch`（带 `handle_additional` 清理遮挡）、自动搜索选项与退出。雾天（enemy_searching）用 `is_in_map` 特判 |
 | `StorageHandler(GlobeOperation, ZoneManager)` | 大世界仓库。注意与 `module/storage/storage.py` 的通用 `StorageHandler` 同名不同类。`RepairResult` 枚举表达修理结果；`storage_get_next_item` 是「取下一个隐秘/深渊坐标并进入」的封装；日志仪与调谐样本的一键使用 |
 | `OSStatus(UI)` | 黄币/紫币 OCR（双读确认 + `_cache_lock` 缓存降级）；`is_in_task_explore`/`is_running_cl1_leveling` 等属性读取 `_bind_task_override`，是代理身份判断的唯一实现点 |
@@ -105,7 +105,7 @@ module/os_simulator/
 | `Meta(UI, MapEventHandler)` | META 页面基类；`MetaState` 枚举（INIT/ATTACKING/COMPLETE/UNDEFINED）驱动页面状态机 |
 | `OpsiAshBeacon(Meta)` | 信标攻击任务：`ui_ensure(page_reward)` → 攻击 → `MetaReward` 领奖 → `task_delay(server_update=True)` → **必须 `ui_goto_main`**（MetaReward 停在 META 页，不回主界面会让下一个任务页面识别失败） |
 | `AshBeaconAssist(Meta)` | 协助好友信标：成功领奖延迟到服务器刷新，失败 `task_delay(minute=(10, 20))` 重试 |
-| `handle_ash_beacon_attack()` | 在大世界战斗链路中调用：收集 ≥100 且可调度时 `task_call('OpsiAshBeacon')`；`AttackMode=current_dossier_only`（只打档案）时不触发——该模式下信标数据永不消耗，触发条件会永久成立并反复打断智能调度+ |
+| `handle_ash_beacon_attack()` | 在大世界战斗链路中调用：收集 ≥100 且可调度时 `task_call('OpsiAshBeacon')`；`AttackMode=current_dossier_only`（只打档案）时不触发——该模式下信标数据永不消耗，触发条件会永久成立并反复打断智能调度|
 
 ### os_combat
 
@@ -232,7 +232,7 @@ META 页截图 → MetaState 状态机 → 攻击/领奖循环
 ## 16. 修改注意事项
 
 - **两个 `StorageHandler` 不要混改**：`module/os_handler/storage.py`（大世界仓库，依赖 `GlobeOperation`）与 `module/storage/storage.py`（普通仓库，依赖 `StorageUI`）是同名异构类，改名或提取公共基类前先确认两处调用面。
-- **`handle_ash_beacon_attack` 的「只打档案」例外**是修 bug 的产物：不判断 AttackMode 会导致 OpsiAshBeacon 每轮被触发并打断智能调度+ 的自动搜索。
+- **`handle_ash_beacon_attack` 的「只打档案」例外**是修 bug 的产物：不判断 AttackMode 会导致 OpsiAshBeacon 每轮被触发并打断智能调度的自动搜索。
 - **`MetaReward` 领奖后必须回主界面**：`OpsiAshBeacon.run`/`AshBeaconAssist.run` 末尾的 `ui_goto_main` 有注释说明——删掉会让下个任务在 META 页启动而卡识别。
 - **明石货架是 `@Config.when(SERVER=...)` 三分支**，新服务器适配要新增分支而不是改默认分支。
 - **`ActionPointLimit.delay_minutes` 的换算依赖行动力恢复速率**，修改恢复速率常量（如游戏改动）时同步检查大世界核心的延迟逻辑。
@@ -265,7 +265,7 @@ if self.appear(PORT_ENTER, offset=(20, 20), interval=30):
 
 ## 19. 调试方法
 
-- 日志前缀：`[大世界处理-状态]`（os_status）、`[大世界处理-存储]`（storage）、`[大世界-智能调度+]` 中引用的行动力/黄币数值。
+- 日志前缀：`[大世界处理-状态]`（os_status）、`[大世界处理-存储]`（storage）、`[大世界-智能调度]` 中引用的行动力/黄币数值。
 - 商店问题先看 `scan_all` 输出的条目列表（名称/价格/数量），确认是识别错还是策略错。
 - 信标不触发：按 `handle_ash_beacon_attack` 的三个条件逐项查（任务启用？AttackMode？收集 ≥100？）。
 

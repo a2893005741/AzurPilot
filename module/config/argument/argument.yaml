@@ -393,7 +393,7 @@ YukikazeTaskManager:
       > Commission > Tactical > Research
       > Exercise
       > Dorm > Meowfficer > Guild > Gacha
-      > Reward
+      > Reward > StorageStatistics
       > ShopFrequent > ShopOnce > Shipyard > Freebies
       > PrivateQuarters
       > OpsiExplore > OpsiExploreCleanup
@@ -1157,7 +1157,7 @@ PrivateQuarters:
     TargetInteract: true
     TargetShip:
       value: anchorage
-      option: [ anchorage, noshiro, sirius, new_jersey, taihou, aegir, nakhimov ]
+      option: [ anchorage, noshiro, sirius, new_jersey, taihou, aegir, nakhimov, implacable ]
 # ==================== Daily ====================
 
 Daily:
@@ -1331,6 +1331,10 @@ OpsiDaily:
   SkipSirenResearchMission: false
   KeepMissionZone: false
   MissionZones:
+    type: stored
+    value: null
+    display: hide
+  DeferredMissions:
     type: stored
     value: null
     display: hide

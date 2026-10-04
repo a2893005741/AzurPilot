@@ -2,6 +2,7 @@
 export interface Parameters {
   "system.ping": Record<string, never>
   "schema.get": { language?: "zh-CN" | "zh-MIAO" | "en-US" | "ja-JP" | "zh-TW" }
+  "search.content": { query: string }
   "instances.list": Record<string, never>
   "instances.create": { name: string; source?: string | null; import_file?: string | null }
   "instances.importable": Record<string, never>
@@ -12,6 +13,8 @@ export interface Parameters {
   "config.patch": { instance: string; revision?: string | null; changes: Array<{ path: string; value: unknown }> }
   "shop_strategy.validate": { instance: string; task: "EventShop" | "ShopFrequent" | "ShopOnce" | "PrivateQuarters" | "OpsiShop" | "OpsiVoucher"; script: string }
   "overview.get": { instance: string }
+  "stock.status": { instance: string }
+  "stock.request": { instance: string; path: string; method?: "GET" | "POST" | "DELETE"; body?: Record<string, unknown> | null; etag?: string }
   "scheduler.start": { instance: string }
   "scheduler.stop": { instance: string }
   "scheduler.program.catalog": { instance: string }
@@ -29,7 +32,7 @@ export interface Parameters {
   "opsi.simulator.figure": { instance: string }
   "preview.capture": { instance: string }
   "statistics.refreshLoot": { instance: string }
-  "statistics.report": { instance: string; category?: "resources" | "action" | "opsi" | "commission" | "ships" | "loot" | "research"; month?: string | null; days?: number; period?: "day" | "week" | "month"; series?: number; scope?: "series" | "consumable"; task?: string | null }
+  "statistics.report": { instance: string; category?: "resources" | "action" | "opsi" | "commission" | "ships" | "loot" | "research" | "storage"; month?: string | null; days?: number; period?: "day" | "week" | "month"; series?: number; scope?: "series" | "consumable"; task?: string | null }
   "meowfficer.scoreReport": { instance: string; limit?: number }
   "meowfficer.clearReport": { instance: string }
   "statistics.resources": { instance: string; days?: number; resource?: "Oil" | "Coin" | "Gem" | "Cube" | "Pt" | "ActionPoint" | "Core" | "Medal" | "Merit" | "GuildCoin" | "YellowCoin" | "PurpleCoin" }

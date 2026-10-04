@@ -1,5 +1,95 @@
 import { expect, test } from '@playwright/test'
 
+test('大世界掉落缺图回退领奖模板并显示月度Boss筛选', async ({page}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'})
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.theme', 'light')
+    localStorage.setItem('azurpilot.statistics', JSON.stringify({category: 'loot'}))
+  })
+  await page.goto('/#/i/demo-main/statistics')
+  const detail = page.locator('.statistics-table').filter({has: page.getByRole('heading', {name: '大世界掉落明细', exact: true})})
+  await expect(detail).toBeVisible()
+  const plan = detail.getByRole('row').filter({hasText: '装备研发图纸UR型'})
+  await expect(plan).toContainText('1')
+  const icons = page.locator('img[src$="opsi-items/GearDesignPlanT5.png"]')
+  await expect(icons).toHaveCount(2)
+  await expect.poll(() => icons.evaluateAll(images => images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
+  await page.getByRole('combobox', {name: '任务', exact: true}).click()
+  await expect(page.getByRole('option', {name: '月度Boss（1）', exact: true})).toBeVisible()
+  await page.keyboard.press('Escape')
+  await page.screenshot({path: 'test-results/opsi-drop-template-fallback.png', fullPage: true, animations: 'disabled'})
+})
+
+test('仓库统计显示快照且刷新不会启动游戏扫描', async ({page}) => {
+  const requests: string[] = []
+  page.on('websocket', socket => socket.on('framesent', event => {
+    const payload = JSON.parse(String(event.payload))
+    if (payload.method) requests.push(payload.method)
+  }))
+  await page.emulateMedia({reducedMotion: 'reduce'})
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.theme', 'light')
+    localStorage.setItem('azurpilot.statistics', JSON.stringify({category: 'storage'}))
+  })
+  await page.goto('/#/i/demo-main/statistics')
+  const table = page.locator('.statistics-table').filter({has: page.getByRole('heading', {name: '仓库物品', exact: true})})
+  await expect(table).toBeVisible()
+  await expect(table.locator('tbody tr')).toHaveCount(25)
+  await expect(table.getByRole('row').filter({hasText: '特装型突破部件'})).toContainText('153')
+  await expect(table.getByRole('row').filter({hasText: '心智单元II'})).toContainText('1,204')
+  await expect.poll(() => table.locator('img').evaluateAll(images => images.length > 0 && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
+  await page.getByRole('button', {name: '刷新统计', exact: true}).first().click()
+  expect(requests.filter(method => method === 'tasks.run')).toHaveLength(0)
+  await page.screenshot({path: test.info().outputPath('storage-statistics.png'), fullPage: true})
+  await page.getByRole('button', {name: '运行仓库统计', exact: true}).first().click()
+  await expect.poll(() => requests.filter(method => method === 'tasks.run').length).toBe(1)
+  await page.getByRole('button', {name: '运行仓库统计', exact: true}).first().click()
+  await expect(page.getByRole('alert')).toContainText('实例已在运行')
+  await page.reload()
+  await expect(table).toBeVisible()
+  await page.goto('/#/i/demo-alt/statistics')
+  await expect(table).toBeVisible()
+  await expect(table.getByRole('cell', {name: '未扫描', exact: true})).toHaveCount(25)
+  await expect(table.getByRole('cell', {name: '—', exact: true})).toHaveCount(25)
+})
+
+test('仓库趋势复用时间窗口、物品选择和原始记录', async ({page}) => {
+  await page.setViewportSize({width: 1731, height: 1547})
+  const requests: Array<{method: string, params: Record<string, unknown>}> = []
+  page.on('websocket', socket => socket.on('framesent', event => {
+    const payload = JSON.parse(String(event.payload))
+    if (payload.method) requests.push(payload)
+  }))
+  await page.emulateMedia({reducedMotion: 'reduce'})
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.theme', 'light')
+    localStorage.setItem('azurpilot.statistics', JSON.stringify({category: 'storage', days: 7}))
+  })
+  await page.goto('/#/i/demo-main/statistics')
+  const chart = page.locator('.statistics-chart')
+  await expect(chart.locator('.stat-chip')).toHaveCount(25)
+  await expect.poll(() => chart.locator('.stat-chip img').evaluateAll(images => images.length === 25 && images.every(image => (image as HTMLImageElement).complete && (image as HTMLImageElement).naturalWidth > 0))).toBe(true)
+  await chart.getByRole('button', {name: '心智单元II', exact: true}).dblclick()
+  await expect(chart.getByRole('img', {name: '心智单元II交互趋势图', exact: true})).toBeVisible()
+  const raw = page.locator('.statistics-table').filter({has: page.getByRole('heading', {name: '心智单元II原始记录', exact: true})})
+  await expect(raw.locator('tbody tr')).toHaveCount(3)
+  await expect(raw.locator('tbody tr').first()).toContainText('1,204')
+  await expect(chart.getByRole('combobox', {name: '图表类型', exact: true})).toContainText('折线')
+  await expect(chart.getByRole('combobox', {name: '采样粒度', exact: true})).toContainText('每次记录')
+  await page.getByRole('combobox', {name: '统计天数', exact: true}).first().click()
+  await page.getByRole('option', {name: '最近 30 天', exact: true}).click()
+  await expect(raw.locator('tbody tr')).toHaveCount(4)
+  await expect.poll(() => requests.filter(request => request.method === 'statistics.report').at(-1)?.params.days).toBe(30)
+  const firstTime = await raw.locator('tbody tr').first().locator('td').first().innerText()
+  await chart.getByLabel('起始时间', {exact: true}).fill(firstTime.replace(' ', 'T').slice(0, 16))
+  await expect(raw.locator('tbody tr')).toHaveCount(1)
+  await chart.getByRole('button', {name: '全部时间', exact: true}).click()
+  await expect(raw.locator('tbody tr')).toHaveCount(4)
+  await page.getByRole('heading', {name: '资源统计', exact: true}).scrollIntoViewIfNeeded()
+  await page.screenshot({path: test.info().outputPath('storage-trends.png'), fullPage: true})
+  expect(requests.some(request => request.method === 'tasks.run')).toBe(false)
+})
+
 test('任务分组目录重复点击保持在同一栏目', async ({page}) => {
   await page.emulateMedia({reducedMotion: 'reduce'})
   await page.addInitScript(() => localStorage.setItem('azurpilot.theme', 'light'))
@@ -322,6 +412,42 @@ test('统计与监控复用分段控件的样式及键盘切换', async ({page})
   })).toEqual(appearance)
 })
 
+test('大世界掉落展示新增研发材料、实验计划与突破部件', async ({page}) => {
+  await page.addInitScript(() => localStorage.setItem('azurpilot.language', 'zh-CN'))
+  await page.goto('/#/i/demo-main/statistics')
+  await page.getByRole('tablist', {name: '统计分类'}).getByRole('tab', {name: '大世界掉落', exact: true}).click()
+  const items = [
+    ['GearDesignPlanGunT4', '舰炮研发图纸SSR型'],
+    ['GearDesignPlanTorpedoT4', '鱼雷研发图纸SSR型'],
+    ['GearDesignPlanAntiAirT4', '防空炮研发图纸SSR型'],
+    ['GearDesignPlanPlaneT4', '舰载机研发图纸SSR型'],
+    ['Ultra_High_Purity_Metals', '特种钢材'],
+    ['Military_Grade_Electronic_Components', '军工级电子元件'],
+    ['HBX_Blend_Gunpowder', 'HBX炸药'],
+    ['High_Durability_Elastomers', '氟橡胶'],
+    ['Superconductive_Metals', '超导铜'],
+    ['Corrosion_Resistant_Alloys', '钛合金'],
+    ['OrdnanceTestingReportT4', '机密实验计划'],
+    ['OrdnanceTestingReportT5', '绝密实验计划'],
+    ['PrototypeGearPartsT5', '特装型突破部件'],
+  ]
+  for (const [key, name] of items) {
+    const card = page.locator('.summary-metrics').getByText(name, {exact: true})
+    await expect(card).toBeVisible()
+    const response = await page.request.get(`/opsi-items/${key}.png`)
+    expect(response.ok(), key).toBe(true)
+    const icon = page.locator(`.summary-metrics img[src="/opsi-items/${key}.png"]`)
+    await expect.poll(() => icon.evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
+  }
+  const detail = page.locator('.statistics-table').filter({has: page.getByRole('heading', {name: '大世界掉落明细', exact: true})})
+  await expect(detail).toContainText('六种金色研发材料')
+  await page.screenshot({path: 'test-results/opsi-requested-items.png', fullPage: true})
+  await page.setViewportSize({width: 390, height: 844})
+  await page.getByRole('button', {name: '打开导航', exact: true}).waitFor()
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await page.screenshot({path: 'test-results/opsi-requested-items-mobile.png', fullPage: true})
+})
+
 test('统计分类、K 线、时间过滤、表格导出与移动端布局', async ({page}) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
@@ -533,7 +659,7 @@ test('侧栏任务计划随界面语言切换', async ({page}) => {
   await page.getByRole('option', {name: 'English', exact: true}).click()
   await page.goto('/#/i/demo-main/overview')
   await expect(page.locator('.rail-task-item[href$="/task/Commission"]')).toContainText('Commission')
-  await expect(page.locator('.rail-task-item[href$="/task/Research"]')).toContainText('Research Lab Plus')
+  await expect(page.locator('.rail-task-item[href$="/task/Research"]')).toContainText('Research Lab')
 })
 
 test('语言偏好持久化，模拟启停、预览、统计和部署设置', async ({page}) => {

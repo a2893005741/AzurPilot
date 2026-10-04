@@ -3,12 +3,14 @@ import { createHash } from 'node:crypto'
 import Ajv from 'ajv'
 import {spawnSync} from 'node:child_process'
 import {fileURLToPath} from 'node:url'
+import {createStockProxy} from './stock.mjs'
 
 // 只读取公开的模板、元数据和翻译，绝不读取用户实例或部署文件。
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'))
 const args = read('../../module/config/argument/args.json')
 const menu = read('../../module/config/argument/menu.json')
 const template = read('../../config/template.json')
+const storageCatalog = read('../../assets/stats/storage_items/catalog.json')
 const contract = read('../src/api/contract.json')
 const locales = Object.fromEntries(['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'zh-MIAO'].map(lang => [lang, read(`../../module/config/i18n/${lang}.json`)]))
 const ajv = new Ajv({ strict: false, useDefaults: true })
@@ -164,6 +166,7 @@ function validateField(path, value) {
 
 export function createMockState({ empty = false } = {}) {
   const instances = new Map()
+  const stock = createStockProxy(name=>{const r=get(name).values.Dashboard.ActionPoint;return r?.Total!=null&&r.Record?{instance:name,actionPoints:r.Total,observedAt:Math.floor(new Date(r.Record.replace(' ','T')+'Z').getTime()/1000)}:null})
   const programs = new Map()
   const simulations = new Map()
   function simulation(name) {
@@ -615,9 +618,11 @@ export function createMockState({ empty = false } = {}) {
         return snapshot(name)
       }
       case 'overview.get': return overview(name)
+      case 'stock.status': return stock.status(name)
+      case 'stock.request': return stock.request(name,params)
       case 'scheduler.start': case 'tasks.run':
         if (get(name).status === 'running') fail('INSTANCE_RUNNING', '实例已在运行')
-        if (method === 'tasks.run' && params.task !== 'FleetScan' && !Object.values(menu).some(group => group.page === 'tool' && group.tasks.includes(params.task))) fail('INVALID_PARAMS', '该任务不支持单独运行')
+        if (method === 'tasks.run' && !['FleetScan', 'StorageStatistics'].includes(params.task) && !Object.values(menu).some(group => group.page === 'tool' && group.tasks.includes(params.task))) fail('INVALID_PARAMS', '该任务不支持单独运行')
         get(name).status = 'running'; log(name, '模拟调度器已启动。')
         return overview(name)
       case 'scheduler.stop':
@@ -656,7 +661,7 @@ export function createMockState({ empty = false } = {}) {
       case 'statistics.refreshLoot': return { refreshed: true }
       case 'meowfficer.scoreReport': {
         // demo-alt 用来验证「还没跑过评分任务」的空状态，其余实例都给一份示例报告。
-        if (name === 'demo-alt') fail('NOT_FOUND', '评分报告尚未生成，请先在「工具Plus → 指挥喵评分」运行一次任务')
+        if (name === 'demo-alt') fail('NOT_FOUND', '评分报告尚未生成，请先在「工具 → 指挥喵评分」运行一次任务')
         const cats = [{
           source: 'shot_0.png', cat: '克雷喵', tags: ['SSR', '铁血', '潜艇', '司令'], fixed: false,
           note: '指定潜艇司令，狩猎范围+1；初始池小、最好毕业', maxed: true, pointsSpent: 6, primary: 'submarine',
@@ -716,7 +721,23 @@ export function createMockState({ empty = false } = {}) {
           key, label, points: makePoints(res, params.days)
         }))
         const result = { instance: name, category: params.category, month: params.month, metrics: [], series: [], tables: [], notes: [] }
-        if (params.category === 'resources') {
+        if (params.category === 'storage') {
+          result.notes = [name === 'demo-alt' ? '尚未运行仓库统计任务。' : '最近完整扫描：2026-10-03 00:00:00；复核 12 页。', '刷新只读取已有快照，运行仓库统计任务后才更新数量。']
+          const quantities = [153, 46, 20, 46, 58, 1, 32791, 1204, 881, 497, 1659, 1266, 1628, 745, 5015, 3584, 3785, 5634, 4230, 5297, 699, 859, 884, 753, 767]
+          result.series = storageCatalog.items.map((item, index) => ({
+            key: item.id, label: item.name,
+            icon: 'storage:' + item.templates[0].replace('assets/stats/', '').replace('.png', ''),
+            points: name === 'demo-alt' ? [] : [8, 3, 1, 0]
+              .filter(days => days < (params.days ?? 7))
+              .map(days => ({t: Math.floor((Date.now() - days * 86400000) / 1000) * 1000000,
+                v: Math.max(1, quantities[index] - days * 3), s: '仓库统计（cn）'})),
+          }))
+          result.tables = [{title: '仓库物品', note: result.notes.join(' '), columns: ['图标', '物品', '分类', '数量', '状态'],
+            rows: storageCatalog.items.map((item, index) => [
+              'storage:' + item.templates[0].replace('assets/stats/', '').replace('.png', ''),
+              item.name, item.group, name === 'demo-alt' ? null : quantities[index], name === 'demo-alt' ? '未扫描' : '已复核',
+            ])}]
+        } else if (params.category === 'resources') {
           result.series = reportSeries([
             ['oil', '石油', 'Oil'], ['coin', '物资', 'Coin'], ['gem', '钻石', 'Gem'], ['cube', '心智魔方', 'Cube'],
             ['pt', '活动 PT', 'Pt'], ['core', '核心数据', 'Core'], ['medal', '荣誉勋章', 'Medal'],
@@ -793,7 +814,7 @@ export function createMockState({ empty = false } = {}) {
           }]
         } else if (params.category === 'loot') {
           // 素材与服务端 module/api/statistics_service.py 的 loot 分支对齐：
-          // 上面收益卡片（金菜/彩图纸 + 今日/本月/选定月份总计）、中间收获明细、
+          // 上面收益卡片（指定掉落物品 + 今日/本月/选定月份总计）、中间收获明细、
           // 下面掉落记录，最后是原有的短猫按侵蚀等级的收益汇总。
           const items = [
             ['PlateGeneralT4', '通用部件T4', '金', 8, 5],
@@ -804,40 +825,56 @@ export function createMockState({ empty = false } = {}) {
             ['GearDesignPlanGunT5', '舰炮研发图纸UR型', '彩', 0, 0],
             ['GearDesignPlanTorpedoT5', '鱼雷研发图纸UR型', '彩', 0, 0],
             ['GearDesignPlanAntiAirT5', '防空炮研发图纸UR型', '彩', 0, 0],
-            ['GearDesignPlanPlaneT5', '舰载机研发图纸UR型', '彩', 1, 1]
+            ['GearDesignPlanPlaneT5', '舰载机研发图纸UR型', '彩', 1, 1],
+            ['GearDesignPlanT5', '装备研发图纸UR型', '彩', 1, 1],
+            ['GearDesignPlanGunT4', '舰炮研发图纸SSR型', '金', 7, 4],
+            ['GearDesignPlanTorpedoT4', '鱼雷研发图纸SSR型', '金', 5, 3],
+            ['GearDesignPlanAntiAirT4', '防空炮研发图纸SSR型', '金', 6, 4],
+            ['GearDesignPlanPlaneT4', '舰载机研发图纸SSR型', '金', 4, 2],
+            ['Ultra_High_Purity_Metals', '特种钢材', '金', 14, 8],
+            ['Military_Grade_Electronic_Components', '军工级电子元件', '金', 12, 7],
+            ['HBX_Blend_Gunpowder', 'HBX炸药', '金', 11, 6],
+            ['High_Durability_Elastomers', '氟橡胶', '金', 10, 5],
+            ['Superconductive_Metals', '超导铜', '金', 13, 7],
+            ['Corrosion_Resistant_Alloys', '钛合金', '金', 9, 5],
+            ['OrdnanceTestingReportT4', '机密实验计划', '金', 3, 3],
+            ['OrdnanceTestingReportT5', '绝密实验计划', '彩', 1, 1],
+            ['PrototypeGearPartsT5', '特装型突破部件', '彩', 2, 2]
           ]
           const empty = name === 'demo-alt'
           result.taskOptions = [
-            { key: 'opsi_daily', label: '大世界每日Plus', count: 0 },
+            { key: 'opsi_daily', label: '大世界每日', count: 0 },
             { key: 'opsi_obscure', label: '隐秘海域', count: 0 },
             { key: 'opsi_abyssal', label: '深渊坐标', count: 0 },
             { key: 'opsi_stronghold', label: '塞壬要塞', count: empty ? 0 : 1 },
+            { key: 'opsi_month_boss', label: '月度Boss', count: empty ? 0 : 1 },
             { key: 'opsi_meowfficer_farming', label: '耄耋相接', count: empty ? 0 : 19 }
           ]
           const detail = {
             title: '大世界掉落明细',
             columns: ['图标', '物品', '稀有度', '总收益', '掉落记录数', '平均每次掉落'],
-            note: '暂时只统计金菜（通用/主炮/鱼雷/防空炮/舰载机 部件T4）与彩图纸（舰炮/鱼雷/防空炮/舰载机 研发图纸UR型）；其他物品照常入库，只是不在这里展示。',
+            note: '统计金菜（部件T4）、装备研发图纸SSR/UR型、六种金色研发材料、机密/绝密实验计划及特装型突破部件；其他物品照常入库，只是不在这里展示。',
             defaultSort: { index: 3, descending: true },
             rows: empty ? [] : items.map(([key, zh, rarity, amount, count]) => [
-              `opsi:${key}`, zh, rarity, amount || null, count || null, count ? 1.6 : null
+              `opsi:${key}`, zh, rarity, amount || null, count || null, count ? Math.round(amount / count * 10) / 10 : null
             ])
           }
           result.metrics = empty ? [] : [
-            { label: '掉落记录', value: 20, unit: '次' },
+            { label: '掉落记录', value: 21, unit: '次' },
             ...items.map(([key, zh, , amount]) => ({ label: zh, value: amount || null, unit: '', icon: `opsi:${key}` })),
             { label: '今日总计', value: 7, unit: '' },
-            { label: '本月总计', value: 32, unit: '' },
-            { label: '选定月份总计', value: 32, unit: '' }
+            { label: '本月总计', value: items.reduce((total, item) => total + item[3], 0), unit: '' },
+            { label: '选定月份总计', value: items.reduce((total, item) => total + item[3], 0), unit: '' }
           ]
           result.tables = empty ? [detail] : [
             detail,
             {
               title: '掉落记录',
               columns: ['时间', '任务', '海域', '掉落物'],
-              note: '按时间倒序；只列掉了金菜或彩图纸的记录，其余掉落不入这张表。',
+              note: '按时间倒序；只列含上述统计物品的掉落记录，其余掉落不入这张表。',
               defaultSort: { index: 0, descending: true },
               rows: [
+                ['2026-09-25 08:00:00', '月度Boss', '月度Boss海域', '机密实验计划 x1、绝密实验计划 x1、特装型突破部件 x1、特种钢材 x2、装备研发图纸UR型 x1'],
                 ['2026-09-25 07:58:28', '耄耋相接', '危险海域 Mediterranee A（侵蚀5）', '鱼雷部件T4 x1'],
                 ['2026-09-25 07:30:33', '耄耋相接', '危险海域 Mediterranee A（侵蚀5）', '舰载机研发图纸UR型 x1、通用部件T4 x1、主炮部件T4 x1'],
                 ['2026-09-23 12:04:51', '塞壬要塞', '要塞海域 East Continental Shelf E（侵蚀3）', '通用部件T4 x4、主炮部件T4 x1、鱼雷部件T4 x1、防空炮部件T4 x1、舰载机部件T4 x1']

@@ -69,7 +69,7 @@
 | `opsi.simulator.figure` | instance | 最近生成的 PNG 图表，image 为 data URL；无图时为 null |
 | `preview.capture` | instance | 读取最近一张缓存 JPEG；不主动截图，无缓存时 image/capturedAt 为 null |
 | `statistics.resources` | instance、days、resource | 兼容资源时间线，支持全部 12 种资源，最多 5,000 点 |
-| `statistics.report` | instance、category、month、days、period | 六类统计，返回 metrics、series、tables 和 notes |
+| `statistics.report` | instance、category、month、days、period | 分类统计，含只读仓库快照，返回 metrics、series、tables 和 notes |
 | `statistics.refreshLoot` | instance | 重新聚合本设备已有本地短猫掉落记录，不访问游戏 |
 | `settings.get` | 无 | 部署设置定义及值，密码只写不读 |
 | `settings.patch` | values | 校验并保存部署设置，重启生效 |
@@ -81,6 +81,8 @@
 | `updater.apply` | 无 | 后台复用原更新器，等待任务退出、更新代码、同步依赖并重启 |
 | `updater.cancel` | 无 | 仅在等待任务结束阶段取消更新 |
 | `events.subscribe` | topics、可选 instance | 原子替换当前连接的订阅集合 |
+
+仓库统计使用 `category: 'storage'` 查询最近完整扫描，`days` 限定成功扫描历史的时间窗口。`series` 提供各物品已确认数量的趋势与原始记录，复用资源趋势控件；未扫描或未发现的数量在最新清单中为 `null`，历史序列不补零。序列可选 `icon` 在逐点和共用时间轴格式中均保留，例如 `storage:opsi_items/PrototypeGearPartsT5`，从 `/storage-items/opsi_items/PrototypeGearPartsT5.png` 加载。`tasks.run` 的 `task: 'StorageStatistics'` 主动进入材料仓库扫描，沿用实例运行互斥；刷新报告不启动扫描。
 
 `instance` 必须指向 config 目录内已存在的实例，禁止路径分隔符、符号链接和系统保留名称。创建实例名称以字母或汉字开头，可包含字母、数字、汉字、短横线和下划线，总长不超过 64。运行实例禁止删除，已有运行实例禁止重复启动。
 
@@ -190,3 +192,29 @@ INTERNAL_ERROR 不向浏览器返回堆栈；参数校验详情不回显输入�
 背景上传 `POST /api/v1/background/gallery` 与图片代抓 `GET /api/v1/background/media` 均需携带 `background.access` 返回的能力令牌；缺失或错误返回 401。令牌由 WebSocket 的既有认证保护，本机免密与无密码模式也通过该接口领取。
 
 上传仅接受 `x-azurpilot-background-token` 请求头；图片/视频标签不能设置请求头，代抓也接受 `token` 查询参数。该令牌仅授权背景接口，不能登录或调用其他 WebUI 方法；不得把访问密码放入图片 URL。令牌只在内存中使用，每次应用创建重新生成，不写入浏览器持久化设置；部署的访问日志也应避免记录含令牌的完整 URL。
+
+## 原生证券交易终端
+
+`stock.status({instance})` 返回该实例的持久 UUID、绑定用户名、绑定/登录状态及现有行动力快照，不回传私钥、上传凭据或真实交易会话。
+
+`stock.request({instance,path,method,body,etag})` 通过已认证的 WebSocket 转发交易所请求，返回 `{status,data,etag,serverTime}`；method 只允许 GET / POST / DELETE。允许市场、历史、赛季、开户、登录、本人账户、委托、撤单、同步和退出，不允许管理接口。浏览器不能提交 report、实例身份、公钥、行情或远端凭据；由后端补齐所选实例身份。
+
+注册与登录每次都需要 Cloudflare 验证码，账户和实例永久一对一绑定。另一个实例不能登录这个账户，当前实例不能开第二个账户；退出只清除交易会话。实例身份用于认证请求完整性，不验证行动力真实性；行情直接使用实例现有资源记录，没有截图上传或服务端 OCR。无最近记录时初始股价为 0，后续随游戏更新自动同步。WebUI 后端重启后需重新登录，持续上传凭据仍保存。
+
+主界面位于 `src/stock/`，入口在运行总览资源卡片调节键左边，路由为 `/#/i/:instance/stock-exchange`。账户、持仓、委托按实例隔离，切换实例重建终端；行情读取和交易复用本项目 API，不使用 iframe 或 postMessage。
+
+公开白名单增加 `/stocks/:id?period=time|day|m5|m10|m20|m30|m60&month=YYYY-MM&day=YYYY-MM-DD`，通过同一 `stock.request` 读取股票详情、OHLC、成交量、逐笔成交和公开挂单；查询参数严格校验。行情柱与成交的时间戳为毫秒，账户及旧报价接口仍使用秒。详情每 5 秒在可见页面请求一次，复用 ETag / 304，隐藏页面停止轮询。
+
+`ProgramStore` 保存实际采集的总行动力到 `action_point_history`，只更新当前可用行动力的记录不会伪造新总量时间。`action_point_chain` 追加保存每次总量变更及修正，用实例独立密钥生成 HMAC-SHA-256 哈希链；读取时验证整条链、当前值索引及项目外检查点，修改、删行、截断和单独回滚 SQLite 都会阻止同步。同一采集时间的正常修正保留原事件，并更新当前值索引。
+
+新注册账户自动补传当前实例已保存的当月完整总行动力，包括注册前记录，数量不截断为 2000 条。旧实例首次升级只读导入 `config/cl1_data.db`（兼容旧位置 `log/cl1/cl1_data.db`）中上海时区当月的 `ap_snapshots[].ap_total` 和实际时间 `ts`，支持明文 JSON 与旧 AES-GCM 行；不读取上月及更早月份，因此那些月份无法解密不会影响当月补传。已经注册的账户升级后同样自动补传，无需重新开户或登录。缺少总量的 `ap` 不能替代含行动力箱的总行动力。同毫秒冲突优先使用中央认证记录。原实例名保存在保护登记中，重命名仍读取原统计来源；复制、导入新建和同名重建不会继承旧统计。成功迁移的标记与完整补传队列一起认证，只导入一次，旧库之后的修改不会获得新的上传签名。当月旧库无法读取时保留原库、不写完成标记，在状态消息中提示具体原因，每五分钟扫描时重试；中央认证历史与新行动力仍正常入队、同步，注册和登录继续可用。补传日志或中央认证历史自身损坏仍停止同步。
+
+独立后台日志位于 `cache/stock-exchange/history/<UUID>.sqlite3`，样本、来源游标、上传回执和月份状态全部通过密钥摘要与项目外检查点认证。每批最多 1024 点，3 秒最短间隔，失败退避但不永久停传。按月增量补传并轮转月份，断网、重启、迟到修正由后台处理；每五分钟重读源历史并校对 count / SHA-256。签名前先验证本地数据，禁止把修改后的仪表盘 JSON 当作新游戏采集记录，也不在数据库损坏或丢失时降级到 JSON。历史上传和月摘要接口只供 AzurPilot 后端调用，不开放给浏览器，不验证行动力真实性。
+
+AzurPilot 后端通过 `STOCK_EXCHANGE_URL` 配置交易所 origin，默认 `https://stock.nanoda.work`，本机开发使用 `http://127.0.0.1:8080`。Turnstile 控制台及 Go 环境变量 `TURNSTILE_HOSTNAMES` 需允许 AzurPilot 页面实际 hostname。
+
+身份私钥与 `bindings.json` 复用账号保险库的 AES-256-GCM、`SecretKey` 和 `LocalProtector` 保护组件，使用独立游戏密钥，不改变实例密码和账号保险库。Windows 使用当前用户 DPAPI，Linux 使用项目外 `0700/0600` 用户密钥目录。实例登记、文件摘要与历史检查点保存在该目录的 `<保护上下文>.game`；项目内只有密文身份、密文上传凭据、受认证的历史以及 `protected-v1` 标记。密钥或登记丢失、主机/用户变化、密文修改及旧文件回放均阻止使用，保留原数据，不自动重新生成身份。
+
+配置内部 `_stockInstance` 保存稳定 UUID，运行器迁移与参数编辑保留此字段，配置导出、复制和导入创建不继承它。直接重命名配置（原文件消失且唯一新文件保留 UUID）会沿用玩家、会话、补传日志并迁移中央资源数据库；若新旧数据库冲突则停止并保留两边文件。删除配置，包括外部文件删除，会撤销本地监视、会话、身份和上传凭据，关闭日志并清理文件；Windows 文件被其他进程占用时先撤销登记，随后重试清理。同名新建获得新 UUID，不继承旧玩家；已删除 UUID 不能通过还原旧配置单独复活。服务器上的玩家及永久绑定保留，不因本地删除被转移或释放。
+
+备份须同时包含实例配置、中央 SQLite（含已提交 WAL）、旧 CL1 统计库、`cache/stock-exchange/` 及项目外本机密钥/登记，且保持原项目路径、主机与用户保护环境。单独恢复旧历史会触发检查点校验。旧版首次迁移保留原 UUID、私钥、绑定和现存历史，并建立认证基线；旧仪表盘最新记录与旧统计月历史仅在各自的首次迁移中接收。升级前已覆盖且未在统计库保留的记录、未采集时段及迁移前篡改无法追溯。此机制防止文件层面的非预期修改，不能证明游戏数据真实，也不能阻止已控制原用户、修改程序或同时回滚整个本机保护目录的人。

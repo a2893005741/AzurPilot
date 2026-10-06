@@ -16,24 +16,15 @@ from module.api.stock_exchange_history import ActionHistory, SHANGHAI, history_p
 from module.api.stock_exchange_identity import binding_key, load_identity
 from module.api.stock_exchange_service import StockExchangeService, public_stock_path
 from module.scheduler.store import ProgramStore
-from module.runtime.account_local import LocalProtector
 
 
 class HistoryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / 'project'
+        self.root = (Path(self.temp.name) / 'project').resolve()
         (self.root / 'config').mkdir(parents=True)
         (self.root / 'config' / 'test.json').write_text(json.dumps({'Alas': {}}), encoding='utf-8')
-        for context in (
-            patch.object(LocalProtector, 'key_directory', return_value=Path(self.temp.name) / 'keys'),
-            patch.object(LocalProtector, 'host_identity', return_value='isolated-test-host'),
-            patch.object(LocalProtector, 'prepare_directory', new=lambda _, path: path.mkdir(parents=True, exist_ok=True)),
-            patch('module.runtime.account_local.dpapi', side_effect=lambda data, decrypt=False: bytes(data)),
-        ):
-            context.start()
-            self.addCleanup(context.stop)
         self.store = ProgramStore(self.root / 'config')
         self.journal = ActionHistory(self.root)
         self.addCleanup(self.journal.close)
@@ -238,7 +229,7 @@ class HistoryTests(unittest.TestCase):
             self.sync(recovered)
         self.assertEqual(3001, len(self.remote_points))
         batches = [body['report']['points'] for path, body in self.calls if path == '/quote-history' and body['report']['points']]
-        self.assertTrue(all(len(batch) <= 1024 for batch in batches))
+        self.assertTrue(any(len(batch) == 3001 for batch in batches))
         self.assertTrue(all(all(a['time'] < b['time'] for a, b in zip(batch, batch[1:])) for batch in batches))
         original = next(iter(self.remote_points))
         self.remote_points.pop(original)  # 服务器缺行，摘要发现后重新排队修复。
@@ -340,7 +331,7 @@ class HistoryTests(unittest.TestCase):
             self.assertEqual({'head': head}, data['anchors'][name])
         from module.scheduler.action_history import ActionPointChain
         with self.assertRaises(OSError), patch.object(ActionPointChain, 'finish', side_effect=OSError('隔离崩溃夹具')):
-            with self.store.connection('test', write=True) as db:
+            with self.store.connection('test', write=True, strict_history=True) as db:
                 self.store._write_observation(db, 'ActionPoint', {'Total': 8000}, (self.now + timedelta(seconds=5)).isoformat(), 'fixture')
         with protection.transaction() as (data, _):
             self.assertIn('pending', data['anchors'][name])

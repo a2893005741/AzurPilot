@@ -38,6 +38,7 @@ from module.config.deep import deep_default, deep_get, deep_iter, deep_set
 from module.config.emotion_recovery import recover_emotion_config
 from module.config.env import IS_ON_PHONE_CLOUD
 from module.config.server import VALID_CHANNEL_PACKAGE, VALID_PACKAGE, VALID_SERVER_LIST, to_package, to_server
+from module.config.redirect_utils.shop import migrate_shop_options
 from module.config.task_priority import get_scheduler_tasks, merge_task_priority
 from module.config.time_source import now as current_time
 from module.config.utils import *
@@ -840,6 +841,10 @@ class ConfigUpdater:
                     'General.YukikazeTaskManager.TaskPriorityAdjustment',
                     merge_task_priority(new_priority, template_priority, get_scheduler_tasks(self.args)),
                 )
+        if not is_template:
+            new, shop_warnings = migrate_shop_options(old, new)
+            for task, reason in shop_warnings:
+                logger.warning(f'{task}：{reason}，已暂停任务，请检查购买配置后重新启用')
         new = self._override(new)
         if not is_template:
             recover_emotion_config(new, now or current_time())

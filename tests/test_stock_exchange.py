@@ -1,13 +1,14 @@
 """交易所实例代理测试：隔离配置、身份和网络，不运行真实游戏。"""
 import json
-import os
 import hashlib
+import io
 import sqlite3
 import tempfile
 import time
 import unittest
 from datetime import datetime, timedelta
 from contextlib import closing
+from email.message import Message
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -15,7 +16,6 @@ from unittest.mock import Mock, patch
 from module.api.protocol import ApiError
 from module.api.stock_exchange_identity import binding_key, load_identity, make_report
 from module.api.stock_exchange_service import StockExchangeService, action_snapshot, exchange_url
-from module.runtime.account_local import LocalProtector
 from module.scheduler.store import ProgramStore
 
 
@@ -23,16 +23,8 @@ class StockExchangeTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
-        self.root = Path(self.temp.name) / 'project'
+        self.root = (Path(self.temp.name) / 'project').resolve()
         self.root.mkdir()
-        for context in (
-            patch.object(LocalProtector, 'key_directory', return_value=Path(self.temp.name) / 'keys'),
-            patch.object(LocalProtector, 'host_identity', return_value='isolated-test-host'),
-            patch.object(LocalProtector, 'prepare_directory', new=lambda _, path: path.mkdir(parents=True, exist_ok=True)),
-            patch('module.runtime.account_local.dpapi', side_effect=lambda data, decrypt=False: bytes(data)),
-        ):
-            context.start()
-            self.addCleanup(context.stop)
         (self.root / 'config').mkdir()
         self.config = self.root / 'config' / 'test.json'
         self.row = {'Alas': {}, 'Dashboard': {'ActionPoint': {'Total': 8000, 'Value': 100, 'Record': datetime.now().isoformat()}}}
@@ -77,7 +69,37 @@ class StockExchangeTests(unittest.TestCase):
         return {'status': 201 if path == '/register' else 200, 'data': data, 'etag': '', 'serverTime': int(time.time())}
 
     def register(self):
-        return self.service.request('test', '/register', 'POST', {'username': '实例测试', 'password': 'strong-password', 'turnstileToken': 'XXXX.DUMMY.TOKEN.XXXX', 'acceptedNotice': '2026-10-03'})
+        return self.service.request('test', '/register', 'POST', {'username': '实例测试', 'password': 'strong-password', 'recaptchaToken': 'recaptcha-test-token', 'acceptedNotice': '2026-10-03'})
+
+    def test_new_quotes_upload_without_fixed_interval(self):
+        self.register()
+        observed = self.player['quote']['observedAt'] + 1
+        self.service.last_upload['test'] = 100
+        self.service._remote.reset_mock()
+        with patch('module.api.stock_exchange_service.time.monotonic', return_value=100), \
+                patch.object(self.service, '_read_snapshot', return_value={'instance': 'test', 'observedAt': observed, 'actionPoints': 8100}):
+            self.service._sync_instance('test', False)
+        self.assertEqual(1, self.service._remote.call_count)
+        self.assertEqual('/quotes', self.service._remote.call_args.args[0])
+        self.assertEqual((observed, 8100), self.service.uploaded['test'])
+
+    def test_event_stream_notifies_disconnect_and_recovery_without_credentials(self):
+        def stream(revision):
+            value = io.BytesIO(f'event: stock\ndata: {{"revision":{revision},"serverTime":123}}\n\n'.encode())
+            value.headers = Message()
+            value.headers['Content-Type'] = 'text/event-stream'
+            return value
+        updates = []
+        def receive(data):
+            updates.append(data)
+            if data.get('revision') == 2:
+                self.service.stop.set()
+        self.service.listeners.add(receive)
+        with patch('module.api.stock_exchange_service.urlopen', side_effect=[stream(1), stream(2)]):
+            self.service._listen_events()
+        self.assertEqual([True, False, True], [value['online'] for value in updates])
+        self.assertEqual([1, 2], [value['revision'] for value in updates if 'revision' in value])
+        self.assertNotIn('token', json.dumps(updates))
 
     def test_new_registration_backfills_whole_month_before_signup(self):
         from module.api.stock_exchange_history import SHANGHAI, history_point
@@ -142,7 +164,7 @@ class StockExchangeTests(unittest.TestCase):
         self.assertTrue(self.service.status('test')['bound'])
         self.assertIn('当月旧统计', self.service.status('test')['message'])
         self.service.request('test', '/logout', 'POST', {})
-        logged = self.service.request('test', '/login', 'POST', {'username': '实例测试', 'password': 'strong-password', 'turnstileToken': 'XXXX.DUMMY.TOKEN.XXXX'})
+        logged = self.service.request('test', '/login', 'POST', {'username': '实例测试', 'password': 'strong-password', 'recaptchaToken': 'recaptcha-test-token'})
         self.assertEqual(200, logged['status'])
         self.row['Dashboard']['ActionPoint'].update(Total=8100, Record=datetime.now().isoformat())
         self.save()
@@ -212,7 +234,7 @@ class StockExchangeTests(unittest.TestCase):
         for field in ('playerId', 'bindingKey', 'uploadToken', 'url'):
             self.assertEqual(original[field], saved[field])
         self.service.request('test', '/logout', 'POST', {})
-        reply = self.service.request('test', '/login', 'POST', {'username': '管理员改名账户', 'password': 'new-password', 'turnstileToken': 'test'})
+        reply = self.service.request('test', '/login', 'POST', {'username': '管理员改名账户', 'password': 'new-password', 'recaptchaToken': 'test'})
         self.assertEqual('instance-session', reply['data']['token'])
         self.assertEqual(original['playerId'], self.service.bindings['test']['playerId'])
         self.assertEqual(original['bindingKey'], self.service.bindings['test']['bindingKey'])
@@ -331,11 +353,11 @@ class StockExchangeTests(unittest.TestCase):
         with self.assertRaises(ApiError):
             self.service.status('test')
 
-    def test_local_key_or_registry_loss_never_recreates_identity(self):
+    def test_persistent_key_or_registry_loss_never_recreates_identity(self):
         self.register()
         identity = self.service.status('test')['instanceId']
         protected = self.service.protection.file_path('identities/' + identity + '.json').read_bytes()
-        key_path = next((Path(self.temp.name) / 'keys').glob('*.key'))
+        key_path = self.service.protection.key_path
         key = key_path.read_bytes()
         key_path.unlink()
         with self.assertRaises(ApiError):
@@ -462,7 +484,8 @@ class StockExchangeTests(unittest.TestCase):
         store.observe('testpilot', 'ActionPoint', {'Total': 8000}, datetime.now().isoformat(), 'fixture')
         self.assertNotIn('_stockInstance', configs.export('testpilot'))
         configs.create('copied', source='testpilot')
-        self.assertNotEqual(identity, configs.read('copied')[0]['_stockInstance'])
+        self.assertIsNone(configs.read('copied')[0]['_stockInstance'])
+        self.assertNotEqual(identity, load_identity(root, 'copied')[0])
         updated = configs.patch('testpilot', '', [ConfigChange(path='Alas.Emulator.Serial', value='fixture-emulator')])
         self.assertNotIn('_stockInstance', updated['values'])
         self.assertEqual(identity, configs.read('testpilot')[0]['_stockInstance'])
@@ -473,26 +496,6 @@ class StockExchangeTests(unittest.TestCase):
         replacement, _ = load_identity(root, 'testpilot')
         self.assertNotEqual(identity, replacement)
         self.assertFalse(store.path('testpilot').exists())
-
-
-class HostProtectionTests(unittest.TestCase):
-    @unittest.skipUnless(os.name == 'nt', '此用例验证真实 Windows DPAPI，Linux 权限由账号保护测试覆盖')
-    def test_real_dpapi_protects_game_identity_and_checks_missing_key(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory) / 'project'
-            (root / 'config').mkdir(parents=True)
-            (root / 'config' / 'test.json').write_text(json.dumps({'Alas': {}}), encoding='utf-8')
-            with patch.object(LocalProtector, 'key_directory', return_value=Path(directory) / 'keys'):
-                from module.runtime.game_data import GameDataProtector
-                identity, key = load_identity(root, 'test')
-                again, same = load_identity(root, 'test')
-                self.assertEqual(binding_key(identity, key), binding_key(again, same))
-                protection = GameDataProtector(root)
-                original = protection.file_path('identities/' + identity + '.json').read_bytes()
-                next((Path(directory) / 'keys').glob('*.key')).unlink()
-                with self.assertRaises(ApiError):
-                    load_identity(root, 'test')
-                self.assertEqual(original, protection.file_path('identities/' + identity + '.json').read_bytes())
 
 
 if __name__ == '__main__':

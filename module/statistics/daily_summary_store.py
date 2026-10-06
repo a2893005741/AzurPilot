@@ -485,6 +485,10 @@ class DailySummaryStore:
                 decoded = []
                 for record in records:
                     item = dict(record)
+                    if not item['secure_payload']:
+                        # 载荷列出现前写入的旧事件，数值仍在明文列中。
+                        decoded.append(item)
+                        continue
                     payload = opsi_secure.decode_record('daily', item['secure_payload'],
                                                         opsi_secure.row_context('daily', item))
                     if payload is None:

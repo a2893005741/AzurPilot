@@ -216,6 +216,22 @@ class TestDailySummaryStore(unittest.TestCase):
         self.assertEqual(1, beta['battles'])
         self.assertEqual(312, alpha['estimated_exp'])
 
+    def test_legacy_plaintext_cl1_events_remain_readable(self):
+        """载荷列出现前写入的事件只有明文列，升级后仍应计入日报。"""
+        self.store.record_cl1_battle_event('alpha', self.start, 60, 312)
+        with closing(sqlite3.connect(self.store.db_path)) as connection, connection:
+            connection.execute(
+                'INSERT INTO daily_summary_cl1_events(instance,ts,duration_seconds,estimated_exp) VALUES(?,?,?,?)',
+                ('alpha', self.store._serialize_time(self.start + timedelta(hours=1)), 30.5, 100))
+        self.store.record_cl1_battle_event('alpha', self.start + timedelta(hours=2), 60, 312)
+
+        cl1 = self.store.get_cl1_interval_summary('alpha', self.start, self.end)
+
+        self.assertTrue(cl1['available'])
+        self.assertEqual(3, cl1['battles'])
+        self.assertEqual(724, cl1['estimated_exp'])
+        self.assertEqual(150.5, cl1['duration_seconds'])
+
     def test_missing_collection_is_explicitly_unknown(self):
         automation = self.store.get_task_summary('alpha', self.start, self.end)
         cl1 = self.store.get_cl1_interval_summary('alpha', self.start, self.end)

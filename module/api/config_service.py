@@ -31,6 +31,8 @@ NAME = re.compile(r'[A-Za-z0-9' + CJK + r'][A-Za-z0-9_. ' + CJK + r'\-]{0,63}\Z'
 # 名字里以点分段的基名与这些词相同时继续拦下：template 是模板，其余是 Windows 设备名。
 RESERVED = {TEMPLATE, 'deploy', 'backup', 'con', 'prn', 'aux', 'nul',
             *(f'com{i}' for i in range(1, 10)), *(f'lpt{i}' for i in range(1, 10))}
+UNIFIED_EVENT = 'EventGeneral.EventGeneral.UnifiedEvent'
+STAGE_FILE = re.compile(r'[a-z0-9_]+\Z')
 OPSI_EXPLORE_PROGRESS = {
     'OpsiExplore.OpsiExplore.ExploreProgress',
     'OpsiScheduling.OpsiSmartExplore.Progress',
@@ -59,6 +61,23 @@ def validate_name(value):
     if not NAME.fullmatch(name) or name.split('.')[0].lower() in RESERVED:
         raise ApiError('INVALID_PARAMS', '实例名无效：不能含路径分隔符或 Windows 保留字符，不能以点开头，不能是保留名')
     return name
+
+
+def stage_input_name(file):
+    """把地图文件名转换为关卡输入框的写法，与运行时的 to_map_input_name 一致。
+
+    Args:
+        file (str): 不含扩展名的地图文件名，如 'a1'、'campaign_7_2'。
+
+    Returns:
+        str: 关卡名，如 'A1'、'7-2'。
+    """
+    return file.upper().replace('CAMPAIGN_', '').replace('_', '-')
+
+
+def stage_sort_key(name):
+    """按字母段与数字段自然排序，使 A2 排在 A10 前、7-2 排在 12-4 前。"""
+    return [(0, int(part), '') if part.isdigit() else (1, 0, part) for part in re.findall(r'\d+|\D+', name)]
 
 
 def accepts_name(value):
@@ -308,7 +327,33 @@ class ConfigService:
             raise ApiError('INVALID_PARAMS', '不支持的界面语言')
         translations = self.translations if language == 'zh-CN' else self.read_json(
             self.root / 'module/config/i18n' / f'{language}.json')
-        return {'menu': self.menu, 'args': self.args, 'translations': translations}
+        return {'menu': self.menu, 'args': self.args, 'translations': translations, 'stages': self.stages()}
+
+    def stages(self):
+        """列出各活动目录的地图关卡，供关卡输入框给出候选。
+
+        只覆盖参数定义里出现的活动目录与主线，结果在服务生命周期内缓存。
+
+        Returns:
+            dict[str, list[str]]: 活动目录到关卡名列表的映射，如 {'event_20250227_cn': ['A1', ...]}。
+        """
+        if getattr(self, '_stages', None) is not None:
+            return self._stages
+        folders = set()
+        for groups in self.args.values():
+            field = groups.get('Campaign', {}).get('Event', {}) if isinstance(groups, dict) else {}
+            folders.update(option for option in field.get('option', []) if isinstance(option, str))
+        stages = {}
+        for folder in sorted(folders):
+            # 地图文件随程序代码发布，不跟随配置根目录。
+            directory = ROOT / 'campaign' / folder
+            if not STAGE_FILE.fullmatch(folder) or not directory.is_dir():
+                continue
+            names = {stage_input_name(path.stem) for path in directory.glob('*.py')
+                     if path.stem not in ('campaign_base', '__init__') and STAGE_FILE.fullmatch(path.stem)}
+            stages[folder] = sorted(names, key=stage_sort_key)
+        self._stages = stages
+        return stages
 
     def get(self, name):
         """获取指定实例当前的配置数据与版本号。
@@ -488,8 +533,48 @@ class ConfigService:
                 if change.path in OPSI_EXPLORE_PROGRESS:
                     self._reset_opsi_explore_progress(data, change.path)
                 self._sync_record_time(data[task][group], arg)
+            self._sync_unified_event(data, seen)
             atomic_write(str(self.path(name)), json.dumps(data, ensure_ascii=False, indent=2))
             return self.get(name)
+
+    @staticmethod
+    def _unified_event_tasks(data):
+        """返回跟随统一活动的任务：活动任务总是跟随，低耗与作战交接仅在已选活动时跟随。
+
+        Args:
+            data (dict): 实例配置。
+
+        Returns:
+            list[str]: 任务名列表。
+        """
+        from module.config.config_updater import EVENTS, GEMS_FARMINGS, OPERATION_HANDOVERS
+        tasks = list(EVENTS)
+        for task in GEMS_FARMINGS + OPERATION_HANDOVERS:
+            if data.get(task, {}).get('Campaign', {}).get('Event', 'campaign_main') != 'campaign_main':
+                tasks.append(task)
+        return tasks
+
+    def _sync_unified_event(self, data, paths):
+        """统一活动改变时同步各任务的活动；单独修改某个跟随任务的活动则退回分别选择。
+
+        同一次保存同时修改两者时以统一活动为准。
+
+        Args:
+            data (dict): 待写回的实例配置，原地修改。
+            paths (set[str]): 本次保存修改的参数路径。
+        """
+        general = data.setdefault('EventGeneral', {}).setdefault('EventGeneral', {})
+        unified = general.get('UnifiedEvent', 'manual')
+        tasks = self._unified_event_tasks(data)
+        if UNIFIED_EVENT in paths:
+            if unified == 'manual':
+                return
+            for task in tasks:
+                data.setdefault(task, {}).setdefault('Campaign', {})['Event'] = unified
+            return
+        if unified != 'manual' and any(
+                f'{task}.Campaign.Event' in paths and data[task]['Campaign']['Event'] != unified for task in tasks):
+            general['UnifiedEvent'] = 'manual'
 
     @staticmethod
     def _reset_opsi_explore_progress(data, path):

@@ -118,6 +118,11 @@ export function TaskConfig() {
     return {group, visible}
   }).filter(({visible}) => visible.length)
 
+  // 关卡候选跟随本任务当前（含未保存）选择的活动目录。
+  const eventEdit = edits[`${task}.Campaign.Event`]
+  const eventFolder = eventEdit ? eventEdit.value : config?.values[task]?.Campaign?.Event ?? groups?.Campaign?.Event?.value
+  const stageSuggestions = typeof eventFolder === 'string' ? schema?.stages?.[eventFolder] : undefined
+
   const tool = Object.values(schema?.menu ?? {}).some(group => group.page === 'tool' && group.tasks.includes(task))
   // 指挥喵评分保留参数卡（评分来源、截图目录等），报告面板挂在参数卡上方。
   const scorePanel = task === 'MeowfficerScore' ? <MeowfficerScorePanel instance={instance}/> : null
@@ -221,6 +226,7 @@ export function TaskConfig() {
                   invalid={edit?.status === 'error'}
                   label={label}
                   translateOption={option => t(`${group}.${arg}.${option}`)}
+                  suggestions={group === 'Campaign' && arg === 'Name' ? stageSuggestions : undefined}
                   onChange={next => {
                     const {payload, text, error} = prepareValue(next, field)
                     queue.change(path, text ?? next, payload, error)

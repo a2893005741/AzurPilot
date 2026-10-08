@@ -48,6 +48,10 @@ input[aria-invalid='true']:focus, select[aria-invalid='true']:focus, textarea[ar
 .select-control > select {display: none}
 
 .field-control > .select-control, .field-control > .password-control {width: 100%; font-size: 13px}
+/* 可手填的下拉：文本框占满剩余宽度，候选下拉固定宽度，过窄时换行。 */
+.combo-control {display: flex; flex-wrap: wrap; gap: 8px; width: 100%; min-width: 0}
+.combo-control > input {flex: 1 1 80px; min-width: 0}
+.combo-control > .select-control {flex: 0 0 124px; min-width: 0; font-size: 13px}
 .password-control > input {width: 100%; padding-right: 44px !important}
 .password-reveal {position: absolute; right: 0; top: 0; bottom: 0; width: 42px; display: grid; place-items: center; color: var(--theme-muted); border-radius: var(--theme-radius-control)}
 .password-reveal:hover:not(:disabled) {color: var(--theme-accent)}

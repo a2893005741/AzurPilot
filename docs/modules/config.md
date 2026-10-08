@@ -344,7 +344,7 @@ stateDiagram-v2
 
 ### 保存联动
 
-历史上 `ConfigUpdater.save_callback(key, value)` 以生成器模式返回联动写入（Emotion `Value`→`Record`；`OpsiScheduling` 与 `OpsiHazard1Leveling` 的 `OperationCoinsPreserve` 互相同步）。**截至 2026-09，旧 WebUI 移除后该方法已无调用方**：新 API 层在 `ConfigService._sync_record_time` 内等价实现了 Value→Record 刷新；黄币保留不再双向写回，智能调度两种模式均读取 `OpsiScheduling` 自身配置（`module/os/tasks/scheduling.py`）。新增保存联动应优先在 `ConfigService.patch` 的事务内实现。
+历史上 `ConfigUpdater.save_callback(key, value)` 以生成器模式返回联动写入（Emotion `Value`→`Record`；`OpsiScheduling` 与 `OpsiHazard1Leveling` 的 `OperationCoinsPreserve` 互相同步）。**截至 2026-09，旧 WebUI 移除后该方法已无调用方**：新 API 层在 `ConfigService._sync_record_time` 内等价实现了 Value→Record 刷新；黄币保留不再双向写回，智能调度两种模式均读取 `OpsiScheduling` 自身配置（`module/os/tasks/scheduling.py`）。新增保存联动应优先在 `ConfigService.patch` 的事务内实现，现有例子还有 `_sync_unified_event`（统一活动同步各活动任务的 `Campaign.Event`）。
 
 ## 16. 修改注意事项
 

@@ -4215,6 +4215,21 @@
   },
   "EventGeneral": {
     "EventGeneral": {
+      "UnifiedEvent": {
+        "type": "select",
+        "value": "manual",
+        "option": [
+          "manual",
+          "event_20240815_cn",
+          "event_20240912_cn",
+          "event_20241219_cn",
+          "event_20250227_cn",
+          "event_20250520_cn",
+          "event_20250814_cn",
+          "event_20250912_cn",
+          "event_20260908_cn"
+        ]
+      },
       "PtLimit": {
         "type": "input",
         "value": 0

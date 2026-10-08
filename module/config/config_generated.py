@@ -404,6 +404,7 @@ class GeneratedConfig:
     GemsFarming_VanguardLevelMax = 125
 
     # 配置组 `EventGeneral`
+    EventGeneral_UnifiedEvent = 'manual'  # manual
     EventGeneral_PtLimit = 0
     EventGeneral_TimeLimit = datetime.datetime(2023, 1, 1, 0, 0)
 

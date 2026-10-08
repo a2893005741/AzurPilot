@@ -14,8 +14,10 @@ interface Props {
   id: string; value: Value; onChange: (value: Value) => void; type?: string
   options?: Value[]; disabled?: boolean; label: string; mode?: string; translateOption?: (value: Value) => string
   preserveText?: boolean; invalid?: boolean
+  /** 文本框旁的候选值：可从下拉中选择，也保留手动填写。 */
+  suggestions?: string[]
 }
-export function FieldInput({id, value, onChange, type, options, disabled, label, mode, translateOption, preserveText, invalid}: Props) {
+export function FieldInput({id, value, onChange, type, options, disabled, label, mode, translateOption, preserveText, invalid, suggestions}: Props) {
   const {ui} = useApp()
   const accessibility = {'aria-label': label, 'aria-invalid': invalid || undefined, 'aria-describedby': invalid ? `${id}-status` : undefined}
   // 只读时间沿用旧界面的原始文本，保留秒、小数秒和历史格式。
@@ -45,9 +47,20 @@ export function FieldInput({id, value, onChange, type, options, disabled, label,
   const draft = useDraftInput(display, next => {
     onChange(preserveText ? next : type === 'datetime' ? (next.length === 16 ? `${next.replace('T', ' ')}:00` : next.replace('T', ' ')) : isNumber && next !== '' ? Number(next) : next)
   })
-  return <Input {...accessibility} id={id} disabled={disabled}
+  const input = <Input {...accessibility} id={id} disabled={disabled}
     inputMode={isNumber ? 'decimal' : undefined}
     type={type === 'password' ? 'password' : type === 'datetime' && !preserveText ? 'datetime-local' : isNumber && !preserveText ? 'number' : 'text'}
     step={type === 'datetime' ? 1 : 'any'} autoComplete={type === 'password' ? 'new-password' : 'off'}
     value={draft.value} onFocus={draft.onFocus} onChange={draft.onChange} onBlur={draft.onBlur} onKeyDown={draft.onKeyDown}/>
+  if (!suggestions?.length) return input
+  // 下拉只负责填入候选值，选中项与文本框不一致时显示占位，手填的值照常保存。
+  const picked = suggestions.find(option => option.toLowerCase() === display.toLowerCase())
+  return <span className="combo-control">
+    {input}
+    <Select aria-label={`${label} ${ui('field.pickStage')}`} disabled={disabled} value={JSON.stringify(picked ?? null)}
+      onChange={event => {const next = JSON.parse(event.target.value); if (typeof next === 'string') onChange(next)}}>
+      <option value="null" disabled>{ui('field.pickStage')}</option>
+      {suggestions.map(option => <option value={JSON.stringify(option)} key={option}>{option}</option>)}
+    </Select>
+  </span>
 }

@@ -51,7 +51,7 @@
 | `auth.login` | password | 当前连接通过认证 |
 | `background.access` | 无 | 已授权会话获取仅用于背景 HTTP 接口的随机令牌，服务重启后失效 |
 | `system.ping` | 无 | pong |
-| `schema.get` | 可选 language | 任务菜单、参数定义与指定语言翻译；默认 zh-CN |
+| `schema.get` | 可选 language | 任务菜单、参数定义、指定语言翻译与 `stages`（活动目录到地图关卡名的映射）；默认 zh-CN |
 | `instances.list` | 无 | 实例名称、状态、序列号、服务器、currentTask（停止时为 null） |
 | `instances.create` | name、可选 source | 从模板或已有实例复制配置 |
 | `instances.delete` | instance、revision | 停止状态下将配置移至备份 |

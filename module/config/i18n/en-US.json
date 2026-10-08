@@ -2265,6 +2265,19 @@
       "name": "Event general settings",
       "help": ""
     },
+    "UnifiedEvent": {
+      "name": "Unified Event",
+      "help": "When set, Event Map-1/2/3, Daily Map A-D and Daily Map SP all switch to this event; Urgent Commission, 3-Oil Low Cost and Operation Handover Contract also follow while they are farming an event.\nChanging the event of a single task resets this to \"Per task\".\nSwitch the in-game rerun first, then choose the same event here.",
+      "manual": "Per task",
+      "event_20240815_cn": "Windborne Steel Wings",
+      "event_20240912_cn": "Ode of Everblooming Crimson",
+      "event_20241219_cn": "Substellar Crepuscule",
+      "event_20250227_cn": "Paradiso of Shackled Light",
+      "event_20250520_cn": "A Rose on the High Tower",
+      "event_20250814_cn": "Secrets of the Abyss",
+      "event_20250912_cn": "A Dance for Amahara Above",
+      "event_20260908_cn": "Tales of the Paranormal"
+    },
     "PtLimit": {
       "name": "Stop when event PT reaches X",
       "help": "When accumulated PT reaches the given value, all event tasks are disabled. 0 means no limit. Cannot trigger immediately when using auto-search.\nAfter enabling, you only need to open all event tasks without counting total runs.\nGems farming and Three-oil low-cost farming follow their own Stage after event setting: continue on a main campaign stage, or stop if set to 0."

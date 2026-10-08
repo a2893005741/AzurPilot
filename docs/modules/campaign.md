@@ -179,7 +179,9 @@ flowchart TD
 
 ### 首发与复刻的选关布局
 
-活动地图目录可能同时用于首发和复刻。`event_20240912_cn` 在进入选关页后按实际按钮识别布局：左下角作战／剧情选择器走 `20241219` 侧边栏导航，普通／困难开关走旧导航；未知画面通过 `CampaignNameError` 回到选关循环重截图，不盲点模式按钮。布局标记仅覆盖当前战役配置副本，每次导航重新判断；普通和困难关卡在新版地图准备页切换难度，SP 不启用该难度开关。不要按服务器或单一当前活动全局替换导航逻辑。
+活动地图目录可能同时用于首发和复刻。`event_20240912_cn` 与 `event_20240815_cn` 在进入选关页后按实际按钮识别布局：左下角作战／剧情选择器走 `20241219` 侧边栏导航，普通／困难开关走旧导航；未知画面通过 `CampaignNameError` 回到选关循环重截图，不盲点模式按钮。布局标记仅覆盖当前战役配置副本，每次导航重新判断；普通和困难关卡在新版地图准备页切换难度，SP 不启用该难度开关。不要按服务器或单一当前活动全局替换导航逻辑。
+
+2026-10-08 国服自选复刻会场开放七个往期活动（`event_20240815_cn`、`event_20240912_cn`、`event_20241219_cn`、`event_20250227_cn`、`event_20250520_cn`、`event_20250814_cn`、`event_20250912_cn`），会场内选哪个由玩家在游戏中决定，ALAS 不识别也不切换会场；各任务的 `Campaign.Event` 须与游戏当前开放的复刻一致，可用 `EventGeneral.UnifiedEvent` 一次切换全部活动任务。七个活动在会场中都使用侧边栏布局；`event_20240815_cn` 首发的黑色剧情入口在该布局下不再扫描，剧情关卡位于剧情模式。
 
 ### 大世界入口聚合（os_run.py）
 
@@ -282,6 +284,7 @@ stateDiagram-v2
 | `StopCondition.OilLimit` / `OilLimitHardFloor` | int | 1000 / 500 | 实际阈值取两者较大值（#444 的低耗安全网） |
 | `StopCondition.MapAchievement` | option | `non_stop` | 连打 / 全清 / 100% / 三星 / 威胁安全 |
 | `StopCondition.ReachLevel` / `GetNewShip` / `CoinLimit` | 混合 | 0/false | 等级、新舰船、金币上限停止条件 |
+| `EventGeneral.UnifiedEvent` | option | `manual` | 统一活动：选中后 WebUI 保存时把所有活动图任务及正在刷活动的低耗、作战委托任务的 `Campaign.Event` 改成同一目录；单独改某任务的活动会退回 `manual`。候选与活动任务一致，失效时加载配置会重置为 `manual` |
 | `EventGeneral.PtLimit` / `TimeLimit` | 混合 | 0 / 默认时间 | 活动 PT 与活动结束时间，超限联动 `_disable_tasks` |
 | `TaskBalancer.Enable` / `CoinLimit` / `TaskCall` | 混合 | false / 10000 / Main | 金币不足时切换到指定任务 |
 | `GemsFarming.*` | 混合 | — | 换旗舰/先锋、普通船筛选、装备码、情绪策略、先锋等级区间 |

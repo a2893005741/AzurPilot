@@ -397,9 +397,12 @@ class ConfigGenerator:
                 name = event.__getattribute__(server)
                 if name:
                     deep_default(events, keys=event.directory, value=name)
+        unified = deep_get(self.args, keys='EventGeneral.EventGeneral.UnifiedEvent.option', default=[])
         for event in sorted(self.event):
             name = events.get(event.directory, event.directory)
             deep_set(new, keys=f'Campaign.Event.{event.directory}', value=name)
+            if event.directory in unified:
+                deep_set(new, keys=f'EventGeneral.UnifiedEvent.{event.directory}', value=name)
         # 包名翻译
         for package, server in VALID_PACKAGE.items():
             path = ['Emulator', 'PackageName', package]
@@ -562,6 +565,10 @@ class ConfigGenerator:
                 deep_set(self.args, keys=f'{task}.Campaign.Event.option_bold', value=options)
             deep_set(self.args, keys=f'{task}.Campaign.Event.option', value=options)
             deep_set(self.args, keys=f'{task}.Campaign.Event.option_bold', value=options)
+
+        # 统一活动开关的候选与活动任务一致，manual 表示各任务分别选择。
+        options = deep_get(self.args, keys=f'{EVENTS[0]}.Campaign.Event.option', default=[])
+        deep_set(self.args, keys='EventGeneral.EventGeneral.UnifiedEvent.option', value=['manual'] + options)
 
     @staticmethod
     def generate_deploy_template():
@@ -790,6 +797,10 @@ class ConfigUpdater:
                     deep_set(new,
                              keys=f'{task}.Campaign.Event',
                              value=opts[0])
+        # 统一活动不再在候选中时回到各任务分别选择，任务自身的活动由上方逻辑更新。
+        unified = deep_get(self.args, keys='EventGeneral.EventGeneral.UnifiedEvent.option', default=[])
+        if deep_get(new, keys='EventGeneral.EventGeneral.UnifiedEvent', default='manual') not in unified:
+            deep_set(new, keys='EventGeneral.EventGeneral.UnifiedEvent', value='manual')
         # 作战档案不允许选择 campaign_main
         for task in WAR_ARCHIVES:
             opts = deep_get(self.args, keys=f'{task}.Campaign.Event.option_{server}', default=[])

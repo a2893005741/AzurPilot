@@ -2265,6 +2265,19 @@
       "name": "活动通用选项板",
       "help": "控制活动开销喵 (´・ω・`)"
     },
+    "UnifiedEvent": {
+      "name": "统一活动喵",
+      "help": "选择后，活动图-1/2/3、每日A~D图、每日SP图一起切换到该活动喵；紧急委托、三油低耗和作战委托如果正在刷活动也会跟随喵。\n单独修改某个任务的活动后，这里会恢复为“各任务分别选择”喵。\n游戏内的自选复刻要先在游戏里切换，再在这里选同一个活动喵。",
+      "manual": "各任务分别选择喵",
+      "event_20240815_cn": "Windborne Steel Wings",
+      "event_20240912_cn": "Ode of Everblooming Crimson",
+      "event_20241219_cn": "Substellar Crepuscule",
+      "event_20250227_cn": "Paradiso of Shackled Light",
+      "event_20250520_cn": "A Rose on the High Tower",
+      "event_20250814_cn": "Secrets of the Abyss",
+      "event_20250912_cn": "A Dance for Amahara Above",
+      "event_20260908_cn": "Tales of the Paranormal"
+    },
     "PtLimit": {
       "name": "活动 PT 限制",
       "help": "累计PT达设定值禁所有活动任务，0不限制。自律寻敌不即时触发喵。开启后无需计算总次数。\n紧急委托和三油低耗按各自的“活动结束后关卡”设置切换主线，填 0 则停止喵。"

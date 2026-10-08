@@ -97,6 +97,7 @@ Node.js >= 22.12（推荐 24），首次准备用 `npm ci --prefix frontend`。
 - **`base: './'` 不能改回绝对路径**：这是远程访问反代的硬性要求，且配套要求 deploy.yaml 的 `RemoteAccessMode` 为 ssh。
 - **不要在 React 中重复登记游戏配置**：配置表单直接读取后端生成的 args.json、menu.json 与翻译文件；新增任务或参数只需改 `module/config/` 并重新生成。
 - 新增选择器使用 `FormControls.tsx` 的 `Select`，配置字段使用 `FieldInput`，不要在各页面单独绘制箭头、勾选等图标。
+- 需要候选又允许手填的文本字段给 `FieldInput` 传 `suggestions`，渲染为文本框加「选择关卡」下拉。`Campaign.Name` 的候选来自 `schema.get` 返回的 `stages`（活动目录 → 地图关卡名，由服务端扫描 `campaign/<目录>` 得到），随本任务当前的 `Campaign.Event` 变化。
 - 控制台固定文案在 `src/i18n.ts`（五种语言）；游戏任务配置的名称与说明翻译在 `module/config/i18n/`，二者独立，别改错位置。
 - 主题与背景偏好只存浏览器（localStorage / IndexedDB），不写入服务端部署配置；上传背景保存在 IndexedDB（最大 200 MB）。
 

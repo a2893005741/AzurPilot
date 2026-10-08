@@ -248,3 +248,7 @@ config/*.db.bak*
 
 # 排查时遗留在仓库根目录的调试截图与重定向误产物
 /codex_*.png
+
+# 统计解密测试夹具里的旧密文日志（否则会被上面的 log 与 *.bak 规则忽略）
+!tests/fixtures/opsi_encrypted_env/log/
+!tests/fixtures/opsi_encrypted_env/log/**

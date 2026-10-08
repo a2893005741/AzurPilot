@@ -15,14 +15,14 @@ async function reread(page: Page, task: string) {
 
 test('统一活动切换全部活动任务，关卡可下拉选择或手动填写', async ({page}) => {
   await page.goto('/#/i/testpilot/task/EventGeneral')
-  await pick(page, '[id="EventGeneral.EventGeneral.UnifiedEvent"]', '樊笼内的神光')
-  await expect(page.locator('[id="EventGeneral.EventGeneral.UnifiedEvent"]')).toContainText('樊笼内的神光')
+  await pick(page, '[id="EventGeneral.EventGeneral.UnifiedEvent"]', '复刻樊笼内的神光')
+  await expect(page.locator('[id="EventGeneral.EventGeneral.UnifiedEvent"]')).toContainText('复刻樊笼内的神光')
 
   for (const task of ['EventB', 'Event']) {
     await expect.poll(async () => {
       await reread(page, task)
       return page.locator(`[id="${task}.Campaign.Event"]`).textContent()
-    }).toContain('樊笼内的神光')
+    }).toContain('复刻樊笼内的神光')
   }
 
   const name = page.locator('[id="Event.Campaign.Name"]')
@@ -46,7 +46,7 @@ test('统一活动切换全部活动任务，关卡可下拉选择或手动填�
   await expect(page.getByRole('combobox', {name: /选择关卡/})).toContainText('选择关卡')
 
   // 单独改一个任务的活动后，统一开关回到各任务分别选择。
-  await pick(page, '[id="Event.Campaign.Event"]', '高塔上的蔷薇')
+  await pick(page, '[id="Event.Campaign.Event"]', '复刻高塔上的蔷薇')
   await expect.poll(async () => {
     await reread(page, 'EventGeneral')
     return page.locator('[id="EventGeneral.EventGeneral.UnifiedEvent"]').textContent()

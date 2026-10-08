@@ -23,7 +23,9 @@ class FarmingEventStopTests(unittest.TestCase):
         config.data['GemsFarming']['Scheduler']['Enable'] = True
         config.data['ThreeOilLowCost']['GemsFarming']['EventFallbackStage'] = fallback
         config.data['GemsFarming']['GemsFarming']['EventFallbackStage'] = gems_fallback
+        # 绑定时 Campaign_Event 取活动列表首项，须与上面写入的活动一致，不能依赖列表顺序。
         config.override(
+            Campaign_Event='event_20241219_cn',
             Campaign_Name=stage if command == 'ThreeOilLowCost' else gems_stage,
             EventGeneral_PtLimit=limit,
         )

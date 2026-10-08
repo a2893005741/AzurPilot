@@ -1,6 +1,7 @@
 from module.base.timer import Timer
 from module.base.utils import area_in_area, area_pad
 from module.campaign.campaign_base import CampaignBase as CampaignBase_
+from module.campaign.campaign_ui import MODE_SWITCH_1, MODE_SWITCH_2, MODE_SWITCH_20241219
 from module.combat.assets import GET_ITEMS_1
 from module.exception import CampaignNameError
 from module.logger import logger
@@ -15,6 +16,10 @@ class CampaignBase(CampaignBase_):
         Returns:
             Button: Or None if nothing matched.
         """
+        # 复刻使用左下角作战／剧情选择器，剧情关卡移入剧情模式；
+        # 该布局下不再扫描黑色剧情入口，避免把左下角深色控件当作入口点击。
+        if MODE_SWITCH_20241219.appear(main=self):
+            return None
         # 5 story stage after clearing A2
         # You can't go anywhere unless you clicked it
         button = self.image_color_button(
@@ -83,6 +88,43 @@ class CampaignBase(CampaignBase_):
             self.ensure_no_stage_entrance()
             return True
         return super().handle_campaign_ui_additional()
+
+    def campaign_set_chapter_20241219(self, chapter, stage, mode='combat'):
+        """按当前选关页选择首发或复刻的导航布局。
+
+        首发使用普通／困难开关；2026-10-08 自选复刻改用侧边栏和左下角作战／剧情选择器，
+        与 event_20240912_cn 的处理一致，不能由服务器决定布局。
+
+        Args:
+            chapter (str): 章节标识，如 'a'、'c'、'ex_sp'。
+            stage (str): 关卡编号。
+            mode (str): 战役模式。
+
+        Returns:
+            bool: 新布局导航已处理时返回 True；旧布局交给后续活动分支。
+
+        Raises:
+            CampaignNameError: 布局尚未识别，交给选关循环获取新截图重试。
+
+        Pages:
+            in: 任意页面
+            out: page_event
+        """
+        self.ui_goto_event()
+        if MODE_SWITCH_20241219.appear(main=self):
+            has_aside = True
+        elif MODE_SWITCH_1.appear(main=self) or MODE_SWITCH_2.appear(main=self):
+            has_aside = False
+        else:
+            # 页面动画中不猜测布局，避免把新版作战模式当作旧困难开关反复点击。
+            raise CampaignNameError
+
+        logger.attr('活动选关布局', '侧边栏' if has_aside else '旧版模式开关')
+        self.config.override(
+            MAP_CHAPTER_SWITCH_20241219=has_aside,
+            MAP_HAS_MODE_SWITCH=has_aside and chapter in ['a', 'b', 'c', 'd'],
+        )
+        return super().campaign_set_chapter_20241219(chapter, stage, mode)
 
     def handle_exp_info(self):
         # Random background hits EXP_INFO_B

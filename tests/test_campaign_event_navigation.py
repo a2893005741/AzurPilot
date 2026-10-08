@@ -1,5 +1,6 @@
 """用活动截图控件和内存设备验证首发／复刻导航及同名关卡隔离。"""
 
+import importlib
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -200,6 +201,76 @@ class CampaignEventNavigationTests(unittest.TestCase):
         self.assertTrue(campaign.campaign_set_chapter_20241219('a', '1', mode='story'))
         self.assertEqual(trace, ['event', 'story'])
         campaign.device.click.assert_not_called()
+
+
+# 2026-10-08 国服自选复刻会场的七个活动，统一使用侧边栏和左下角作战／剧情选择器。
+RERUN_20261008 = (
+    ('event_20240815_cn', 'a1'),
+    ('event_20240912_cn', 'a1'),
+    ('event_20241219_cn', 'a1'),
+    ('event_20250227_cn', 'a1'),
+    ('event_20250520_cn', 'a1'),
+    ('event_20250814_cn', 't1'),
+    ('event_20250912_cn', 'a1'),
+)
+
+
+def make_rerun_campaign(folder, stage, image='light.png'):
+    """按目录加载复刻地图，并用截图控件回放选关导航。"""
+    module = importlib.import_module(f'campaign.{folder}.{stage}')
+    campaign = make_campaign(module.Campaign, module.Config(), image=image)
+    chapter = stage.rstrip('0123456789')
+
+    def read_chapter():
+        assert MODE_SWITCH_20241219.get(main=campaign) == 'combat', '读关卡前须选中作战模式'
+        assert ASIDE_SWITCH_20241219.get(main=campaign) == 'part1', f'读 {stage} 前须选中上篇'
+        campaign.campaign_chapter = chapter
+        campaign.stage_entrance = {stage: SimpleNamespace(name=stage)}
+        return 1
+
+    campaign.get_chapter_index = Mock(side_effect=read_chapter)
+    return campaign
+
+
+class Rerun20261008NavigationTests(unittest.TestCase):
+    def test_every_rerun_uses_sidebar_navigation(self):
+        for folder, stage in RERUN_20261008:
+            with self.subTest(folder=folder):
+                campaign = make_rerun_campaign(folder, stage)
+                with patch.object(MODE_SWITCH_1, 'set') as old_mode:
+                    self.assertTrue(campaign.ensure_campaign_ui(stage))
+                old_mode.assert_not_called()
+                campaign.device.click.assert_not_called()
+                self.assertEqual(campaign.ENTRANCE.name, stage)
+                self.assertTrue(campaign.config.MAP_CHAPTER_SWITCH_20241219)
+
+    def test_steel_wings_rerun_skips_story_entrance_scan(self):
+        campaign = make_rerun_campaign('event_20240815_cn', 'a1')
+        self.assertIsNone(campaign.get_story_entrance())
+        self.assertFalse(campaign.handle_campaign_ui_additional())
+
+    def test_steel_wings_original_layout_keeps_classic_navigation(self):
+        campaign = make_rerun_campaign('event_20240815_cn', 'a1', image=legacy_image())
+        campaign.get_chapter_index = Mock(side_effect=lambda: setattr(
+            campaign, 'stage_entrance', {'a1': SimpleNamespace(name='a1')}) or 1)
+        campaign.campaign_chapter = 'a'
+        # 合成图大面积为黑色，首发剧情入口扫描与本用例无关。
+        campaign.get_story_entrance = Mock(return_value=None)
+        with patch.object(MODE_SWITCH_1, 'set', wraps=MODE_SWITCH_1.set) as old_mode:
+            self.assertTrue(campaign.ensure_campaign_ui('a1'))
+        old_mode.assert_called_once_with('hard', main=campaign)
+        self.assertFalse(campaign.config.MAP_CHAPTER_SWITCH_20241219)
+        self.assertFalse(campaign.config.MAP_HAS_MODE_SWITCH)
+
+    def test_switching_between_reruns_reloads_each_map(self):
+        config = make_config()
+        runner = CampaignRun(config=config, device=Mock())
+        for folder, stage in RERUN_20261008 + RERUN_20261008[:1]:
+            with self.subTest(folder=folder):
+                self.assertTrue(runner.load_campaign(stage, folder=folder))
+                self.assertEqual(runner.module.__name__, f'campaign.{folder}.{stage}')
+                self.assertEqual(runner.folder, folder)
+        self.assertEqual(config.modified, {})
 
 
 class CampaignLoadIdentityTests(unittest.TestCase):

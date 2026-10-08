@@ -18,6 +18,7 @@ Alas:
       - Enhance
       - OldRetire
       - PublicEmotion
+      - OilControl
       - YukikazeTaskManager
     Restart:
       - Scheduler
@@ -246,6 +247,7 @@ Reward:
       - Research
     StorageStatistics:
       - Scheduler
+      - StorageStatistics
     Dorm:
       - Scheduler
       - Dorm
@@ -467,6 +469,20 @@ FleetManagement:
   tasks:
     FleetInfo:
       - FleetInfo
+
+# ==================== Run Params ====================
+
+RunParams:
+  menu: collapse
+  page: setting
+  tasks:
+    RunParams:
+      - Watchdog
+      - Reboot
+      - Device
+      - ScreenRecord
+      - UiWait
+      - Handover
 
 # ==================== Tool ====================
 

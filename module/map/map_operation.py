@@ -19,6 +19,7 @@ from datetime import timedelta
 import cv2
 
 from module.base.button import Button
+from module.base.runtime_params import HANDOVER_CONFLICT_RETRY_MINUTES
 from module.base.timer import Timer
 from module.campaign.assets import (
     DELEGATION_DETAIL_CLAIM,
@@ -34,6 +35,7 @@ from module.campaign.assets import (
 from module.combat.assets import BATTLE_PREPARATION, GET_SHIP
 from module.config import server
 from module.config.time_source import now as current_time
+from module.config.utils import read_run_param
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
@@ -56,8 +58,8 @@ MAP_PREPARATION_FALLBACK = Button(
     button=(960, 487, 1172, 558),
     name='MAP_PREPARATION_FALLBACK',
 )
-# 读不到作战委托结束时间时的兜底重试间隔（分钟）
-HANDOVER_CONFLICT_RETRY_MINUTES = 15
+# 读不到作战委托结束时间时的兜底重试间隔走 WebUI「运行参数」页
+# （RunParams.Handover），默认值集中在 module/base/runtime_params.py。
 
 
 class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
@@ -184,8 +186,13 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
             except Exception:
                 pass
         now = current_time()
-        target = now + (remaining + timedelta(minutes=1) if remaining is not None
-                        else timedelta(minutes=HANDOVER_CONFLICT_RETRY_MINUTES))
+        if remaining is not None:
+            target = now + remaining + timedelta(minutes=1)
+        else:
+            conflict_retry = int(read_run_param(
+                self.config, 'Handover_ConflictRetryMinutes',
+                HANDOVER_CONFLICT_RETRY_MINUTES, 5, 120))
+            target = now + timedelta(minutes=conflict_retry)
         self.config.task_delay(target=target)
         return target
 
@@ -286,6 +293,10 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                     map_click += 1
                     map_timer.reset()
                     campaign_timer.reset()
+                    # always clear self.map_fleet_checked after MAP_PREPARATION
+                    # we will enter FLEET_PREPARATION very soon,
+                    # fleets get reset when leaving FLEET_PREPARATION, it only get stored after entering stage,
+                    self.map_fleet_checked = False
                     continue
 
                 # 舰队准备
@@ -296,6 +307,11 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                         self.handle_auto_submarine_call_disable()
                         self.handle_auto_search_setting()
                         self.map_fleet_checked = True
+                        # re-check FLEET_PREPARATION after tons of preparation clicks
+                        # and also update FLEET_PREPARATION.button because fleet_bar re-detected it as avoid_area
+                        if not self.appear(FLEET_PREPARATION, offset=(20, 50)):
+                            logger.warning('FLEET_PREPARATION button disappeared after fleet_preparation()')
+                            continue
                     self.device.click(FLEET_PREPARATION)
                     fleet_click += 1
                     fleet_timer.reset()

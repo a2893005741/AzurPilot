@@ -618,7 +618,12 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         if self.is_combat_executing():
             return False
         wait_for_transition = not getattr(self, '_withdraw_result_processing', False)
-        for exp_info in (EXP_INFO_S, EXP_INFO_A, EXP_INFO_B, EXP_INFO_C, EXP_INFO_D):
+        # S 评价保留确认按钮兜底，2 秒点击间隔给自律结算动画留出自动跳转时间，不再额外休眠。
+        if self.appear(EXP_INFO_S, interval=2):
+            self.device.sleep(0.1)
+            self.device.click(COMBAT_RESULT_CONFIRM)
+            return True
+        for exp_info in (EXP_INFO_A, EXP_INFO_B, EXP_INFO_C, EXP_INFO_D):
             if self.appear(exp_info):
                 # EXP_INFO_* 只检测评价文字；确认按钮在结算页右下角。
                 self.device.sleep(0.1)

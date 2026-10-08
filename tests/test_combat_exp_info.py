@@ -10,7 +10,7 @@ class TestCombatExpInfo(unittest.TestCase):
         combat = object.__new__(Combat)
         combat.device = Mock()
         combat.is_combat_executing = Mock(return_value=False)
-        combat.appear = Mock(side_effect=lambda button: button is EXP_INFO_S)
+        combat.appear = Mock(side_effect=lambda button, **kwargs: button is EXP_INFO_S)
 
         self.assertTrue(combat.handle_exp_info())
 

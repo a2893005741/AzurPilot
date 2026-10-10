@@ -4,6 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from module.persistence.database import register_instance
 from module.statistics.cl1_database import Cl1Database
 from module.statistics import opsi_month, resource_stats
 
@@ -45,6 +46,8 @@ class TestCoinTimelineRecovery(unittest.TestCase):
 
     def _insert_snapshot(self, timestamp, yellow_coin, purple_coin):
         with resource_stats._connect() as connection:
+            # 总库的资源快照以外键引用实例表，与 record_resource_snapshot 一样先登记实例。
+            register_instance(connection, "alas")
             connection.execute(
                 """
                 INSERT INTO resource_snapshots (

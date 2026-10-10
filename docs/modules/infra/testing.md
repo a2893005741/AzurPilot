@@ -39,10 +39,11 @@ tests/
 └── __init__.py
 frontend/
 ├── src/**/*.test.ts        # vitest 单元测试
-├── e2e/*.spec.ts           # Playwright（主配置跑除 mock.spec 外全部）
+├── e2e/*.spec.ts           # Playwright（主配置跑除 mock、mind-calculator 与 stock-exchange 外全部）
 ├── mock/                   # 内存模拟服务及其测试
 ├── playwright.config.ts    # 主配置：连 tests/serve_frontend.py
-└── playwright.mock.config.ts   # mock 配置：连 mock server + Vite mock 模式
+├── playwright.mock.config.ts   # mock 配置：连 mock server + Vite mock 模式
+└── playwright.mind.config.ts   # 心智计算器：复用 mock 配置，只跑 mind-calculator.spec
 ```
 
 ## 4. 核心入口

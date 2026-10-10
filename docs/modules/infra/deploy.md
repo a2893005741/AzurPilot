@@ -106,6 +106,8 @@ Alas.bat → python -m deploy.installer
 
 部署参数在 `config/deploy.yaml`（模型见 `deploy/config.py`）：git 仓库/分支/代理/SSL、Python 与 uv、镜像源、adb 替换与自动连接、OCR 服务器、更新检查间隔与自动重启时刻。安装器读它，WebUI 的部署设置页写它——两边经同一份文件交互。
 
+`Repository` 的别名在 `config_redirect()` 中展开：`global` 为 fork 的 GitHub 仓库；`cn` 与 `git://git.pull/AzurPilot` 启用 GitOverCdn（仅 `master` 分支），常规 git 回退到 fork 的 GitHub 仓库（`GIT_OVER_CDN_FALLBACK_REPOSITORIES`）。上游的 CNB、GitCode 镜像托管的是上游代码，只在用户显式填写 `cnb` / `gitcode` 时使用，两者 fetch 失败时互为同级备用（`peer_fallback_repository()`）。
+
 ## 11. 异常与错误处理
 
 | 情况 | 处理 |

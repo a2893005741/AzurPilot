@@ -200,31 +200,6 @@ class CampaignRun(CampaignEvent, ShopStatus):
 
         return False
 
-    def _triggered_app_restart(self):
-        """检查是否触发重启条件。
-
-        Returns:
-            bool: 是否触发重启条件。
-        """
-        if not self.campaign.emotion.is_ignore:
-            if self.campaign.emotion.triggered_bug():
-                logger.info('[战役-运行] 触发重启避免情绪bug')
-                return True
-
-        return False
-
-    def handle_app_restart(self):
-        """检查并处理因情绪异常导致的客户端重启。
-
-        Returns:
-            bool: 若触发了重启调用返回 True，否则返回 False。
-        """
-        if self._triggered_app_restart():
-            self.config.task_call('Restart')
-            return True
-
-        return False
-
     def handle_stage_name(self, name, folder, mode='normal'):
         """依次规范化名称、选择目录和循环关卡，再应用对应的运行约束。
 
@@ -466,10 +441,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
 
         # 游戏已显示低心情强制出击弹窗，说明本地记录的心情值已经失真。
         # 不能继续用过高的旧值（例如 75）计算，否则会把当前任务排回现在。
-        for fleet in fleets:
-            fleet.current = 0
-            fleet._fractional_seconds = 0
-        emotion.record()
+        emotion.reset_fleets(fleets)
         emotion.show()
         recovered = emotion.get_recovered_for_battle(self.campaign._map_battle)
 

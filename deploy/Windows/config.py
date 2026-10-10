@@ -1,4 +1,5 @@
 import os
+import random
 import subprocess
 import sys
 from typing import Optional, Union
@@ -10,8 +11,20 @@ from deploy.Windows.utils import DEPLOY_CONFIG, DEPLOY_TEMPLATE, cached_property
 
 
 GIT_OVER_CDN_REPOSITORY = 'git://git.pull/AzurPilot'
-GIT_OVER_CDN_FALLBACK_REPOSITORY = 'https://github.com/a2893005741/AzurPilot'
 GITHUB_REPOSITORY = 'https://github.com/a2893005741/AzurPilot'
+# 上游的 CNB 与 GitCode 镜像托管的是上游代码，fork 只在用户显式指定 'cnb'/'gitcode' 时使用，
+# 国内 Git over CDN 的回退源仍为 fork 自己的 GitHub 仓库。
+CNB_REPOSITORY = 'https://cnb.cool/AzurPilot/AzurPilot'
+GITCODE_REPOSITORY = 'https://gitcode.com/ddl2/AzurLaneAutoScript'
+GIT_OVER_CDN_FALLBACK_REPOSITORIES = [
+    GITHUB_REPOSITORY,
+]
+GIT_OVER_CDN_FALLBACK_REPOSITORY = GITHUB_REPOSITORY
+
+
+def choose_fallback_repository() -> str:
+    """选择 Git over CDN 不可用时的回退仓库；fork 仅回退到自己的 GitHub 仓库。"""
+    return random.choice(GIT_OVER_CDN_FALLBACK_REPOSITORIES)
 
 
 class ExecutionError(Exception):
@@ -127,7 +140,11 @@ class DeployConfig(DeployConfigTransaction, ConfigModel):
         if self.Repository in ['global']:
             super().__setattr__('Repository', GITHUB_REPOSITORY)
         if self.Repository in ['cn', GIT_OVER_CDN_REPOSITORY]:
-            super().__setattr__('Repository', GIT_OVER_CDN_FALLBACK_REPOSITORY)
+            super().__setattr__('Repository', choose_fallback_repository())
+        if self.Repository in ['cnb']:
+            super().__setattr__('Repository', CNB_REPOSITORY)
+        if self.Repository in ['gitcode']:
+            super().__setattr__('Repository', GITCODE_REPOSITORY)
 
     def _redirect_github_repository(self):
         """为官方 GitHub 源一次性选择适合当前网络的更新镜像。"""

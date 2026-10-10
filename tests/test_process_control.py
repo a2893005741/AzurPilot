@@ -117,7 +117,8 @@ class TestProcessControl(unittest.TestCase):
         second.kill.side_effect = disappear
         # Windows 上根进程走真实 taskkill，会对夹具 PID 发信号；此处只验证子进程消失后
         # 仍继续终止其余成员，根进程统一走 psutil 替身。
-        with patch("psutil.Process", side_effect=lookup),                 patch.object(control, "_kill_root", side_effect=control._kill_record):
+        with patch("psutil.Process", side_effect=lookup), \
+                patch.object(control, "_kill_root", side_effect=control._kill_record):
             self.assertTrue(control.stop_process_tree(record=self.record, kill_timeout=0))
         first.kill.assert_called_once_with()
         second.kill.assert_called_once_with()

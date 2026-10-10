@@ -1,16 +1,12 @@
-"""配置加载阶段的心情恢复计算。"""
+"""调度阶段的心情余量估算。
 
-from datetime import datetime, timedelta
+心情的值、记录时间和恢复相位由运行器作为三件套原子写回。这里只在副本上推进，
+不在读取配置时回写：回写会让加载基线与保存前重读的值不一致，触发配置事务的
+心情防覆盖保护，丢弃运行器写入的扣减。
+"""
 
-from module.base.emotion import (
-    DIC_LIMIT,
-    DIC_RECOVER,
-    DIC_RECOVER_MAX,
-    SECONDS_PER_TICK,
-    calculate_emotion_recovery,
-    emotion_recovery_speed,
-    fleet_battle_counts,
-)
+from module.base.emotion import DIC_LIMIT, fleet_battle_counts
+from module.combat.emotion_state import EmotionRecoveryState
 from module.config.deep import deep_get
 
 
@@ -30,70 +26,37 @@ def campaign_emotion_score(data, task, now):
         groups = [(emotion, f'Fleet{i}') for i, count in enumerate(counts, 1) if count]
     margins = []
     for group, prefix in groups:
-        group = group.copy()
-        _recover_fleet(group, prefix, now)
-        value = group.get(f'{prefix}Value')
-        if not isinstance(value, (int, float)):
+        value = estimate_emotion_lower(group, prefix, now)
+        if value is None:
             return None
         margins.append(value - DIC_LIMIT[group.get(f'{prefix}Control', 'prevent_green_face')])
     return min(margins) if margins else None
 
 
-def _recover_fleet(group, prefix, now):
-    value_key = f'{prefix}Value'
-    record_key = f'{prefix}Record'
-    recover_key = f'{prefix}Recover'
-    if value_key not in group or record_key not in group or recover_key not in group:
-        return
+def estimate_emotion_lower(group, prefix, now):
+    """返回舰队在 ``now`` 时刻的心情下限，与出击控制使用同一口径。
 
-    value = group[value_key]
-    record = group[record_key]
-    recover = group[recover_key]
-    if not isinstance(value, (int, float)) or not isinstance(record, datetime):
-        return
-    if recover not in DIC_RECOVER:
-        return
+    恢复存档有效时按相位推进取下限；存档缺失或不一致时，运行器会以当前值重建起点，
+    这里同样不计入记录之后的恢复，避免排序高估尚未校准的舰队。
 
-    elapsed = now.timestamp() - record.timestamp()
-    if elapsed <= 0:
-        return
+    Args:
+        group (dict): Emotion 或 PublicEmotion 分组。
+        prefix (str): 'Fleet1'、'Fleet2' 或 'Fleet'。
+        now (datetime): 估算时刻。
 
-    oath = bool(group.get(f'{prefix}Oath', False))
-    onsen = bool(group.get(f'{prefix}Onsen', False))
-    speed = emotion_recovery_speed(recover, oath=oath, onsen=onsen)
-    maximum = DIC_RECOVER_MAX[recover]
-    new_value, fractional = calculate_emotion_recovery(
-        value,
-        recover,
-        elapsed,
-        oath=oath,
-        onsen=onsen,
-    )
-
-    group[value_key] = new_value
-    if new_value >= maximum:
-        group[record_key] = now.replace(microsecond=0)
-        return
-
-    record_time = now.replace(microsecond=0)
-    if fractional > 0:
-        record_time -= timedelta(seconds=fractional * SECONDS_PER_TICK / speed)
-    group[record_key] = record_time
-
-
-def recover_emotion_config(data, now):
-    """把任务配置中的持久化心情更新到 ``now`` 对应的当前值。"""
-    for task in data.values():
-        if not isinstance(task, dict):
-            continue
-
-        emotion = task.get('Emotion')
-        if isinstance(emotion, dict):
-            _recover_fleet(emotion, 'Fleet1', now)
-            _recover_fleet(emotion, 'Fleet2', now)
-
-        public_emotion = task.get('PublicEmotion')
-        if isinstance(public_emotion, dict):
-            _recover_fleet(public_emotion, 'Fleet', now)
-
-    return data
+    Returns:
+        int | None: 心情下限；值不是数字时返回 None。
+    """
+    value = group.get(f'{prefix}Value')
+    if not isinstance(value, (int, float)):
+        return None
+    try:
+        state = EmotionRecoveryState.restore(
+            group.get(f'{prefix}RecoveryState'), value, group.get(f'{prefix}Record'),
+            group.get(f'{prefix}Recover'), group.get(f'{prefix}Oath', False),
+            group.get(f'{prefix}Onsen', False))
+        if now >= state.record:
+            state.advance(now)
+    except (ValueError, TypeError, AttributeError):
+        return value
+    return state.lower

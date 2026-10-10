@@ -3,6 +3,7 @@
  */
 
 import type {Catalog, ProgramSaved, ProgramSimulation, ProgramValidation, RuntimeProgramState} from '../scheduler/types'
+import type {MindCalculation, MindCatalog, MindReport, MindShip} from '../mind/types'
 
 export type Scalar = string | number | boolean | null
 export type Value = Scalar | Value[] | {[key: string]: Value}
@@ -132,6 +133,13 @@ export interface BackgroundGalleryEntry {
 }
 
 export interface Results {
+  'mind.catalog': MindCatalog
+  'mind.report': MindReport
+  'mind.calculate': MindCalculation
+  'mind.save': MindReport
+  'mind.import': {ships: MindShip[]}
+  'mind.recognize': {ships: MindShip[]}
+  'mind.export': {filename: string; content: string}
   'statistics.resourceFlows': ResourceFlowReport
   'stock.status': StockExchangeStatus
   'stock.rebuild': StockExchangeRebuild

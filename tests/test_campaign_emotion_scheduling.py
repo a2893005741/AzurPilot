@@ -10,8 +10,9 @@ from unittest.mock import Mock, patch
 from module.campaign.run import CampaignRun
 from module.campaign.campaign_base import CampaignBase
 from module.combat.emotion import Emotion, EmotionRecoveryRequired
+from module.combat.emotion_state import EmotionRecoveryState
 from module.config.config import AzurLaneConfig, name_to_function
-from module.config.emotion_recovery import campaign_emotion_score, recover_emotion_config
+from module.config.emotion_recovery import campaign_emotion_score
 from module.exception import CampaignEnd, ScriptEnd
 from module.event.campaign_sp import CampaignSP
 
@@ -37,7 +38,7 @@ class MemoryConfig(AzurLaneConfig):
         self.bind(self.task)
 
     def read_file(self, name):
-        return recover_emotion_config(copy.deepcopy(self.store), self.clock())
+        return copy.deepcopy(self.store)
 
     def write_file(self, name, data):
         self.store.clear()
@@ -49,7 +50,7 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
         self.now = datetime(2026, 9, 9, 12)
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
-        for module in ('module.combat.emotion', 'module.config.config', 'module.config.config_updater'):
+        for module in ('module.combat.emotion', 'module.config.config'):
             self.stack.enter_context(patch(f'{module}.current_time', side_effect=lambda: self.now))
         self.stack.enter_context(patch.object(AzurLaneConfig, 'is_hoarding_task', False))
         self.stack.enter_context(patch('module.config.config.logger'))
@@ -65,13 +66,19 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
                 'Fleet1Value': value, 'Fleet1Record': self.now,
                 'Fleet1Recover': recover, 'Fleet1Control': 'prevent_green_face',
                 'Fleet1Oath': False, 'Fleet1Onsen': False,
+                'Fleet1RecoveryState': self.state(value, recover),
                 'Fleet2Value': value2, 'Fleet2Record': self.now,
                 'Fleet2Recover': 'not_in_dormitory', 'Fleet2Control': 'prevent_green_face',
                 'Fleet2Oath': False, 'Fleet2Onsen': False,
+                'Fleet2RecoveryState': self.state(value2, 'not_in_dormitory'),
             },
             'Fleet': {'Fleet1': 1, 'Fleet2': fleet2, 'FleetOrder': order},
             'Campaign': {'Use2xBook': False},
         }
+
+    def state(self, value, recover, record=None):
+        """返回与值和记录时间一致的已校准恢复存档，模拟用户填写过实测心情。"""
+        return EmotionRecoveryState.calibrate(value, record or self.now, recover, False, False).export()
 
     def config(self, store, name='Event'):
         return MemoryConfig(store, name, lambda: self.now)
@@ -95,7 +102,8 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
             'Main': self.task('Main', 119),
         }
         queue = self.config(store)
-        for name, minutes in [('Event', 36), ('Event2', 18), ('Event3', 14.4)]:
+        # 相位未知时按最晚批次估算：12 点分别需要 6、3、3 个恢复批次。
+        for name, minutes in [('Event', 36), ('Event2', 18), ('Event3', 18)]:
             queue.load()
             self.assertEqual(queue.get_next().command, name)
             runner = self.runner(store, name)
@@ -106,8 +114,9 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
             self.assertTrue(store[name]['Scheduler']['Enable'])
         queue.load()
         self.assertEqual(queue.get_next().command, 'Main')
-        self.now = start + timedelta(minutes=14.4, seconds=1)
+        self.now = start + timedelta(minutes=18, seconds=1)
         queue.load()
+        # Event2 与 Event3 同时恢复，余量较高的 Event3 优先。
         self.assertEqual(queue.get_next().command, 'Event3')
         self.assertFalse(self.runner(store, 'Event3').delay_event_for_emotion())
         self.assertEqual(store['Event']['Scheduler']['NextRun'], start + timedelta(minutes=36))
@@ -160,19 +169,19 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
         self.runner(store).delay_event_for_emotion()
         self.assertEqual(store['Event']['Scheduler']['NextRun'], self.now + timedelta(minutes=24))
 
-    def test_fractional_recovery_is_retained_and_target_not_rounded_early(self):
+    def test_unknown_phase_waits_for_latest_possible_batch(self):
         store = {'Event': self.task('Event', 51, 'dormitory_floor_2')}
-        store['Event']['Emotion']['Fleet1Record'] -= timedelta(seconds=30)
         start = self.now
         self.runner(store).delay_event_for_emotion()
-        self.assertEqual(store['Event']['Scheduler']['NextRun'], start + timedelta(seconds=42))
-        self.now += timedelta(seconds=42)
+        # 只差 1 点也要等满一个周期：恢复批次可能刚刚发生过。
+        self.assertEqual(store['Event']['Scheduler']['NextRun'], start + timedelta(minutes=6))
+        self.now += timedelta(minutes=6)
         self.assertFalse(self.runner(store).delay_event_for_emotion())
 
     def test_public_emotion_controls_all_linked_events(self):
         store = {'Event': self.task('Event', 150), 'Event2': self.task('Event2', 150),
                  'General': {'PublicEmotion': {'Enable': True, 'Tasks': 'Event, Event2',
-                     'FleetValue': 40, 'FleetRecord': self.now, 'FleetControl': 'prevent_green_face',
+                     'FleetValue': 40, 'FleetRecord': self.now, 'FleetRecoveryState': self.state(40, 'dormitory_floor_1'), 'FleetControl': 'prevent_green_face',
                      'FleetRecover': 'dormitory_floor_1', 'FleetOath': False, 'FleetOnsen': False}}}
         for task in ('Event', 'Event2'):
             self.assertEqual(campaign_emotion_score(store, task, self.now), 0)
@@ -213,14 +222,18 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
                                         ('fleet1_standby_fleet2_all', 2, 1)]:
             with self.subTest(order=order):
                 store = {'Event': self.task('Event', 75, fleet2=2, value2=75, order=order)}
-                store['Event']['Emotion'][f'Fleet{standby}Record'] -= timedelta(minutes=4)
+                standby_record = self.now - timedelta(minutes=4)
+                store['Event']['Emotion'][f'Fleet{standby}Record'] = standby_record
+                store['Event']['Emotion'][f'Fleet{standby}RecoveryState'] = self.state(
+                    75, 'not_in_dormitory', standby_record)
                 runner = self.runner(store)
                 runner.campaign.low_emotion_withdrawn = True
                 self.assertTrue(runner.handle_low_emotion_withdrawal())
                 group = store['Event']['Emotion']
                 self.assertEqual(group[f'Fleet{active}Value'], 0)
-                self.assertEqual(group[f'Fleet{standby}Value'], 76)
-                self.assertEqual(group[f'Fleet{standby}Record'], self.now - timedelta(minutes=1))
+                # 待命舰队的三件套原样保留，恢复量留待下次推进时计入。
+                self.assertEqual(group[f'Fleet{standby}Value'], 75)
+                self.assertEqual(group[f'Fleet{standby}Record'], standby_record)
                 self.assertEqual(store['Event']['Scheduler']['NextRun'], self.now + timedelta(minutes=156))
 
     def test_low_emotion_withdrawal_uses_effective_campaign_fleet_setting(self):
@@ -246,7 +259,7 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
     def test_low_emotion_withdrawal_resets_only_public_record_when_shared(self):
         store = {'Event': self.task('Event', 75, fleet2=2, value2=75),
                  'General': {'PublicEmotion': {'Enable': True, 'Tasks': 'Event',
-                     'FleetValue': 75, 'FleetRecord': self.now, 'FleetControl': 'prevent_green_face',
+                     'FleetValue': 75, 'FleetRecord': self.now, 'FleetRecoveryState': None, 'FleetControl': 'prevent_green_face',
                      'FleetRecover': 'dormitory_floor_1', 'FleetOath': False, 'FleetOnsen': False}}}
         runner = self.runner(store)
         runner.campaign.low_emotion_withdrawn = True
@@ -393,12 +406,13 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
         self.assertEqual(campaign_emotion_score(store, 'Event', self.now + timedelta(minutes=30)), 10)
         self.assertEqual(store, old)
 
-    def test_recovery_target_rounds_up_to_a_whole_second(self):
+    def test_condition_change_rebuilds_from_current_value_before_delaying(self):
         store = {'Event': self.task('Event', 51, 'dormitory_floor_2')}
+        # 存档按无誓约、无温泉校准，改条件后从当前值重建，同样按最晚批次估算。
         store['Event']['Emotion'].update(Fleet1Oath=True, Fleet1Onsen=True)
         self.runner(store).delay_event_for_emotion()
-        self.assertEqual(store['Event']['Scheduler']['NextRun'], self.now + timedelta(seconds=52))
-        self.now += timedelta(seconds=52)
+        self.assertEqual(store['Event']['Scheduler']['NextRun'], self.now + timedelta(minutes=6))
+        self.now += timedelta(minutes=6)
         self.assertFalse(self.runner(store).delay_event_for_emotion())
 
     def test_emotion_takes_precedence_over_oil_delay(self):

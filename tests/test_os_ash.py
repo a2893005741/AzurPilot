@@ -74,6 +74,8 @@ class TestMetaBeaconState(unittest.TestCase):
         meta.device = SimpleNamespace(screenshot=MagicMock())
         meta.config = SimpleNamespace(
             OpsiAshBeacon_AttackMode='current',
+            # 上游新增的求援计数状态，击破后由 _reset_assist_request_state 读取并清空。
+            OpsiAshBeacon_AssistRequestState=None,
             check_task_switch=MagicMock(),
         )
         meta.handle_map_event = MagicMock(return_value=False)

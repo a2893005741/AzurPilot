@@ -17,6 +17,7 @@ import yaml
 from deploy.atomic import atomic_write
 from module.api.protocol import ApiError
 from module.combat.emotion_state import EmotionRecoveryState
+from module.config.redirect_utils.utils import meta_assist_limit_redirect
 from module.config.time_source import now as current_time
 from module.config.transaction import config_transaction
 
@@ -305,6 +306,11 @@ class ConfigService:
                             if 'KeepCommonCV' not in fields and isinstance(legacy, bool):
                                 merged[task][group]['KeepCommonCV'] = legacy
                             merged[task][group].pop('SkipSingleCommonCV', None)
+                        if task == 'OpsiAshBeacon' and group == 'OpsiAshBeacon':
+                            if 'AssistRequestLimit' not in fields and 'OneHitMode' in fields:
+                                merged[task][group]['AssistRequestLimit'] = meta_assist_limit_redirect(
+                                    fields['OneHitMode'])
+                            merged[task][group].pop('OneHitMode', None)
         from module.config.redirect_utils.shop import migrate_shop_options
 
         merged, shop_warnings = migrate_shop_options(data, merged)
@@ -550,9 +556,18 @@ class ConfigService:
                     prefixes = ('Fleet1', 'Fleet2') if group == 'Emotion' else ('Fleet',)
                     for prefix in prefixes:
                         if prefix + 'Value' in args:
-                            fields[prefix + 'RecoveryState'] = EmotionRecoveryState.calibrate(
-                                fields[prefix + 'Value'], now, fields[prefix + 'Recover'],
-                                fields[prefix + 'Oath'], fields[prefix + 'Onsen']).export()
+                            try:
+                                fields[prefix + 'RecoveryState'] = EmotionRecoveryState.calibrate(
+                                    fields[prefix + 'Value'], now, fields[prefix + 'Recover'],
+                                    fields[prefix + 'Oath'], fields[prefix + 'Onsen']).export()
+                            except KeyError as exc:
+                                raise ApiError(
+                                    'INVALID_PARAMS', f'{task}.{group}.{exc.args[0]}: 缺少心情恢复配置'
+                                ) from None
+                            except ValueError as exc:
+                                raise ApiError(
+                                    'INVALID_PARAMS', f'{task}.{group}.{prefix}Value: {exc}'
+                                ) from None
                         elif any(prefix + suffix in args for suffix in ('Recover', 'Oath', 'Onsen')):
                             fields[prefix + 'RecoveryState'] = None
             self._sync_unified_event(data, seen)

@@ -114,6 +114,48 @@ class ConfigApiTests(unittest.TestCase):
         with self.assertRaises(ApiError):
             self.configs.schema('../deploy')
 
+    def test_meta_assist_legacy_switch_is_migrated_before_runner_start(self):
+        path = self.configs.path('testpilot')
+        for old, expected in ((True, 0), (False, -1), (None, 0)):
+            with self.subTest(old=old):
+                data = self.configs.read_json(path)
+                fields = data['OpsiAshBeacon']['OpsiAshBeacon']
+                fields.pop('AssistRequestLimit', None)
+                fields['OneHitMode'] = old
+                path.write_text(json.dumps(data), encoding='utf-8')
+                before = path.read_bytes()
+                values, revision = self.configs.read('testpilot')
+                fields = values['OpsiAshBeacon']['OpsiAshBeacon']
+                self.assertEqual(fields['AssistRequestLimit'], expected)
+                self.assertNotIn('OneHitMode', fields)
+                self.assertEqual(path.read_bytes(), before)
+                self.configs.patch('testpilot', revision, [ConfigChange(
+                    path='OpsiAshBeacon.OpsiAshBeacon.AssistRequestLimit', value=2,
+                )])
+                saved = self.configs.read_json(path)['OpsiAshBeacon']['OpsiAshBeacon']
+                self.assertEqual(saved['AssistRequestLimit'], 2)
+                self.assertNotIn('OneHitMode', saved)
+
+    def test_meta_assist_explicit_new_limit_wins_over_legacy_switch(self):
+        path = self.configs.path('testpilot')
+        data = self.configs.read_json(path)
+        data['OpsiAshBeacon']['OpsiAshBeacon'].update(OneHitMode=False, AssistRequestLimit=3)
+        path.write_text(json.dumps(data), encoding='utf-8')
+        values, _ = self.configs.read('testpilot')
+        self.assertEqual(values['OpsiAshBeacon']['OpsiAshBeacon']['AssistRequestLimit'], 3)
+
+    def test_meta_assist_schema_accepts_only_supported_integer_values(self):
+        key = 'OpsiAshBeacon.OpsiAshBeacon.AssistRequestLimit'
+        field = self.configs.args['OpsiAshBeacon']['OpsiAshBeacon']['AssistRequestLimit']
+        self.assertEqual((field['type'], field['value']), ('input', 0))
+        for value in (-1, 0, 1, 5, 100):
+            self.assertEqual(self.configs.validate(key, value), key.split('.'))
+        for value in (-2, 1.5, True, '2', None):
+            with self.subTest(value=value), self.assertRaises(ApiError):
+                self.configs.validate(key, value)
+        with self.assertRaises(ApiError):
+            self.configs.validate('OpsiAshBeacon.OpsiAshBeacon.AssistRequestState', {})
+
     def test_rejects_path_traversal_and_reserved_names(self):
         for name in ['../template', 'a/b', 'a\\b', 'template', 'template.fpy', 'CON', 'c:foo', '']:
             with self.subTest(name=name), self.assertRaises(ApiError):
@@ -539,6 +581,33 @@ class SocketApiTests(unittest.TestCase):
                 await session.enqueue({})
             ws.close.assert_awaited_once()
         asyncio.run(check())
+
+
+class RuntimeMetadataTests(unittest.TestCase):
+    def test_game_region_uses_package_instead_of_server_checker_setting(self):
+        """开服检测关闭或选择国服检测区，都不能决定设备实际运行的游戏地区。"""
+        emulator = {'ServerName': 'disabled', 'PackageName': 'auto'}
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        configs = SimpleNamespace(directory=Path(temporary.name), names=lambda: ['test'],
+                                  read=lambda _: ({'Alas': {'Emulator': emulator}}, ''))
+        runtime = RuntimeService(configs)
+        cases = [
+            ('auto', 'disabled', None), ('', 'disabled', None),
+            ('com.bilibili.azurlane', 'disabled', 'cn'),
+            ('com.bilibili.blhx.huawei', 'cn_channel-0', 'cn'),
+            ('com.YoStarEN.AzurLane', 'disabled', 'en'),
+            ('com.YoStarJP.AzurLane', 'cn_android-0', 'jp'),
+            ('com.hkmanjuu.azurlane.gp', 'disabled', 'tw'),
+            ('com.hkmanjuu.azurlane.gp.mc', 'disabled', 'tw'),
+        ]
+        with patch('module.api.runtime_service.ProcessManager._processes', {}):
+            for package, checker, expected in cases:
+                with self.subTest(package=package, checker=checker):
+                    emulator.update(PackageName=package, ServerName=checker)
+                    instance = runtime.instances()[0]
+                    self.assertEqual(expected, instance['region'])
+                    self.assertEqual(checker, instance['server'])
 
 
 class LogCursorTests(unittest.TestCase):

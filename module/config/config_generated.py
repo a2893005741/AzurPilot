@@ -747,7 +747,8 @@ class GeneratedConfig:
 
     # 配置组 `OpsiAshBeacon`
     OpsiAshBeacon_AttackMode = 'current'  # current, current_dossier, current_dossier_only
-    OpsiAshBeacon_OneHitMode = True
+    OpsiAshBeacon_AssistRequestLimit = 0
+    OpsiAshBeacon_AssistRequestState = None
     OpsiAshBeacon_DossierAutoAttackMode = False
     OpsiAshBeacon_RequestAssist = True
     OpsiAshBeacon_EnsureFullyCollected = True
@@ -1160,6 +1161,8 @@ class GeneratedConfig:
     IslandBusinessShop5_BoostReplaceFilter = '30 > 20 > cheese > 10'
 
     # 配置组 `MindCalculator`
+    MindCalculator_MinLevel = 95
+    MindCalculator_MaxLevel = 120
     MindCalculator_Result = {}
 
     # 配置组 `FleetInfo`

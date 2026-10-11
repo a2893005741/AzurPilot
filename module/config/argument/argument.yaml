@@ -1532,7 +1532,13 @@ OpsiAshBeacon:
   AttackMode:
     value: current
     option: [current, current_dossier, current_dossier_only]
-  OneHitMode: true
+  AssistRequestLimit:
+    value: 0
+    validate: '^(-1|[0-9]+)$'
+  AssistRequestState:
+    type: stored
+    value: null
+    display: hide
   DossierAutoAttackMode: false
   RequestAssist: true
   EnsureFullyCollected: true
@@ -2434,6 +2440,12 @@ IslandBusinessShop5:
 # ==================== Fleet Management ====================
 
 MindCalculator:
+  MinLevel:
+    value: 95
+    validate: "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
+  MaxLevel:
+    value: 120
+    validate: "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
   Result:
     type: stored
     value: {}

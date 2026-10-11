@@ -2679,7 +2679,8 @@
     },
     "OpsiAshBeacon": {
       "AttackMode": "current",
-      "OneHitMode": true,
+      "AssistRequestLimit": 0,
+      "AssistRequestState": null,
       "DossierAutoAttackMode": false,
       "RequestAssist": true,
       "EnsureFullyCollected": true,
@@ -3769,6 +3770,8 @@
   },
   "MindCalculatorScan": {
     "MindCalculator": {
+      "MinLevel": 95,
+      "MaxLevel": 120,
       "Result": {}
     },
     "Storage": {

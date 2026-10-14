@@ -79,6 +79,13 @@ class TestDeployLocation(unittest.TestCase):
                 config.config_redirect()
                 self.assertEqual(config.Repository, config_module.CNB_REPOSITORY)
 
+    def test_gitcode_alias_and_repository(self):
+        for config_module in (deploy_config, windows_config):
+            with self.subTest(config_module=config_module.__name__):
+                config = self.make_config(config_module, 'gitcode')
+                config.config_redirect()
+                self.assertEqual(config.Repository, config_module.GITCODE_REPOSITORY)
+
     def test_non_china_keeps_github_and_only_checks_once(self):
         for config_module in (deploy_config, windows_config):
             with self.subTest(config_module=config_module.__name__), patch.object(
@@ -118,24 +125,26 @@ class TestDeployLocation(unittest.TestCase):
                 get_country_code.assert_not_called()
 
     def test_peer_fallback_repository(self):
-        for git_mod in (deploy_git, windows_git):
+        for git_mod, config_module in ((deploy_git, deploy_config), (windows_git, windows_config)):
             with self.subTest(git_module=git_mod.__name__):
                 self.assertEqual(
                     git_mod.peer_fallback_repository('https://cnb.cool/AzurPilot/AzurPilot'),
-                    git_mod.GITCODE_REPOSITORY,
+                    config_module.GITCODE_REPOSITORY,
                 )
                 self.assertEqual(
                     git_mod.peer_fallback_repository('https://cnb.cool/AzurPilot/AzurPilot.git'),
-                    git_mod.GITCODE_REPOSITORY,
+                    config_module.GITCODE_REPOSITORY,
                 )
                 self.assertEqual(
-                    git_mod.peer_fallback_repository('https://gitcode.com/ddl2/AzurLaneAutoScript'),
-                    git_mod.CNB_REPOSITORY,
+                    git_mod.peer_fallback_repository('https://gitcode.com/ddl2/AzurPilot'),
+                    config_module.CNB_REPOSITORY,
                 )
                 self.assertEqual(
-                    git_mod.peer_fallback_repository('https://gitcode.com/ddl2/AzurLaneAutoScript.git'),
-                    git_mod.CNB_REPOSITORY,
+                    git_mod.peer_fallback_repository('https://gitcode.com/ddl2/AzurPilot.git'),
+                    config_module.CNB_REPOSITORY,
                 )
+                # fork 自己的 GitHub 回退源不参与镜像轮换。
+                self.assertIsNone(git_mod.peer_fallback_repository(config_module.GITHUB_REPOSITORY))
                 self.assertIsNone(git_mod.peer_fallback_repository('https://github.com/wess09/AzurPilot'))
                 self.assertIsNone(git_mod.peer_fallback_repository(''))
 

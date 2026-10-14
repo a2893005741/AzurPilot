@@ -206,6 +206,10 @@
       "name": "Daily Missions",
       "help": ""
     },
+    "LimitChallenge": {
+      "name": "Limit Challenge",
+      "help": "Challenge each difficulty at most once per month, in order up to the target. A defeat defers the task until next month. Configure the dedicated fleet in the game first. Currently uses CN recognition assets."
+    },
     "Hard": {
       "name": "Main Campaign - Hard Mode",
       "help": ""
@@ -3448,8 +3452,8 @@
       "wishing_well": "Wishing Well"
     },
     "Amount": {
-      "name": "Build X times daily",
-      "help": "",
+      "name": "Build at least X ships daily",
+      "help": "Builds paid with permits count toward this minimum. Complete any remaining builds in the selected pool, subject to available Coins and Cubes.",
       "1": "1",
       "2": "2",
       "3": "3",
@@ -3463,7 +3467,25 @@
     },
     "UseTicket": {
       "name": "Use single build permit",
-      "help": "When enabled, first visit the event pool to use single build permits, regardless of the selected pool type. If the event pool has no available permits or not enough for the requested amount, complete the remaining builds in the selected pool using Cubes and Coins."
+      "help": "First visit the event pool to use the configured daily number of single build permits, regardless of the selected pool. Complete any remaining builds toward the daily minimum in the selected pool."
+    },
+    "TicketAmount": {
+      "name": "Use X single build permits daily",
+      "help": "Requires single build permits to be enabled. Use all remaining permits if fewer are available; this amount may exceed the daily build minimum. When the event pool is selected, also use remaining permits to meet the minimum.",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5",
+      "6": "6",
+      "7": "7",
+      "8": "8",
+      "9": "9",
+      "10": "10"
+    },
+    "ClearTicket": {
+      "name": "Use all permits on the last event day",
+      "help": "Requires single build permits to be enabled. Event date recognition currently supports CN only. Use all permits in batches on the event end date. With more than 10 permits, force Quick Finishers for intermediate batches; the final batch follows the Quick Finisher setting. Still complete the daily build minimum afterward."
     },
     "UseDrill": {
       "name": "Use quick finisher to complete build",
@@ -3699,6 +3721,35 @@
       "4": "4",
       "5": "5",
       "6": "6"
+    }
+  },
+  "LimitChallenge": {
+    "_info": {
+      "name": "Limit Challenge",
+      "help": "Challenge each difficulty at most once per month, in order up to the target. A defeat defers the task until next month. Configure the dedicated fleet in the game first. Currently uses CN recognition assets."
+    },
+    "TargetLevel": {
+      "name": "Target difficulty",
+      "help": "Easy → Normal → Hard. Clear and collect the previous reward to unlock the next difficulty. S/A/B count as a clear; C/D count as defeat. Uses the dedicated in-game fleet without consuming oil or morale.",
+      "easy": "Easy",
+      "normal": "Normal",
+      "hard": "Hard"
+    },
+    "Month": {
+      "name": "Progress month",
+      "help": ""
+    },
+    "CompletedLevel": {
+      "name": "Cleared difficulty",
+      "help": ""
+    },
+    "AttemptedLevel": {
+      "name": "Attempted difficulty",
+      "help": ""
+    },
+    "Failed": {
+      "name": "Defeated this month",
+      "help": ""
     }
   },
   "Hard": {
@@ -6832,7 +6883,8 @@
       "plone_cloud_with_adb": "Cloud mobile phone with public network ADB",
       "phone_cloud_without_adb": "Cloud mobile phone without public network ADB",
       "android_phone": "Android real phone",
-      "android_phone_vmos": "Android real machine VMOS virtual machine"
+      "android_phone_vmos": "Android real machine VMOS virtual machine",
+      "azurpilot_android": "azurpilot_android"
     },
     "TestScene": {
       "name": "Test scene",

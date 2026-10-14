@@ -15,7 +15,12 @@ GITHUB_REPOSITORY = 'https://github.com/a2893005741/AzurPilot'
 # 上游的 CNB 与 GitCode 镜像托管的是上游代码，fork 只在用户显式指定 'cnb'/'gitcode' 时使用，
 # 国内 Git over CDN 的回退源仍为 fork 自己的 GitHub 仓库。
 CNB_REPOSITORY = 'https://cnb.cool/AzurPilot/AzurPilot'
-GITCODE_REPOSITORY = 'https://gitcode.com/ddl2/AzurLaneAutoScript'
+GITCODE_REPOSITORY = 'https://gitcode.com/ddl2/AzurPilot'
+# 显式选用的国内镜像之间按列表轮换容灾。
+MIRROR_REPOSITORIES = [
+    CNB_REPOSITORY,
+    GITCODE_REPOSITORY,
+]
 GIT_OVER_CDN_FALLBACK_REPOSITORIES = [
     GITHUB_REPOSITORY,
 ]

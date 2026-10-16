@@ -297,6 +297,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -384,6 +386,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -471,6 +475,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -578,6 +584,8 @@
     "Emotion": {
       "Mode": "calculate_ignore",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -675,6 +683,8 @@
     "Emotion": {
       "Mode": "calculate_ignore",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -772,6 +782,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -861,6 +873,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -948,6 +962,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1035,6 +1051,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1107,6 +1125,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1185,6 +1205,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1231,6 +1253,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1290,6 +1314,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1352,6 +1378,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1475,6 +1503,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1566,6 +1596,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1657,6 +1689,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1748,6 +1782,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1839,6 +1875,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1926,6 +1964,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -1997,6 +2037,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -2056,6 +2098,8 @@
     "Emotion": {
       "Mode": "calculate",
       "IgnoreShipwreck": false,
+      "MinReserve": 0,
+      "RecoveryWait": null,
       "Fleet1Value": 119,
       "Fleet1Record": "2020-01-01 00:00:00",
       "Fleet1RecoveryState": null,
@@ -2593,6 +2637,7 @@
       "UseTicket": true,
       "TicketAmount": 1,
       "ClearTicket": true,
+      "ClearTicketTime": "09:30",
       "UseDrill": false
     },
     "Storage": {
@@ -2683,8 +2728,7 @@
       "LauncherPush": true,
       "IndependentPush": false,
       "OpsiOnePushConfig": "provider: null",
-      "AutoSearchTimeLimit": 5,
-      "SkipStrategicSearchCheck": false
+      "AutoSearchTimeLimit": 5
     },
     "Storage": {
       "Storage": {}
@@ -3013,9 +3057,12 @@
       "MinimumActionPointReserve": 200,
       "ExecuteFixedPatrolScan": false,
       "SkipHpCheck": false,
+      "ActionPointCheckInterval": 0,
+      "SkipStrategicSearchCheck": false,
       "Cl1Filter": "ActionPoint",
       "RecordNonCL1AP": true,
-      "RecordSeaMiles": true,
+      "RecordSeaMiles": -1,
+      "SeaMilesLastRecord": null,
       "DebugClip": false
     },
     "OpsiSirenBug": {
@@ -3795,8 +3842,19 @@
   "MindCalculatorScan": {
     "MindCalculator": {
       "MinLevel": 95,
-      "MaxLevel": 120,
-      "Result": {}
+      "MaxLevel": 125,
+      "Result": {},
+      "FleetTechRecord": {}
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "FleetTechScan": {
+    "FleetTech": {
+      "MinLevel": 95,
+      "MaxLevel": 125,
+      "Record": {}
     },
     "Storage": {
       "Storage": {}

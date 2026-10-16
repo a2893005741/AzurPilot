@@ -59,6 +59,9 @@ from module.os_handler.assets import (
     AUTO_SEARCH_REWARD,
 )
 from module.os_handler.storage import StorageHandler, RepairResult
+from module.os_handler.resource_state import reset_resource_caches
+from module.os_handler.resource_read import CoinReplenishRequired
+from module.os_handler.action_point import ACTION_POINTS_COST
 from module.os_handler.strategic import StrategicSearchHandler
 from module.statistics.opsi_runtime import (
     finish_meow_search_timer,
@@ -197,6 +200,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             out: IN_MAP
         """
         logger.hr("大世界初始化", level=1)
+        reset_resource_caches(self)
         kwargs = {}
         if "iM" in self.config.task.command:
             for key in self.config.bound.keys():
@@ -856,6 +860,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
         # 手动重启游戏而非通过 'task_call'
         # 当前任务不会中断
+        reset_resource_caches(self)
         self.device.app_stop()
         self.device.app_start()
         LoginHandler(self.config, self.device).handle_app_login()
@@ -918,6 +923,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         self._auto_search_battle_count += 1
         logger.attr("战斗计数", self._auto_search_battle_count)
         if getattr(self, "is_running_cl1_leveling", False):
+            if self._auto_search_battle_count % 2 == 1:
+                self.consume_cached_action_point(5)
             try:
                 self._cl1_auto_search_battle_count += 1
                 logger.attr("CL1战斗计数", self._cl1_auto_search_battle_count)
@@ -930,6 +937,12 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 )
             except Exception:
                 logger.debug("Failed to update cl1 battle counter", exc_info=True)
+
+        if self.config.task.command == 'OpsiMeowfficerFarming' and '_ap_snapshot' in self.__dict__:
+            hazard = self.zone.hazard_level
+            battles_per_round = 3 if hazard in (4, 5, 6) else 2
+            if (self._auto_search_battle_count - 1) % battles_per_round == 0:
+                self.consume_cached_action_point(ACTION_POINTS_COST.get(hazard, 40))
 
         # 耄耋相接任务数据收集
         if getattr(self, "_meow_searching_active", False) and getattr(
@@ -1091,6 +1104,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             if not unlock_checked and unlock_check_timer.reached():
                 logger.critical("[大世界] 当前海域未解锁自律，请先完成剧情任务。")
                 raise RequestHumanTakeover
+            self.handle_background_coin_interrupt(drop=drop)
             if self.is_in_map():
                 self.device.stuck_record_clear()
                 if not success:
@@ -1398,7 +1412,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 STORY_ALLOW_SKIP=False, OS_SIREN_DEVICE_USAGE="use_until_destroyed"
             ):
                 result = self.wait_until_walk_stable(
-                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4)
+                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4),
+                    allow_event_finish=True,
                 )
             if "akashi" in result:
                 self._solved_map_event.add("is_akashi")
@@ -1555,6 +1570,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 else:
                     self.map_rescan_once(rescan_mode="full", drop=drop)
             except (
+                CoinReplenishRequired,
                 TaskEnd,
                 GameStuckError,
                 GameTooManyClickError,
@@ -1685,6 +1701,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 self.hp_get()
                 return True
             except (
+                CoinReplenishRequired,
                 TaskEnd,
                 GameStuckError,
                 GameTooManyClickError,
@@ -1718,7 +1735,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             self.device.click(grid)
             with self.config.temporary(STORY_ALLOW_SKIP=False, STORY_OPTION=1):
                 result = self.wait_until_walk_stable(
-                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4)
+                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4),
+                    allow_event_finish=True,
                 )
             if "event" in result:
                 self._solved_map_event.add("is_exploration_container")
@@ -1735,7 +1753,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             logger.info(f"[大世界-搜索] 在 {grid} 找到探索奖励")
             self.device.click(grid)
             result = self.wait_until_walk_stable(
-                drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4)
+                drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4),
+                allow_event_finish=True,
             )
             if "event" in result:
                 self._solved_map_event.add("is_exploration_reward")
@@ -1755,6 +1774,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                         confirm_timer=Timer(walk_time, count=4),
                         drop=drop,
                         walk_out_of_step=False,
+                        allow_event_finish=True,
                     )
                 if "akashi" in result:
                     self._solved_map_event.add("is_akashi")
@@ -1820,7 +1840,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 STORY_ALLOW_SKIP=False, OS_SIREN_DEVICE_USAGE="use_until_destroyed"
             ):
                 result = self.wait_until_walk_stable(
-                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4)
+                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4),
+                    allow_event_finish=True,
                 )
             logger.info(f"[大世界] [移动装置] 移动完成,结果: {result}")
 
@@ -1918,7 +1939,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             self.device.click(grid)
             with self.config.temporary(STORY_ALLOW_SKIP=False):
                 result = self.wait_until_walk_stable(
-                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4)
+                    drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4),
+                    allow_event_finish=True,
                 )
             if "event" in result:
                 self._solved_map_event.add("is_logging_tower")
@@ -2210,6 +2232,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 if try_idx == 1:
                     logger.warning("[大世界] 软恢复失败，尝试重启应用以恢复状态")
                     try:
+                        reset_resource_caches(self)
                         self.device.app_stop()
                         time.sleep(1.0)
                         self.device.app_start()

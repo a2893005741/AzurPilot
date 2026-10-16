@@ -34,6 +34,9 @@ class TestActionPointDashboardTotal(unittest.TestCase):
                 patch('module.os_handler.action_point.OCR_ACTION_POINT_REMAIN') as ocr:
             oil_item.predict.return_value = [SimpleNamespace(amount=oil)]
             items.predict.return_value = [SimpleNamespace(amount=amount) for amount in self.box]
+            # 库存四格均为有效读数，仪表盘才会写入含箱 Total
+            oil_item.amount_ocr.last_batch_validity = (True,)
+            items.amount_ocr.last_batch_validity = (True,) * len(self.box)
             ocr.ocr.return_value = self.current
             handler.action_point_update()
         return handler, log_res

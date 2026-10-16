@@ -178,6 +178,8 @@ class BackgroundRuntimeTests(unittest.TestCase):
     def test_low_coin_interrupt_returns_to_smart_decision_and_is_not_swallowed(self):
         self.runner.is_running_prevent_action_point_overflow_task = Mock(return_value=False)
         self.runner.get_routine_yellow_coins = Mock(return_value=49000)
+        # fork 的开荒阶段低黄币回切需读取跨任务配置，本用例不涉及开荒，固定为未回切。
+        self.runner._return_to_explore_when_coins_low = Mock(return_value=False)
         self.runner._get_scheduling_action_point = Mock(return_value=(9000, 130))
         self.runner._run_smart_scheduling_decision = Mock(side_effect=CoinReplenishRequired)
         self.runner._close_scheduling_action_point = Mock()

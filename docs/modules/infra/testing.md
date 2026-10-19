@@ -39,7 +39,7 @@ tests/
 └── __init__.py
 frontend/
 ├── src/**/*.test.ts        # vitest 单元测试
-├── e2e/*.spec.ts           # Playwright（主配置跑除 mock、mind-calculator 与 stock-exchange 外全部）
+├── e2e/*.spec.ts           # Playwright（主配置排除 mock、pairing、mind-* 与 stock-exchange）
 ├── mock/                   # 内存模拟服务及其测试
 ├── playwright.config.ts    # 主配置：连 tests/serve_frontend.py
 ├── playwright.mock.config.ts   # mock 配置：连 mock server + Vite mock 模式
@@ -72,8 +72,8 @@ frontend/
 
 ### 两套 e2e 的分工
 
-- **主配置**：连接真实 Python API（Starlette 起在临时配置上），验证协议、认证、表单保存全链路；跑 `e2e/` 下除 `mock.spec.ts` 与 `stock-exchange/` 之外的用例。
-- **mock 配置**：`npm run mock`（22492）+ Vite mock 模式（5174），`state.mjs` 全内存，`AZURPILOT_MOCK_SCENARIO=empty` 可测零实例首启，`AZURPILOT_MOCK_PASSWORD` 测登录；只跑 `mock.spec.ts`。界面交互的快速迭代用这套。
+- **主配置**：连接真实 Python API（Starlette 起在临时配置上），验证协议、认证、表单保存全链路；排除 `mock.spec.ts`、`pairing.spec.ts`、`mind-*.spec.ts` 与 `stock-exchange/`。隔离后端不启动公网隧道，配对按钮保持未就绪。
+- **mock 配置**：`npm run mock`（22492）+ Vite mock 模式（5174），`state.mjs` 全内存，`AZURPILOT_MOCK_SCENARIO=empty` 可测零实例首启，`AZURPILOT_MOCK_PASSWORD` 测登录；运行 `mock.spec.ts` 与 `pairing.spec.ts`。配对测试覆盖六个桌面和移动视口的二维码、复制、滚动与撤销交互；CI 显式执行配对与舰队科技快照用例。
 - **stock 配置**：`npm run test:e2e:stock`，只跑 `stock-exchange/`；交易所 mock 由该配置自行启动，需相邻 `../AzurPilot_StockExchange` 仓库，见 [前端 README](../../../frontend/README.md)。
 
 ### Python 测试的隔离手法
@@ -96,7 +96,7 @@ API 类测试用 `fixture(directory)` 在临时目录造完整配置树，`creat
 ## 17. 已知限制
 
 - mock 服务只验证前端交互；安全策略（认证、来源校验）以 Python API 测试为准。
-- e2e 视口固定 1440×1100，移动端布局依赖开发期人工验证。
+- e2e 默认视口为 1440×1100；配对用例另覆盖六个桌面和移动视口，其他页面的覆盖范围以各用例为准。
 
 ## 20. 相关模块
 

@@ -32,6 +32,16 @@ export interface AuditRecord {
 const auditRecords: AuditRecord[] = []
 
 test.describe('AFA 远程配对全流程真实交互与全视口滚轮巡检', () => {
+  test.beforeEach(async ({ page }) => {
+    // 配对验收不依赖遥测或随机背景，避免第三方网络故障污染控制台结果。
+    await page.route('https://www.clarity.ms/**', route => route.fulfill({
+      contentType: 'application/javascript', body: '',
+    }))
+    await page.addInitScript(() => {
+      localStorage.setItem('azurpilot.background', JSON.stringify({ source: 'off' }))
+    })
+  })
+
   test.afterAll(async () => {
     // 将所有视口的实测数据保存供报告生成
     const outDir = path.resolve(process.cwd(), 'test-results')
@@ -49,7 +59,7 @@ test.describe('AFA 远程配对全流程真实交互与全视口滚轮巡检', (
 
       const consoleErrors: string[] = []
       page.on('console', (msg) => {
-        if (msg.type() === 'error') consoleErrors.push(msg.text())
+        if (msg.type() === 'error') consoleErrors.push(`${msg.text()} (${msg.location().url})`)
       })
       page.on('pageerror', (err) => consoleErrors.push(err.message))
 
@@ -197,16 +207,19 @@ test.describe('AFA 远程配对全流程真实交互与全视口滚轮巡检', (
         })
         stepIndex++
 
-        // 到达底部或无法继续向下滚动
-        if (nextScrollTop >= maxScrollTop - 2 || nextScrollTop <= currentScrollTop) {
+        // 只有确认到达底部才通过；滚轮停住但仍有内容时保留失败证据。
+        if (nextScrollTop >= maxScrollTop - 2) {
           bottomReached = true
           break
         }
+        if (nextScrollTop <= currentScrollTop) break
         currentScrollTop = nextScrollTop
 
         // 安全保护防死循环（最多 10 屏）
         if (stepIndex > 10) break
       }
+
+      expect(bottomReached).toBe(true)
 
       // 步骤 3：在底部再次截图
       const bottomScreenPath = `test-results/screens/${vp.name}-bottom.png`

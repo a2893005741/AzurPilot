@@ -217,21 +217,31 @@ class TestPendingEvent(unittest.TestCase):
                 self.assertFalse(handler._visit_map_event(kind, event_grid(kind)))
                 self.assertEqual(handler._get_pending_event(), state)
 
-    def test_unrelated_event_or_same_kind_at_another_grid_does_not_clear_pending(self):
+    def test_visible_event_is_interacted_even_when_pending_belongs_to_another_kind(self):
         handler = self.handler('is_logging_tower')
         state = handler._get_pending_event()
         handler._try_map_event_grid = Mock(return_value=True)
-        self.assertFalse(handler._visit_map_event('is_exploration_reward', event_grid('is_exploration_reward')))
-        self.assertFalse(handler._visit_map_event('is_logging_tower', event_grid('is_logging_tower', (2, 7))))
-        handler._try_map_event_grid.assert_not_called()
+        self.assertTrue(handler._visit_map_event(
+            'is_exploration_reward', event_grid('is_exploration_reward')))
+        handler._try_map_event_grid.assert_called_once()
+        # 另一类事件的续查记录不被覆盖，也不因眼前事件失败被提前占用恢复预算。
         self.assertEqual(handler._get_pending_event(), state)
 
-    def test_unknown_question_can_only_be_refined_at_its_original_grid(self):
+    def test_same_kind_at_a_new_visible_grid_reanchors_the_pending_event(self):
+        handler = self.handler('is_logging_tower')
+        handler._try_map_event_grid = Mock(return_value=True)
+        self.assertTrue(handler._visit_map_event(
+            'is_logging_tower', event_grid('is_logging_tower', (2, 7))))
+        # 相机漂移或换队后格子会变，按当前视野重新锚定而不是丢弃可见事件。
+        self.assertEqual(handler._get_pending_event()['target'], [2, 7])
+
+    def test_unknown_question_is_refined_by_the_next_visible_event(self):
         handler = self.handler('is_question')
         handler._remember_pending_event('is_logging_tower', event_grid('is_logging_tower', (3, 7)))
-        self.assertEqual(handler._get_pending_event()['kind'], 'is_question')
-        handler._remember_pending_event('is_logging_tower', event_grid('is_logging_tower'))
         self.assertEqual(handler._get_pending_event()['kind'], 'is_logging_tower')
+        self.assertEqual(handler._get_pending_event()['target'], [3, 7])
+        handler._remember_pending_event('is_logging_tower', event_grid('is_logging_tower'))
+        self.assertEqual(handler._get_pending_event()['target'], [1, 7])
 
     def test_already_open_shop_refines_question_without_a_screen_coordinate(self):
         handler = self.handler('is_question')
@@ -295,13 +305,16 @@ class TestPendingEvent(unittest.TestCase):
         self.assertTrue(handler._try_akashi_grid(event_grid('is_akashi')))
         self.assertEqual(handler.wait_until_walk_stable.call_args.kwargs['event_target'], (1, 7))
 
-    def test_adjacent_akashi_also_sends_only_one_movement_command(self):
+    def test_adjacent_akashi_enters_the_shop_without_a_movement_command(self):
         handler = self.handler('is_akashi')
         handler.convert_radar_to_local = Mock(return_value=SimpleNamespace(distance_to=lambda grid: 1))
-        handler.wait_until_walk_stable = Mock(return_value='akashi')
+        handler.handle_akashi_supply_buy = Mock(return_value=True)
+        handler.wait_until_walk_stable = Mock()
         self.assertTrue(handler._try_akashi_grid(event_grid('is_akashi')))
-        self.assertEqual(handler.wait_until_walk_stable.call_args.kwargs['event_target'], (1, 7))
-        handler.convert_radar_to_local.assert_not_called()
+        # 已经贴住明石时点击事件格不会移动，旧版直接进商店，不能白等 12 秒再放弃。
+        handler.wait_until_walk_stable.assert_not_called()
+        handler.handle_akashi_supply_buy.assert_called_once()
+        self.assertIn('is_akashi', handler._solved_map_event)
 
     def test_siren_disabled_preserves_skip_policy_without_recovery(self):
         handler = self.handler('is_scanning_device')
@@ -451,7 +464,7 @@ class TestPendingEvent(unittest.TestCase):
         handler._try_map_event_grid.assert_not_called()
         self.assertIsNone(handler._get_pending_event())
 
-    def test_map_scan_prioritizes_pending_identity_over_an_unrelated_reward(self):
+    def test_map_scan_interacts_visible_events_in_priority_order(self):
         handler = self.handler('is_logging_tower')
         reward = event_grid('is_exploration_reward', (2, 7))
         tower = event_grid('is_logging_tower')
@@ -459,7 +472,37 @@ class TestPendingEvent(unittest.TestCase):
                                                                if getattr(g, next(iter(kwargs)), False)])
         handler._visit_map_event = Mock(return_value=True)
         self.assertTrue(OSMap.map_rescan_current(handler))
-        handler._visit_map_event.assert_called_once_with('is_logging_tower', tower, drop=None)
+        # 视野内按固定事件优先级处理，不再让旧快照身份压过眼前可见的事件。
+        handler._visit_map_event.assert_called_once_with('is_exploration_reward', reward, drop=None)
+
+    def test_map_scan_interacts_a_visible_event_at_a_new_grid_instead_of_the_stale_snapshot(self):
+        handler = self.handler('is_akashi')
+        self.assertEqual(handler._get_pending_event()['target'], [1, 7])
+        visible = event_grid('is_akashi', (2, 7))
+        handler.view = SimpleNamespace(center_loca=(4, 3), select=lambda **kwargs: [visible]
+                                       if kwargs.get('is_akashi') else [])
+        handler._visit_map_event = Mock(return_value=True)
+        self.assertTrue(OSMap.map_rescan_current(handler))
+        # 相机修正/换队会让同一事件的全局格子变化，按当前视野点击而不是快照里的旧格子。
+        handler._visit_map_event.assert_called_once_with('is_akashi', visible, drop=None)
+
+    def test_map_scan_uses_radar_question_for_an_unknown_pending_event(self):
+        handler = self.handler('is_question')
+        handler.view = SimpleNamespace(center_loca=(4, 3), select=lambda **kwargs: [])
+        question = event_grid('is_question')
+        handler._radar_question_to_local = Mock(return_value=question)
+        handler._visit_map_event = Mock(return_value=True)
+        self.assertTrue(OSMap.map_rescan_current(handler))
+        handler._visit_map_event.assert_called_once_with('is_question', question, drop=None)
+
+    def test_map_scan_does_not_click_a_stale_pending_grid_without_visible_evidence(self):
+        handler = self.handler('is_logging_tower')
+        handler.view = View({(1, 7): SimpleNamespace(location=(1, 7))})
+        handler._radar_question_to_local = Mock(return_value=None)
+        handler._visit_map_event = Mock(return_value=True)
+        self.assertFalse(OSMap.map_rescan_current(handler))
+        # 快照兜底也必须先看到事件证据，不能仅凭旧格子直接点击。
+        handler._visit_map_event.assert_not_called()
 
     def test_other_fleets_retry_each_event_and_restore_the_original_fleet(self):
         for kind in MAP_EVENT_TYPES:

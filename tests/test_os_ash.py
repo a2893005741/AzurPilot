@@ -19,7 +19,7 @@ class TestAshCollectStatus(unittest.TestCase):
         collected_ocr.ocr.return_value = (collected, None, None)
         daily_ocr = MagicMock()
         daily_ocr.ocr.return_value = (daily, None, None)
-        with patch('module.os_ash.ash.DigitCounter', return_value=collected_ocr), \
+        with patch('module.os_ash.ash.AshDigitCounter', return_value=collected_ocr), \
                 patch('module.os_ash.ash.DailyDigitCounter', return_value=daily_ocr):
             result = ash.ash_collect_status()
         return ash, result

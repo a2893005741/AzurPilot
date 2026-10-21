@@ -15,6 +15,12 @@ STRATEGIC_SEARCH_SCROLL = Scroll(STRATEGIC_SEARCH_SCROLL_AREA, color=(247, 211, 
 
 class StrategicSearchHandler(MapEventHandler):
     def strategy_search_enter(self):
+        """清理遗留合计奖励，直到正向确认计划作战面板已打开。
+
+        Pages:
+            in: IN_MAP 或 AUTO_SEARCH_REWARD
+            out: STRATEGIC_SEARCH_POPUP_CHECK
+        """
         logger.info('[大世界-策略] 进入策略搜索')
         self.interval_clear(STRATEGIC_SEARCH_MAP_OPTION_OFF)
         for _ in self.loop():
@@ -22,9 +28,11 @@ class StrategicSearchHandler(MapEventHandler):
             if self.appear(STRATEGIC_SEARCH_POPUP_CHECK, offset=(20, 20)):
                 return True
 
-            if self.handle_map_event():
-                continue
             if self.appear(AUTO_SEARCH_REWARD, offset=(50, 50)):
+                self.handle_auto_search_reward()
+                # 奖励仍可见时，即使点击正在冷却也不能操作透出的地图按钮。
+                continue
+            if self.handle_map_event():
                 continue
             if self.match_template_color(STRATEGIC_SEARCH_MAP_OPTION_OFF, offset=(20, 20), interval=2):
                 self.device.click(STRATEGIC_SEARCH_MAP_OPTION_OFF)

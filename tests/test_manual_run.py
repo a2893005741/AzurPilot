@@ -51,7 +51,11 @@ class ManualRunTests(unittest.TestCase):
     def test_real_loop_runs_requested_task_without_waiting(self):
         self.script.task_restart_delays['Main'] = self.time + timedelta(days=1)
         self.request()
-        self.script.main = Mock(side_effect=self.script.stop_event.set)
+        def run():
+            # 第一次安全检查不能把刚选出的手动任务当作另一轮任务而中断。
+            self.script.config.check_task_switch()
+            self.script.stop_event.set()
+        self.script.main = Mock(side_effect=run)
         self.script.loop()
         self.script.main.assert_called_once_with()
 

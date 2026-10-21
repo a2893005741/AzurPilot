@@ -284,6 +284,28 @@ class MapEventHandler(EnemySearchingHandler):
             if self.handle_os_in_map():
                 break
 
+    def handle_auto_search_reward(self, drop=None):
+        """关闭延迟弹出的合计奖励；调用方继续截图确认目标页面。
+
+        Args:
+            drop (DropImage, optional): 关闭前记录本张奖励截图。
+
+        Returns:
+            bool: 是否点击了离开；仍在点击冷却中时返回 False。
+        """
+        if self.appear(AUTO_SEARCH_REWARD, offset=(50, 50), interval=2):
+            if drop:
+                drop.handle_add(main=self, before=4)
+            self.device.click(AUTO_SEARCH_REWARD)
+            self.interval_reset([
+                AUTO_SEARCH_REWARD,
+                AUTO_SEARCH_OS_MAP_OPTION_ON,
+                AUTO_SEARCH_OS_MAP_OPTION_OFF,
+                AUTO_SEARCH_OS_MAP_OPTION_OFF_DISABLED,
+            ])
+            return True
+        return False
+
     def os_auto_search_quit(self, drop=None):
         """
         退出大世界自动搜索。

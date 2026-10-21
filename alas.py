@@ -2246,6 +2246,9 @@ class AzurLaneAutoScript:
             selected = runtime.next_task()
             if selected is not None:
                 self.config.task = name_to_function(selected)
+                if self.__dict__.get('_manual_task_selected', False):
+                    # 手动任务使用刚写入的真实排期，避免首次检查与默认时间比较而自我中断。
+                    self.config.task.next_run = self.config.cross_get(f'{selected}.Scheduler.NextRun')
                 self.config.bind(self.config.task)
                 return selected
             task = self.config.get_next()

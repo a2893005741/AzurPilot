@@ -98,6 +98,8 @@ module/os_simulator/
 | `MissionHandler` | `os_mission_overview_accept`（任务总览接取）、`MissionAtCurrentZone` 异常；`is_in_opsi_explore()` 在此定义（OpsiExplore 启用且 next_run 早于重置前 12 小时） |
 | `StrategicSearchHandler` / `MapOrderHandler` / `OSTargetHandler` | 战略搜索流程、作战指令冷却、海域成就（`TARGET_SWITCH` 为三态选择器：all/unfinished） |
 
+计划作战入口允许上一轮合计奖励延迟弹出。`strategy_search_enter()` 识别奖励后调用 `handle_auto_search_reward()` 按两秒间隔点击离开；奖励仍可见时持续截图，冷却期间也不能点击背后的地图按钮。只有识别到 `STRATEGIC_SEARCH_POPUP_CHECK` 才交给选项设置。
+
 ### os_ash
 
 | 类 | 要点 |
@@ -118,6 +120,7 @@ module/os_simulator/
 - `ContinuousCombat`：塞壬扫描装置触发的连续战斗控制流异常，守护与任务循环捕获后继续。
 - `Combat(Combat_, MapEventHandler)` 覆写四个关键点：`_handle_auto_battle_status_s`（S 评价页自动点击，`battle_status_s_autoclick_delay` 可被子类改短）、`_os_combat_expected_end`（预期结束判定，大世界守护优先点 AUTO_SEARCH_REWARD）、`combat_status` 的结束判定、`handle_exp_info`。普通守护任务若用 `expected_end='no_searching'` 在大世界永不成立，会卡死在奖励页——`os_daemon` 的注释记录了这个坑。
 - `auto_search_combat()` 在加载和执行阶段优先确认战斗执行状态，暂停按钮可见时不处理地图自律开关。自动搜索中断后仍确认 S/A/B/C/D 经验页，与 `OpsiGeneral_RepairThreshold` 无关；点击使用结算冷却，并由下一张截图确认返回地图。关闭修理不能关闭结算处理，否则会在经验页等待至卡死重启。离线回归见 `tests/test_opsi_auto_search_combat.py`，覆盖脱敏原始截图、连续敌人清理及下一轮搜索。
+- 事件寻路中启动的普通战斗也可能由游戏自动推进单场评价、经验页，最后只留下合计奖励。`handle_battle_status()` 在暂停按钮消失后记录并关闭该奖励，将执行阶段交给结算阶段；`_os_combat_expected_end()` 对仍显示的奖励继续按冷却点击，并重置地图稳定计时，直到新截图确认稳定回图。奖励窗口不能当作连续战斗或已完成地图收尾。`tests/test_opsi_reward_settlement.py` 使用两张脱敏原始截图及延迟转场覆盖这两条路径。
 
 ### os_shop
 

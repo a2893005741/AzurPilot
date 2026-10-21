@@ -279,6 +279,11 @@ class Combat(Combat_, MapEventHandler):
         Returns:
             bool: 是否已回到大世界地图。
         """
+        if self.appear(AUTO_SEARCH_REWARD, offset=(50, 50)):
+            self.handle_auto_search_reward(drop=self.__os_combat_drop)
+            # 离开后的转场与点击冷却均继续截图，不能当成连续战斗或已回图。
+            self._os_in_map_confirm_timer.reset()
+            return False
         if self.handle_map_event(drop=self.__os_combat_drop):
             return False
         if self.combat_appear():
@@ -377,24 +382,29 @@ class Combat(Combat_, MapEventHandler):
 
     def handle_battle_status(self, drop=None):
         """
-        处理大世界战斗评价状态页面（S/A/B/C/D）。
+        处理大世界战斗评价状态页面（S/A/B/C/D）或合计奖励。
 
         战斗执行中时重置 S 评价计时器并跳过处理。
         优先通过延迟机制处理 S 评价，再依次检查 A/B/C/D 评价。
 
         Pages:
-            in: 战斗评价页面（S/A/B/C/D 任一可见）
-            out: 评价页面已关闭
+            in: 战斗评价页面或 AUTO_SEARCH_REWARD
+            out: 已处理结算；调用方继续确认回到地图
 
         Args:
             drop (DropImage): 掉落图像对象。
 
         Returns:
-            bool: 是否处理了评价状态页面。
+            bool: 是否处理了评价状态页面或合计奖励。
         """
         if self.is_combat_executing():
             self._clear_battle_status_s_timer()
             return False
+
+        # 自律可能自行推进单场结算，普通战斗等待器最终只看到合计奖励。
+        if self.handle_auto_search_reward(drop=drop):
+            self._clear_battle_status_s_timer()
+            return True
 
         appeared, clicked = self._handle_auto_battle_status_s(drop=drop)
         if clicked:

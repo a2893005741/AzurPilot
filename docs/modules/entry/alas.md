@@ -20,7 +20,7 @@
 
 ### 负责
 
-- 任务调度：按 `SCHEDULER_PRIORITY` 优先级与 `Scheduler.NextRun` 时间戳选出下一个任务。
+- 任务调度：手动「立刻运行」请求最优先，消费时清除目标任务的旧故障冷却和失败计数；普通派发再按 `SCHEDULER_PRIORITY` 与 `Scheduler.NextRun` 选任务。手动请求不经过清油分流、囤积或卡片条件，运行中的任务在已有切换检查点让出。
 - 任务分发：把任务命令名动态分发给 `AzurLaneAutoScript` 上的同名方法，方法内再委托给具体业务模块。
 - 错误恢复：分类处理运行异常，决定重启游戏、重启模拟器还是终止进程。
 - 模拟器管理：计划内定时重启、离线后强制重启、长等待期间省资源关闭与预热。
@@ -172,7 +172,7 @@ flowchart TD
 - 否则按 `Optimization_WhenTaskQueueEmpty` 执行：`close_game`（关游戏）、`goto_main`（停在主界面）或 `stay_there`（原地不动）。
 - 预热开启（`Optimization_WarmupEnable`）且剩余等待超过提前量时，在任务开始前提前启动模拟器/游戏并登录到主界面，任务到点后直接执行。提前量按场景分别实测记忆：「上次实测 + 2 分钟」，无实测时用 `Optimization_WarmupMinutes`（默认 15 分钟）兜底。预热失败不外抛，注入 `Restart` 交给常规恢复。
 
-等待通过 `wait_until()` 实现：每 5 秒检查一次 `stop_event` 与配置文件 mtime。配置一旦被 WebUI 修改，`should_reload()` 命中，返回 `False`，外层丢弃 config 缓存重新走选择流程——这就是空闲期的配置热重载。
+等待通过 `wait_until()` 实现：每 0.2 秒检查 `stop_event` 与配置文件 mtime，卡片方案每 5 秒检查一次。配置被 WebUI 修改后，`should_reload()` 命中并返回 `False`，外层丢弃 config 缓存重新选任务；开始监听时已有手动请求则直接结束等待，避免请求恰好落在监听起点而漏检。
 
 ### 原调度石油自动控制
 

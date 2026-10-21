@@ -354,6 +354,8 @@ class Camera(MapOperation):
             try:
                 success = self._update_view()
                 if not success:
+                    # 已识别并处理的弹窗或结算不累计地图识别失败时间。
+                    error_confirm.reset()
                     continue
                 logger.attr('视图中心偏移', self.view.center_offset)
                 if wait_swipe and not swipe_wait_timeout.reached() and success:

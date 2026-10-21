@@ -2122,7 +2122,7 @@ class AzurLaneAutoScript:
         """
         阻塞等待直到指定时间到达。
 
-        等待期间每 5 秒检查一次配置文件变更和停止事件。
+        等待期间每 0.2 秒检查配置变更；卡片方案每 5 秒检查一次。
 
         Args:
             future (datetime): 目标等待时间。
@@ -2132,6 +2132,10 @@ class AzurLaneAutoScript:
         """
         future = future + timedelta(seconds=1)
         self.config.start_watching()
+        runtime = self.__dict__.get('_program_runtime')
+        if runtime is not None and runtime.pending_manual_task() is not None:
+            return False
+        program_check = time.monotonic()
         while 1:
             if current_time() > future:
                 return True
@@ -2141,13 +2145,14 @@ class AzurLaneAutoScript:
                     logger.info(f'[{self.config_name}] 已退出。原因: 更新 | Reason: Update')
                     exit(0)
 
-            time.sleep(5)
+            time.sleep(0.2)
 
-            runtime = self.__dict__.get('_program_runtime')
-            if runtime and runtime.program_changed():
-                return False
             if self.config.should_reload():
                 return False
+            if time.monotonic() - program_check >= 5:
+                program_check = time.monotonic()
+                if runtime and runtime.program_changed():
+                    return False
 
     def scheduler_refresh(self):
         """在任务边界只读取卡片要求的资源，异常复用已有恢复入口。"""
@@ -2210,6 +2215,8 @@ class AzurLaneAutoScript:
         while True:
             task = self._get_next_task()
             runtime = self.__dict__['_program_runtime']
+            if self.__dict__.pop('_manual_task_selected', False):
+                return task
             if runtime.mode == 'native' and runtime.oil_control.running_task is None:
                 selected = runtime.oil_control.select(task)
                 if selected is None:

@@ -36,6 +36,7 @@ export interface Parameters {
   "scheduler.program.apply": { instance: string; revision: string; mode: "native" | "enhance" | "takeover" }
   "scheduler.program.state": { instance: string }
   "tasks.run": { instance: string; task: string }
+  "tasks.runNow": { instance: string; task: string }
   "logs.get": { instance: string; after?: number }
   "opsi.simulator.status": { instance: string; after?: number }
   "opsi.simulator.start": { instance: string }

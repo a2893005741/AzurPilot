@@ -193,6 +193,7 @@ export interface Results {
   'scheduler.start': Overview
   'scheduler.stop': Overview
   'tasks.run': Overview
+  'tasks.runNow': Config
   'logs.get': Logs
   'preview.capture': Preview
   'statistics.resources': Statistics

@@ -86,6 +86,7 @@ class Router:
             'scheduler.program.apply': Method(p.ProgramApplyParams, lambda x: self.programs.apply(x.instance, x.revision, x.mode), True),
             'scheduler.program.state': Method(p.InstanceParams, lambda x: self.programs.state(x.instance)),
             'tasks.run': Method(p.TaskParams, lambda x: runtime.start(x.instance, x.task), True),
+            'tasks.runNow': Method(p.TaskParams, lambda x: runtime.run_now(x.instance, x.task), True),
             'logs.get': Method(p.LogsParams, lambda x: runtime.logs(x.instance, x.after)),
             'opsi.simulator.status': Method(p.LogsParams, lambda x: self.opsi_simulator.status(x.instance, x.after)),
             'opsi.simulator.start': Method(p.InstanceParams, lambda x: self.opsi_simulator.start(x.instance), True),

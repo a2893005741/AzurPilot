@@ -69,6 +69,8 @@ module/api/
 
 ## 4. 核心入口
 
+`tasks.runNow(instance, task)` 用于任务配置页的「立刻运行」，返回更新后的配置。它通过配置事务提交独立手动请求，实例停止时启动主调度器；运行中不重启 worker。请求由调度边界优先消费并清理目标任务的故障记录，区别于仅支持独立工具的 `tasks.run`。参数与返回类型随 API 契约生成。
+
 | 入口 | 用途 |
 | --- | --- |
 | `create_app()`（app.py） | uvicorn 以工厂字符串 `module.api.app:create_app` 加载；测试可传 `root`/`password`/`manage_runtime=False`/`mount_mcp=False` 隔离运行 |

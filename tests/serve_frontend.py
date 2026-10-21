@@ -52,6 +52,12 @@ def main():
             from module.api.protocol import ApiError
             raise ApiError('TEST_ENVIRONMENT', '浏览器测试服务不会执行游戏任务')
         runtime.start = runtime.stop = reject_execution
+        # 手动派发验收只保存请求，禁止启动真实模拟器。
+        def run_now(instance, task):
+            from module.api.protocol import ConfigChange
+            return app.state.gateway.router.configs.patch(instance, None, [ConfigChange(
+                path=f'{task}.Scheduler.NextRun', value='2020-01-01 00:00:00')])
+        runtime.run_now = run_now
         # 浏览器验收可测试密码流程，但不能写入真实模拟器或建立主机 TPM 密钥。
         account_method = app.state.gateway.router.methods['accounts.manage']
         def manage_test_account(params):

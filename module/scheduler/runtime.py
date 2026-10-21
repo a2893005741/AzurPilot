@@ -1,5 +1,6 @@
 """卡片程序的调度宿主：与现有任务执行、恢复和安全检查点连接。"""
 import copy
+import json
 import sqlite3
 from datetime import timedelta
 
@@ -118,9 +119,46 @@ class SchedulerRuntime:
         # 只在调度等待层轮询，游戏识别循环不使用固定休眠。
         return self.script.wait_until(min(deadline, now() + timedelta(seconds=4)))
 
+    def pending_manual_task(self):
+        """读取用户立刻运行请求，优先于自动调度和故障冷却。"""
+        from module.config.deep import deep_get
+        config = self.script.config
+        config.load()
+        return deep_get(config.data, 'General.Storage.Storage.ManualTask')
+
+    def take_manual_task(self):
+        """在调度边界消费一次手动请求，清理该任务的旧故障记录。"""
+        from deploy.atomic import atomic_write
+        from module.config.transaction import config_transaction
+        from module.config.utils import read_file
+        from module.config.config import AzurLaneConfig
+        path = str(self.store.database.directory / f'{self.script.config_name}.json')
+        with config_transaction(path):
+            data = read_file(path)
+            storage = data.get('General', {}).get('Storage', {}).get('Storage', {})
+            task = storage.pop('ManualTask', None)
+            if task is None:
+                return None
+            data[task]['Scheduler'].update(Enable=True, NextRun='2020-01-01 00:00:00')
+            atomic_write(path, json.dumps(data, ensure_ascii=False, indent=2))
+        self.script._manual_task_selected = True
+        self.script.is_first_task = False
+        for records in (self.script.task_restart_delays, self.script.task_restart_record, self.script.failure_record):
+            records.pop(task, None)
+        AzurLaneConfig.is_hoarding_task = False
+        self.overlay = {}
+        self.attach(self.script.config)
+        self.script.config.load()
+        from module.logger import logger
+        logger.info(f'[调度器] 用户立刻运行 {task}，已清除该任务的故障冷却和失败记录')
+        return task
+
     def next_task(self):
         while True:
             try:
+                manual = self.take_manual_task()
+                if manual is not None:
+                    return manual
                 self.load_program()
                 self.attach(self.script.config)
                 if self.mode == 'native':
@@ -217,6 +255,9 @@ class SchedulerRuntime:
         self.save()
 
     def should_yield(self, config):
+        if self.pending_manual_task() is not None:
+            self.yield_reason = '用户请求立刻运行任务'
+            return True
         if not self.invocation:
             return False
         current = self.store.get(self.script.config_name)

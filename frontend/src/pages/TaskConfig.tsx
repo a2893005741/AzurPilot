@@ -244,10 +244,18 @@ export function TaskConfig() {
               {runNow && (
                 <div className="field-actions">
                   <button type="button" className="button subtle icon-only" aria-label={ui('task.runNow')} title={ui('task.runNow')} disabled={connection !== 'ready'}
-                    onClick={() => {
-                      // 按钮等同清空该字段：空时间按参数默认值提交，调度器下一轮即把任务视为待运行。
-                      const {payload, text, error} = prepareValue('', field)
-                      queue.change(path, text ?? '', payload, error)
+                    onClick={async () => {
+                      setBusy(true)
+                      try {
+                        const result = await api.request('tasks.runNow', {instance, task})
+                        queue.reconcile(queue.confirmed())
+                        setConfig(result)
+                        notify(ui('task.started'))
+                      } catch (error) {
+                        setError((error as Error).message)
+                      } finally {
+                        setBusy(false)
+                      }
                     }}><Play size={15}/></button>
                 </div>
               )}

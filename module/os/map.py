@@ -31,6 +31,7 @@ from contextlib import suppress
 import inflection
 
 from module.base.timer import Timer
+from module.combat.assets import EXP_INFO_S, EXP_INFO_A, EXP_INFO_B, EXP_INFO_C, EXP_INFO_D
 from module.config.config import TaskEnd
 from module.config.utils import get_os_next_reset, get_os_reset_remain
 from module.exception import (
@@ -118,7 +119,11 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         """
         if not self.is_in_map() and not self.is_combat_executing():
             # 自律可能在地图重扫期间完成战斗；沿用 S 评价等待和经验页点击冷却。
-            if self.handle_battle_status() or self.handle_auto_search_exp_info():
+            if self.handle_battle_status():
+                return False
+            if any(self.appear(button) for button in (EXP_INFO_S, EXP_INFO_A, EXP_INFO_B, EXP_INFO_C, EXP_INFO_D)):
+                # 点击冷却只限制操作频率，不能把仍可见的结算页当作未知地图。
+                self.handle_auto_search_exp_info()
                 return False
         return super()._update_view()
 
@@ -2395,6 +2400,8 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         Returns:
             int: 当前行动力。
         """
+        # 换队扫雷达期间自律可能继续战斗；先处理结算并正向确认回图。
+        self.update()
         self.action_point_enter()
         self.action_point_safe_get()
         current = getattr(self, "_action_point_current", 0)

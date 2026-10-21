@@ -216,6 +216,17 @@ class RuntimeService:
         self._record_running_now()
         return self.overview(instance)
 
+    def run_now(self, instance: str, task: str) -> dict:
+        """提交最高优先级的手动运行请求；实例停止时启动调度器。"""
+        from module.api.protocol import ConfigChange
+        with ProcessManager._get_lifecycle_lock(instance):
+            result = self.configs.patch(instance, None, [ConfigChange(
+                path=f'{task}.Scheduler.NextRun', value='2020-01-01 00:00:00',
+            )])
+            if not self.manager(instance).alive:
+                self.start(instance)
+        return result
+
     def stop(self, instance: str) -> dict:
         """停止实例的运行。
 

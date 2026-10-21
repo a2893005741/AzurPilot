@@ -825,6 +825,8 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         runtime = self.__dict__.get('_scheduler_runtime')
         if runtime is not None and runtime.mode != 'native':
             return runtime.should_yield(self)
+        if runtime is not None and runtime.pending_manual_task() is not None:
+            return True
         if runtime is not None:
             decision = runtime.oil_control.should_yield(self)
             if decision is not None:
@@ -846,7 +848,9 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             TaskEnd: 任务已切换时抛出此异常。
         """
         # 如果设置了禁用任务切换标志，则跳过检查
-        if getattr(self, '_disable_task_switch', False):
+        runtime = self.__dict__.get('_scheduler_runtime')
+        manual_pending = runtime is not None and runtime.pending_manual_task() is not None
+        if getattr(self, '_disable_task_switch', False) and not manual_pending:
             logger.info('[配置] 任务切换检查已临时禁用')
             return
         

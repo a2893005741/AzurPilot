@@ -575,6 +575,13 @@ class ConfigService:
                         elif any(prefix + suffix in args for suffix in ('Recover', 'Oath', 'Onsen')):
                             fields[prefix + 'RecoveryState'] = None
             self._sync_unified_event(data, seen)
+            for change in changes:
+                task, group, arg = change.path.split('.')
+                if group == 'Scheduler' and arg == 'NextRun' and change.value == '2020-01-01 00:00:00':
+                    # 清空时间是旧客户端的立刻运行命令；独立请求不能被任务延期回写覆盖。
+                    data[task]['Scheduler']['Enable'] = True
+                    storage = data.setdefault('General', {}).setdefault('Storage', {}).setdefault('Storage', {})
+                    storage['ManualTask'] = task
             atomic_write(str(self.path(name)), json.dumps(data, ensure_ascii=False, indent=2))
             return self.get(name)
 

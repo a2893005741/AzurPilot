@@ -1,5 +1,5 @@
 import {useEffect, useState} from 'react'
-import {useParams} from 'react-router-dom'
+import {Link, Navigate, useParams, useSearchParams} from 'react-router-dom'
 import {Bug, Download, Maximize2, RefreshCw} from 'lucide-react'
 import {api} from '../api/client'
 import type {ErrorDetail, ErrorList} from '../api/types'
@@ -11,13 +11,19 @@ import '../errors/errors.css'
 const PAGE_SIZE = 30
 
 export function ErrorRecords() {
-  const {instance = ''} = useParams()
+  const {instance: legacyInstance} = useParams()
+  const [params, setParams] = useSearchParams()
+  const {instances, instancesLoaded, ui} = useApp()
+  const instance = instances.find(item => item.name === params.get('instance'))?.name ?? instances[0]?.name
+  if (legacyInstance) return <Navigate to={`/errors?instance=${encodeURIComponent(legacyInstance)}`} replace/>
+  if (!instancesLoaded) return <Loading/>
+  if (!instance) return <div className="error-records"><PageTitle title={ui('errors.title')}/><Empty icon={<Bug size={36}/>} title={ui('instance.createFirst')}><Link to="/configs">{ui('nav.configs')}</Link></Empty></div>
   // 切换实例时销毁旧请求和选中状态，防止把上一实例的现场显示到新实例。
-  return <Records key={instance} instance={instance}/>
+  return <Records key={instance} instance={instance} onInstanceChange={name => setParams({instance: name})}/>
 }
 
-function Records({instance}: {instance: string}) {
-  const {ui, language} = useApp(), connection = useConnection()
+function Records({instance, onInstanceChange}: {instance: string; onInstanceChange: (name: string) => void}) {
+  const {ui, language, instances} = useApp(), connection = useConnection()
   const [list, setList] = useState<ErrorList>(), [selected, setSelected] = useState('')
   const [detail, setDetail] = useState<ErrorDetail>(), [imageName, setImageName] = useState('')
   const [image, setImage] = useState(''), [imageLoading, setImageLoading] = useState(false)
@@ -78,6 +84,7 @@ function Records({instance}: {instance: string}) {
   return <div className="error-records">
     <PageTitle title={ui('errors.title')} actions={<button className="button secondary" disabled={!ready || loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16}/>{ui('errors.refresh')}</button>}/>
     <p className="muted">{ui('errors.hint')}</p>
+    <label className="error-record-instance-select">{ui('errors.instance')}<Select value={instance} onChange={event => onInstanceChange(event.target.value)}>{instances.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</Select></label>
     {list && !list.enabled && <p className="error-record-notice" role="status">{ui('errors.disabled')}</p>}
     {error && <ErrorBox message={error}/>}
     {!list && !error && <Loading/>}

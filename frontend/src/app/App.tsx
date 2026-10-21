@@ -40,7 +40,7 @@ import { cycleTabSize, readLastPath, readTabSize, readTopbarMode, setTopbarMode,
 import { INSTANCE_NAME_PATTERN } from './instanceName'
 
 /* 旧版外壳下也要显示居中页名的顶层路由。 */
-const PRIMARY_NAV_PATHS = ['/announcement', '/updater', '/interface', '/remote', '/configs', '/settings', '/dev']
+const PRIMARY_NAV_PATHS = ['/errors', '/announcement', '/updater', '/interface', '/remote', '/configs', '/settings', '/dev']
 
 export function CreateInstance({onClose, startWithImport = false}: {onClose: () => void; startWithImport?: boolean}) {
   const [name, setName] = useState('')
@@ -202,10 +202,10 @@ export function App() {
   }, [instance, connection, notify, previewEnabled, stockExchange])
   // 旧版主题下点进实例后，外壳回到「顶栏跨全宽 + 单列侧栏」；主页视图一律沿用新版外壳。
   const legacyShell = usesLegacyShell(theme, instance)
-  /* 主页与五个二级菜单也走旧版外壳：它们没有实例内容，顶栏只写居中的页名。 */
+  /* 主页与全局页面也走旧版外壳：顶栏显示当前页名。 */
   const legacyHomeShell = (location.pathname === '/' || PRIMARY_NAV_PATHS.includes(location.pathname)) && usesLegacyLayout(theme) && instancesLoaded
   // 旧版把调度器与任务计划放进实例页左列，右栏整体让位，否则同一块内容会出现两处。
-  const showRail = showsRightRail(theme, instance) && !schedulerEditor && currentTask !== MIND_CALCULATOR && currentTask !== FLEET_TECHNOLOGY && !stockExchange && !location.pathname.endsWith('/errors') && !location.pathname.endsWith('/resources') && !location.pathname.endsWith('/task/FleetInfo') && !location.pathname.endsWith('/mind-calculator') && !(location.pathname.endsWith('/statistics') && new URLSearchParams(location.search).get('view') === 'management')
+  const showRail = showsRightRail(theme, instance) && !schedulerEditor && currentTask !== MIND_CALCULATOR && currentTask !== FLEET_TECHNOLOGY && !stockExchange && !location.pathname.endsWith('/resources') && !location.pathname.endsWith('/task/FleetInfo') && !location.pathname.endsWith('/mind-calculator') && !(location.pathname.endsWith('/statistics') && new URLSearchParams(location.search).get('view') === 'management')
   /* 紧凑主题可把调度与任务计划栏换到内容区左侧。换位走 DOM 顺序而不是 CSS order，
      键盘 Tab 的顺序才会跟看到的顺序一致；列宽与顶栏跨栏方向由 compact.css 按同一偏好调整。 */
   const railFirst = theme === 'extreme' && compactRailSide === 'left'
@@ -221,7 +221,7 @@ export function App() {
   const brand = <><Link to="/" className="brand-title" aria-label={`AzurPilot ${ui('nav.home')}`}><img src={`${import.meta.env.BASE_URL}azurpilot.svg`} alt="" className="brand-logo" onClick={handleBrandLogoClick}/><span>AzurPilot</span></Link>{updateAvailable && <Link className="update-notice sidebar-update-notice" to="/updater" aria-label={ui('nav.newVersion')} title={ui('nav.newVersion')}><span>{ui('nav.newBadge')}</span></Link>}</>
   // 旧版顶栏的第三列是居中的页面名：实例页写任务名，无实例时写导航项名。
   const pageTitle = instance
-    ? currentTask ? currentTaskLabel : location.pathname.endsWith('/mind-calculator') ? ui('mind.title') : location.pathname.endsWith('/resources') ? ui('nav.resources') : location.pathname.endsWith('/errors') ? ui('errors.title') : location.pathname.endsWith('/statistics') ? ui('nav.statistics') : ui('nav.overview')
+    ? currentTask ? currentTaskLabel : location.pathname.endsWith('/mind-calculator') ? ui('mind.title') : location.pathname.endsWith('/resources') ? ui('nav.resources') : location.pathname.endsWith('/statistics') ? ui('nav.statistics') : ui('nav.overview')
     : activeSection
   /* 分页模式把所有实例铺在顶栏一行；原模式仍把实例收在下拉里。两种模式共用这一个开关。 */
   const tabsMode = topbarMode === 'tabs' && instances.length > 0
@@ -287,7 +287,7 @@ export function App() {
       : <div className={`breadcrumb${tabsShown ? ' with-tabs' : ''}`}>{breadcrumbInner}</div>}
   </header>
   // 旧版顶栏只留招牌与居中的页面名，「主页 / 实例 / 任务」这一行落到内容区顶部。
-  const pageNav = <div className="legacy-page-nav"><div className={`breadcrumb${tabsShown ? ' with-tabs' : ''}`}>{topbarActions}{tabsShown ? tabStrip : <><span>/</span><InstanceSwitcher onCreate={() => setCreating(true)}/></>}{currentTask && <><span>/</span><TaskSwitcher/></>}</div></div>
+  const pageNav = <div className="legacy-page-nav"><div className={`breadcrumb${tabsShown ? ' with-tabs' : ''}`}>{topbarActions}{tabsShown ? tabStrip : instance ? <><span>/</span><InstanceSwitcher onCreate={() => setCreating(true)}/></> : activeSection !== ui('nav.home') && <><span>/</span><strong>{activeSection}</strong></>}{currentTask && <><span>/</span><TaskSwitcher/></>}</div></div>
   /* shell 自己必须订阅：收起状态变了要重渲染才能加上 nav-collapsed 类（按钮订阅管不到这里）。 */
   const layout = useSyncExternalStore(subscribeLayout, getLayout, getLayout)
   /* 检视器停靠时整块画布要为它让出宽度，所以外壳自己订阅，靠类名驱动。 */
@@ -307,7 +307,7 @@ export function App() {
       <div className={`sidebar-brand ${legacyShell || legacyHomeShell ? 'legacy-sidebar-actions' : ''}`.trim()}><div className="sidebar-brand-left">{brand}</div><button className="mobile-close icon-button" aria-label={ui('nav.close')} onClick={() => setMobileOpen(false)}><X size={18}/></button></div>
       <SidebarTransition viewKey={instance ? `instance:${instance}` : 'global'}>
         <nav className="primary-nav" aria-label={ui('nav.primary')}>
-          {instance ? <><NavLink to={`${base}/overview`} onClick={closeDrawer}><LayoutDashboard size={17}/>{ui('nav.overview')}</NavLink><NavLink to={`${base}/statistics`} onClick={closeDrawer}><ChartNoAxesCombined size={17}/>{ui('nav.statistics')}</NavLink><NavLink to={`${base}/errors`} onClick={closeDrawer}><Bug size={17}/>{ui('errors.title')}</NavLink><NavLink to={`${base}/stock-exchange`} onClick={closeDrawer}><Cat size={17}/>{ui('stock.name')}</NavLink></> : <><NavLink to="/" end onClick={closeDrawer}><House size={17}/>{ui('nav.home')}</NavLink><NavLink to="/announcement" onClick={closeDrawer}><Megaphone size={17}/>{ui('nav.announcement')}{announcement.unread && <span className="tiny-dot red"/>}</NavLink><NavLink to="/updater" onClick={closeDrawer}><Download size={17}/>{ui('nav.updater')}{updateAvailable && <span className="tiny-dot teal"/>}</NavLink><NavLink to="/interface" onClick={closeDrawer}><Palette size={17}/>{ui('nav.interface')}</NavLink><NavLink to="/remote" onClick={closeDrawer}><Globe size={17}/>{ui('nav.remote')}</NavLink><NavLink to="/configs" onClick={closeDrawer}><FileJson size={17}/>{ui('nav.configs')}</NavLink><NavLink to="/settings" onClick={closeDrawer}><Settings2 size={17}/>{ui('nav.settings')}</NavLink><NavLink to="/dev" onClick={closeDrawer}><Code2 size={17}/>{ui('nav.developer')}</NavLink><a className="nav-open-source" href="https://github.com/wess09/AzurPilot" target="_blank" rel="noreferrer" onClick={closeDrawer}><ExternalLink size={17}/>{ui('nav.openSource')}</a></>}
+          {instance ? <><NavLink to={`${base}/overview`} onClick={closeDrawer}><LayoutDashboard size={17}/>{ui('nav.overview')}</NavLink><NavLink to={`${base}/statistics`} onClick={closeDrawer}><ChartNoAxesCombined size={17}/>{ui('nav.statistics')}</NavLink><NavLink to={`${base}/stock-exchange`} onClick={closeDrawer}><Cat size={17}/>{ui('stock.name')}</NavLink></> : <><NavLink to="/" end onClick={closeDrawer}><House size={17}/>{ui('nav.home')}</NavLink><NavLink to="/errors" onClick={closeDrawer}><Bug size={17}/>{ui('errors.title')}</NavLink><NavLink to="/announcement" onClick={closeDrawer}><Megaphone size={17}/>{ui('nav.announcement')}{announcement.unread && <span className="tiny-dot red"/>}</NavLink><NavLink to="/updater" onClick={closeDrawer}><Download size={17}/>{ui('nav.updater')}{updateAvailable && <span className="tiny-dot teal"/>}</NavLink><NavLink to="/interface" onClick={closeDrawer}><Palette size={17}/>{ui('nav.interface')}</NavLink><NavLink to="/remote" onClick={closeDrawer}><Globe size={17}/>{ui('nav.remote')}</NavLink><NavLink to="/configs" onClick={closeDrawer}><FileJson size={17}/>{ui('nav.configs')}</NavLink><NavLink to="/settings" onClick={closeDrawer}><Settings2 size={17}/>{ui('nav.settings')}</NavLink><NavLink to="/dev" onClick={closeDrawer}><Code2 size={17}/>{ui('nav.developer')}</NavLink><a className="nav-open-source" href="https://github.com/wess09/AzurPilot" target="_blank" rel="noreferrer" onClick={closeDrawer}><ExternalLink size={17}/>{ui('nav.openSource')}</a></>}
         </nav>
         {instance && <TaskNav onNavigate={closeDrawer}/>}
       </SidebarTransition>

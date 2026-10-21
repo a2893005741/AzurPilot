@@ -443,7 +443,7 @@ get_next() 选中 MyFeature（Enable=true，NextRun 已过期）
 ## 19. 调试方法
 
 - **日志文件**：`loop()` 启动即按实例名设置文件日志；任务边界用 `logger.hr(task)` 分隔，全文检索 `[AzurPilot]` 可看到调度决策链（等待、注入 Restart、重启模拟器、运行监护触发）。
-- **错误现场**：`./log/error/<config_name>/<时间戳>/` 内含最近截图与裁剪后的 `log.txt`，已做敏感信息遮罩；保留天数由 `Error_SaveErrorRetentionDays` 控制（0 = 不清理），过期现场按 `Error_SaveErrorBackUpMethod` 删除、拷贝备份或压缩备份到 `log/error/<实例名>/bak/`。WebUI 的实例导航「故障记录」可只读查看与下载尚未归档的现场，任务停止后仍可访问；接口与边界见 [API 服务](../webui/api.md)。
+- **错误现场**：`./log/error/<config_name>/<时间戳>/` 内含最近截图与裁剪后的 `log.txt`，已做敏感信息遮罩；保留天数由 `Error_SaveErrorRetentionDays` 控制（0 = 不清理），过期现场按 `Error_SaveErrorBackUpMethod` 删除、拷贝备份或压缩备份到 `log/error/<实例名>/bak/`。WebUI 的主页「故障记录」可只读查看与下载尚未归档的现场，任务停止后仍可访问；接口与边界见 [API 服务](../webui/api.md)。
 - **常见问题排查顺序**：模拟器反复离线先看 `连续次数 X/阈值` 与 `_try_restart_emulator` 的退避日志；任务反复失败看 `failure_record` 相关的「连续失败 N 次」日志；任务卡住但日志还在动，怀疑逻辑死循环，开 `Error.WatchdogEnable` + `WatchdogTaskEnable` 验证；服务器相关看 `[服务器检查]` 前缀日志。
 - **WebUI 侧**：worker 通过日志队列与 `set_task()` 向父进程发布实时日志与当前任务名，前端「日志」页即来源于此。
 - **本地调试服务**：环境变量 `ALAS_DEBUG_SERVER=1` 时启动仅监听本机的调试服务，用于向统计库注入测试数据，默认关闭。

@@ -1,5 +1,6 @@
 /** 故障记录页面文案。 */
 export const errorsZhCN = {
+  'errors.instance': '选择实例',
   'errors.title': '故障记录', 'errors.hint': '查看脚本报错时保存的日志和最近截图；刷新不会操作游戏。',
   'errors.refresh': '刷新记录', 'errors.empty': '暂无故障记录',
   'errors.emptyHint': '开启「保存错误日志」后，新错误会自动保存到这里。已归档的旧记录不在此列表中。',
@@ -12,6 +13,7 @@ export const errorsZhCN = {
 } as const
 type Key = keyof typeof errorsZhCN
 export const errorsZhTW: Record<Key, string> = {
+  'errors.instance': '選擇實例',
   'errors.title': '故障紀錄', 'errors.hint': '查看腳本出錯時儲存的日誌與最近截圖；重新整理不會操作遊戲。',
   'errors.refresh': '重新整理紀錄', 'errors.empty': '暫無故障紀錄',
   'errors.emptyHint': '啟用「儲存錯誤日誌」後，新錯誤會自動儲存於此。已封存的舊紀錄不在此清單中。',
@@ -23,6 +25,7 @@ export const errorsZhTW: Record<Key, string> = {
   'errors.previous': '上一頁', 'errors.next': '下一頁', 'errors.image': '選擇截圖',
 }
 export const errorsEnUS: Record<Key, string> = {
+  'errors.instance': 'Select instance',
   'errors.title': 'Error records', 'errors.hint': 'Inspect saved error logs and recent screenshots. Refresh does not control the game.',
   'errors.refresh': 'Refresh records', 'errors.empty': 'No error records',
   'errors.emptyHint': 'Enable “Save error logs” to save future errors here. Archived records are not listed.',
@@ -34,6 +37,7 @@ export const errorsEnUS: Record<Key, string> = {
   'errors.previous': 'Previous', 'errors.next': 'Next', 'errors.image': 'Select screenshot',
 }
 export const errorsJaJP: Record<Key, string> = {
+  'errors.instance': 'インスタンスを選択',
   'errors.title': 'エラー記録', 'errors.hint': 'エラー時に保存したログと直近の画像を確認できます。更新してもゲームは操作されません。',
   'errors.refresh': '記録を更新', 'errors.empty': 'エラー記録はありません',
   'errors.emptyHint': '「エラーログを保存」を有効にすると、新しいエラーが保存されます。アーカイブ済みの記録は表示されません。',

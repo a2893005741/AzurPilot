@@ -109,6 +109,19 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
     EXPLORE_SCHEDULING_MONTH_KEY = 'ExploreSchedulingMonth'
     EXPLORE_SCHEDULING_PHASE_KEY = 'ExploreSchedulingPhase'
 
+    def _update_view(self):
+        """扫描中出现战斗结算时先收尾，由相机循环重新截图确认地图。
+
+        Pages:
+            in: 大世界地图或战斗结算页。
+            out: 结算页推进后继续截图，地图确认仍由父类完成。
+        """
+        if not self.is_in_map() and not self.is_combat_executing():
+            # 自律可能在地图重扫期间完成战斗；沿用 S 评价等待和经验页点击冷却。
+            if self.handle_battle_status() or self.handle_auto_search_exp_info():
+                return False
+        return super()._update_view()
+
     def _explore_scheduling_month(self):
         """返回当前大世界重置周期的稳定标识。"""
         return get_os_next_reset().replace(microsecond=0).isoformat()

@@ -135,7 +135,17 @@ export interface BackgroundGalleryEntry {
   source?: string
 }
 
+export interface ErrorList {
+  instance: string; total: number; enabled: boolean
+  entries: Array<{id: string; timestamp: number; screenshots: number; has_log: boolean}>
+}
+export interface ErrorDetail {
+  instance: string; id: string; images: string[]; log: string | null; truncated: boolean
+}
 export interface Results {
+  'errors.list': ErrorList
+  'errors.detail': ErrorDetail
+  'errors.file': {filename: string; content: string; media_type: string}
   'mind.catalog': MindCatalog
   'fleetTech.catalog': FleetTechCatalog
   'fleetTech.report': FleetTechReport

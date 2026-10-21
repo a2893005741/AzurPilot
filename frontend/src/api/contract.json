@@ -2213,6 +2213,98 @@
         "type": "object"
       }
     },
+    "errors.list": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "故障记录按时间倒序分页。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 30,
+            "maximum": 100,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "ErrorsListParams",
+        "type": "object"
+      }
+    },
+    "errors.detail": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "已保存的错误现场编号（毫秒时间戳）。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "record": {
+            "pattern": "^[0-9]{13}$",
+            "title": "Record",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "record"
+        ],
+        "title": "ErrorRecordParams",
+        "type": "object"
+      }
+    },
+    "errors.file": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "现场内的日志或截图文件名，不接受路径。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "record": {
+            "pattern": "^[0-9]{13}$",
+            "title": "Record",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "record",
+          "name"
+        ],
+        "title": "ErrorFileParams",
+        "type": "object"
+      }
+    },
     "opsi.simulator.status": {
       "mutates": false,
       "params": {

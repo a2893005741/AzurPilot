@@ -40,12 +40,14 @@ const SchedulerProgram = lazy(() => import('./pages/SchedulerProgram').then(modu
 const StockExchange = lazy(() => import('./pages/StockExchange').then(module => ({default: module.StockExchange})))
 const MindCalculator = lazy(() => import('./pages/MindCalculator').then(module => ({default: module.MindCalculator})))
 const FleetTechnology = lazy(() => import('./pages/FleetTechnology').then(module => ({default: module.FleetTechnology})))
+const ErrorRecords = lazy(() => import('./pages/ErrorRecords').then(module => ({default: module.ErrorRecords})))
 
 const router = createHashRouter([
   {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{index: true, element: <Home/>}, {path: 'announcement', element: <Announcement/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
   {path: '/i/:instance', element: <App/>, errorElement: <ErrorPage/>, children: [
     {index: true, element: <Navigate to="overview" replace/>},
     {path: 'overview', element: <Overview/>}, {path: 'task/:task', element: <TaskConfig/>},
+    {path: 'errors', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><ErrorRecords/></Suspense>},
     {path: 'mind-calculator', element: <Navigate to="../task/MindCalculator" replace/>},
     {path: 'resources', element: <Navigate to="../statistics?view=management" replace/>},
     {path: 'stock-exchange', element: <StockExchangeBoundary><Suspense fallback={<StockExchangeFallback/>}><StockExchange/></Suspense></StockExchangeBoundary>},

@@ -88,6 +88,9 @@ class Router:
             'tasks.run': Method(p.TaskParams, lambda x: runtime.start(x.instance, x.task), True),
             'tasks.runNow': Method(p.TaskParams, lambda x: runtime.run_now(x.instance, x.task), True),
             'logs.get': Method(p.LogsParams, lambda x: runtime.logs(x.instance, x.after)),
+            'errors.list': Method(p.ErrorsListParams, lambda x: self.errors.list(x.instance, x.offset, x.limit)),
+            'errors.detail': Method(p.ErrorRecordParams, lambda x: self.errors.detail(x.instance, x.record)),
+            'errors.file': Method(p.ErrorFileParams, lambda x: self.errors.file(x.instance, x.record, x.name)),
             'opsi.simulator.status': Method(p.LogsParams, lambda x: self.opsi_simulator.status(x.instance, x.after)),
             'opsi.simulator.start': Method(p.InstanceParams, lambda x: self.opsi_simulator.start(x.instance), True),
             'opsi.simulator.stop': Method(p.InstanceParams, lambda x: self.opsi_simulator.stop(x.instance), True),
@@ -125,6 +128,11 @@ class Router:
                                                     lambda x: {'removed': background.gallery_remove(x.id)}, True),
             'background.gallery.open': Method(p.Params, lambda _: background.gallery_open(), True),
         }
+
+    @property
+    def errors(self):
+        from module.api.error_service import ErrorService
+        return ErrorService(self.configs)
 
     @property
     def fleet_tech(self):

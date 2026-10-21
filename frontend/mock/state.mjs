@@ -13,6 +13,7 @@ const menu = read('../../module/config/argument/menu.json')
 const template = read('../../config/template.json')
 const storageCatalog = read('../../assets/stats/storage_items/catalog.json')
 const contract = read('../src/api/contract.json')
+const errorScreenshot = readFileSync(new URL('./fixtures/error-scene.png', import.meta.url)).toString('base64')
 const locales = Object.fromEntries(['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'zh-MIAO'].map(lang => [lang, read(`../../module/config/i18n/${lang}.json`)]))
 const ajv = new Ajv({ strict: false, useDefaults: true })
 const validators = Object.fromEntries(Object.entries(contract.methods).map(([method, entry]) => [method, ajv.compile(entry.params)]))
@@ -553,6 +554,26 @@ export function createMockState({ empty = false } = {}) {
       case 'scheduler.stop':
         get(name).status = 'stopped'; log(name, '模拟调度器已停止。')
         return overview(name)
+      case 'errors.list': {
+        const entries = name === 'demo-main' ? [
+          {id: '1792540800000', timestamp: 1792540800000, screenshots: 2, has_log: true},
+          {id: '1792454400000', timestamp: 1792454400000, screenshots: 0, has_log: false},
+        ] : []
+        return {instance: name, entries: entries.slice(params.offset, params.offset + params.limit), total: entries.length,
+          enabled: get(name).values.Alas.Error.SaveError}
+      }
+      case 'errors.detail': {
+        if (name !== 'demo-main' || !['1792540800000', '1792454400000'].includes(params.record)) fail('NOT_FOUND', '故障记录不存在或已被清理，请刷新列表')
+        const latest = params.record === '1792540800000'
+        return {instance: name, id: params.record, images: latest ? ['2026-10-21_08-00-00-000000.png', '2026-10-21_08-00-01-000000.png'] : [],
+          log: latest ? 'INFO 08:00:00 测试任务开始\nERROR 08:00:01 游戏画面长时间未变化\nTraceback (most recent call last):\nGameStuckError: 等待游戏画面超时\n' : null, truncated: false}
+      }
+      case 'errors.file': {
+        if (name !== 'demo-main' || params.record !== '1792540800000') fail('NOT_FOUND', '现场文件不存在或已被清理，请刷新列表')
+        if (params.name === 'log.txt') return {filename: params.name, media_type: 'text/plain', content: Buffer.from(dispatch('errors.detail', {instance: name, record: params.record}).log).toString('base64')}
+        if (!dispatch('errors.detail', {instance: name, record: params.record}).images.includes(params.name)) fail('NOT_FOUND', '现场文件不存在或已被清理，请刷新列表')
+        return {filename: params.name, media_type: 'image/png', content: errorScreenshot}
+      }
       case 'logs.get': {
         const item = get(name)
         const reset = params.after > item.cursor || params.after < (item.logs[0]?.id ?? 1) - 1

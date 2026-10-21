@@ -1277,3 +1277,139 @@ test('关闭背景后切回填写 URL 直接铺上，不必再点应用背景', 
   await page.getByRole('option', {name: '填写 URL', exact: true}).click()
   await expect(page.locator('.wallpaper img')).toBeVisible()
 })
+
+
+for (const viewport of [{width: 1440, height: 1100}, {width: 390, height: 844}]) {
+  test(`故障记录查看截图、缺失现场与下载 ${viewport.width}`, async ({page}) => {
+    await page.setViewportSize(viewport)
+    const commands: string[] = []
+    page.on('websocket', socket => socket.on('framesent', event => {
+      const request = JSON.parse(String(event.payload))
+      if (request.method === 'tasks.run' || request.method === 'scheduler.start') commands.push(request.method)
+    }))
+    await page.addInitScript(() => {
+      localStorage.setItem('azurpilot.language', 'zh-CN')
+      localStorage.setItem('azurpilot.theme', 'light')
+    })
+    await page.goto('/#/i/demo-main/errors')
+    await expect(page.getByRole('heading', {name: '故障记录', exact: true})).toBeVisible()
+    await expect(page.locator('.error-record-log pre')).toContainText('GameStuckError')
+    const image = page.locator('.error-record-preview img')
+    await expect(image).toBeVisible()
+    await expect(image).toHaveAttribute('alt', '2026-10-21_08-00-01-000000.png')
+    await expect.poll(() => image.evaluate((node: HTMLImageElement) => node.naturalWidth)).toBe(1280)
+    await page.getByRole('combobox', {name: '选择截图'}).click()
+    await page.getByRole('option', {name: '1 / 2 · 2026-10-21_08-00-00-000000'}).click()
+    await expect(image).toHaveAttribute('alt', '2026-10-21_08-00-00-000000.png')
+    await page.getByRole('button', {name: '放大截图', exact: true}).click()
+    await expect(page.getByRole('dialog').locator('img')).toBeVisible()
+    await page.getByRole('button', {name: '关闭', exact: true}).click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    const downloadPromise = page.waitForEvent('download')
+    await page.getByRole('button', {name: '下载完整日志'}).click()
+    const download = await downloadPromise
+    expect(download.suggestedFilename()).toBe('demo-main-1792540800000-log.txt')
+    const {readFile} = await import('node:fs/promises')
+    expect(await readFile((await download.path())!, 'utf8')).toContain('GameStuckError')
+    const imageDownloadPromise = page.waitForEvent('download')
+    await page.getByRole('link', {name: '下载截图', exact: true}).click()
+    const imageDownload = await imageDownloadPromise
+    expect(imageDownload.suggestedFilename()).toBe('demo-main-1792540800000-2026-10-21_08-00-00-000000.png')
+    const png = await readFile((await imageDownload.path())!)
+    expect(png.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
+    expect(png.readUInt32BE(16)).toBe(1280)
+    expect(png.readUInt32BE(20)).toBe(720)
+    expect(png.toString('base64')).toBe((await image.getAttribute('src'))!.split(',')[1])
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.locator('main').evaluate(node => node.scrollTo(0, 0))
+    await page.evaluate(() => { window.scrollTo(0, 0); (document.activeElement as HTMLElement)?.blur() })
+    await page.screenshot({path: test.info().outputPath(`error-records-${viewport.width}.png`), fullPage: true, animations: 'disabled'})
+    await page.locator('.error-record-item').nth(1).click()
+    await expect(page.getByText('此现场未保存截图', {exact: true})).toBeVisible()
+    await expect(page.locator('.error-record-log')).toContainText('此现场未保存日志')
+    await page.getByRole('button', {name: '刷新记录'}).click()
+    await expect(page.locator('.error-record-item')).toHaveCount(2)
+    await page.goto('/#/i/demo-alt/errors')
+    await expect(page.getByText('暂无故障记录', {exact: true})).toBeVisible()
+    await expect(page.locator('.error-record-preview')).toHaveCount(0)
+    expect(commands).toEqual([])
+  })
+}
+
+for (const method of ['errors.detail', 'errors.file']) {
+  test(`故障记录切换后忽略延迟的 ${method} 响应`, async ({page}) => {
+    let release: (() => void) | undefined
+    await page.routeWebSocket('**/api/v1/ws', socket => {
+      const server = socket.connectToServer()
+      const requests = new Map<string, {method: string; params: {record?: string}}>()
+      socket.onMessage(message => {
+        const request = JSON.parse(String(message))
+        requests.set(request.id, request)
+        server.send(message)
+      })
+      server.onMessage(message => {
+        const response = JSON.parse(String(message))
+        const request = requests.get(response.id)
+        if (!release && request?.method === method && request.params.record === '1792540800000') {
+          release = () => socket.send(message)
+        } else socket.send(message)
+      })
+    })
+    await page.addInitScript(() => {
+      localStorage.setItem('azurpilot.language', 'zh-CN')
+      localStorage.setItem('azurpilot.theme', 'light')
+    })
+    await page.goto('/#/i/demo-main/errors')
+    await expect.poll(() => Boolean(release)).toBe(true)
+    await page.locator('.error-record-item').nth(1).click()
+    await expect(page.getByText('此现场未保存截图', {exact: true})).toBeVisible()
+    release!()
+    await expect(page.locator('.error-record-item').nth(1)).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.error-record-log')).toContainText('此现场未保存日志')
+    await expect(page.locator('.error-record-preview')).toHaveCount(0)
+  })
+}
+
+
+test('故障记录分页、保存关闭和清理后的刷新', async ({page}) => {
+  let cleaned = false
+  const offsets: number[] = []
+  await page.routeWebSocket('**/api/v1/ws', socket => {
+    const server = socket.connectToServer()
+    const requests = new Map<string, {method: string; params: {offset?: number}}>()
+    socket.onMessage(message => {
+      const request = JSON.parse(String(message))
+      requests.set(request.id, request)
+      server.send(message)
+    })
+    server.onMessage(message => {
+      const response = JSON.parse(String(message))
+      const request = requests.get(response.id)
+      if (request?.method === 'errors.list' && response.ok) {
+        const offset = request.params.offset ?? 0
+        offsets.push(offset)
+        response.result.enabled = false
+        response.result.total = cleaned ? 0 : 31
+        response.result.entries = cleaned ? [] : offset ? response.result.entries : Array.from({length: 30}, (_, index) => ({id: String(1792540800000 - index), timestamp: 1792540800000 - index, screenshots: 0, has_log: false}))
+        // 第二页仍使用服务提供的旧现场，详情走真实模拟接口。
+        if (!cleaned && offset) response.result.entries = [{id: '1792454400000', timestamp: 1792454400000, screenshots: 0, has_log: false}]
+        socket.send(JSON.stringify(response))
+      } else socket.send(message)
+    })
+  })
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.language', 'zh-CN')
+    localStorage.setItem('azurpilot.theme', 'light')
+  })
+  await page.goto('/#/i/demo-main/errors')
+  await expect(page.locator('.error-record-notice')).toContainText('当前未开启')
+  await expect(page.locator('.error-record-item')).toHaveCount(30)
+  await page.getByRole('button', {name: '下一页', exact: true}).click()
+  await expect(page.getByText('此现场未保存截图', {exact: true})).toBeVisible()
+  await expect(page.getByRole('button', {name: '下一页', exact: true})).toBeDisabled()
+  expect(offsets).toContain(30)
+  cleaned = true
+  await page.getByRole('button', {name: '刷新记录'}).click()
+  await expect(page.getByText('暂无故障记录', {exact: true})).toBeVisible()
+  expect(offsets.at(-1)).toBe(0)
+})

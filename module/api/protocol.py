@@ -106,6 +106,22 @@ class InstanceParams(Params):
     instance: StrictStr = Field(min_length=1, max_length=64)
 
 
+class ErrorsListParams(InstanceParams):
+    """故障记录按时间倒序分页。"""
+    offset: StrictInt = Field(default=0, ge=0)
+    limit: StrictInt = Field(default=30, ge=1, le=100)
+
+
+class ErrorRecordParams(InstanceParams):
+    """已保存的错误现场编号（毫秒时间戳）。"""
+    record: StrictStr = Field(pattern=r'^[0-9]{13}$')
+
+
+class ErrorFileParams(ErrorRecordParams):
+    """现场内的日志或截图文件名，不接受路径。"""
+    name: StrictStr = Field(min_length=1, max_length=80)
+
+
 def _partial_update_schema(schema):
     """局部更新的缺失字段必须保持缺失，禁止客户端填入默认 null。"""
     for field in schema.get('properties', {}).values():

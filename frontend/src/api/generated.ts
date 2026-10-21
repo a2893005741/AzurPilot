@@ -38,6 +38,9 @@ export interface Parameters {
   "tasks.run": { instance: string; task: string }
   "tasks.runNow": { instance: string; task: string }
   "logs.get": { instance: string; after?: number }
+  "errors.list": { instance: string; offset?: number; limit?: number }
+  "errors.detail": { instance: string; record: string }
+  "errors.file": { instance: string; record: string; name: string }
   "opsi.simulator.status": { instance: string; after?: number }
   "opsi.simulator.start": { instance: string }
   "opsi.simulator.stop": { instance: string }

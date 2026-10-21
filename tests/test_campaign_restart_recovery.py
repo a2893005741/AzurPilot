@@ -16,7 +16,12 @@ from module.campaign.campaign_base import CampaignBase
 from module.campaign.recovery import CampaignRecovery, campaign_recovery_scope, recovery_settings
 from module.campaign.run import CampaignRun
 from module.combat.assets import BATTLE_STATUS_A, BATTLE_STATUS_S, EXP_INFO_A, EXP_INFO_S, OPTS_INFO_D
+from module.combat.combat import COMBAT_RESULT_CONFIRM
 from module.combat.result import CombatResult
+
+# fork 的经验结算页只以 EXP_INFO_* 识别评价，确认点击落在右下角 COMBAT_RESULT_CONFIRM
+#（b506984cc，见 tests/test_combat_exp_info.py），因此点击序列期望该按钮名。
+EXP_INFO_CONFIRM = COMBAT_RESULT_CONFIRM.name
 from module.exception import CampaignEnd, GameNotRunningError, GameStuckError, ScriptEnd
 from module.handler.assets import AUTO_SEARCH_MAP_OPTION_OFF, AUTO_SEARCH_MAP_OPTION_ON, AUTO_SEARCH_MENU_EXIT
 from module.handler.login import LoginHandler
@@ -368,7 +373,7 @@ class RestartBattleReplayTests(unittest.TestCase):
             screen(EXP_INFO_S), screen(AUTO_SEARCH_MAP_OPTION_ON)], phase='moving', reduced=False)
         campaign.combat_result = CombatResult()
         self.resume(campaign, 'map')
-        self.assertEqual([AUTO_SEARCH_MAP_OPTION_OFF.name, BATTLE_STATUS_S.name, EXP_INFO_S.name], replay.clicks)
+        self.assertEqual([AUTO_SEARCH_MAP_OPTION_OFF.name, BATTLE_STATUS_S.name, EXP_INFO_CONFIRM], replay.clicks)
         campaign.emotion.check_fleet.assert_called_once_with(1, after_restart=True)
         campaign.emotion.reduce.assert_called_once_with(1)
         self.assertEqual(3, campaign.battle_count)
@@ -390,7 +395,7 @@ class RestartBattleReplayTests(unittest.TestCase):
                 self.assertIs(result, campaign.combat_result)
                 self.assertEqual('S', result.rank)
                 self.assertEqual(3, campaign.battle_count)
-                self.assertEqual([AUTO_SEARCH_MAP_OPTION_OFF.name, BATTLE_STATUS_S.name, EXP_INFO_S.name],
+                self.assertEqual([AUTO_SEARCH_MAP_OPTION_OFF.name, BATTLE_STATUS_S.name, EXP_INFO_CONFIRM],
                                  replay.clicks)
                 self.assertEqual([] if reduced else [call(fleet_index)], campaign.emotion.reduce.call_args_list)
 
@@ -550,7 +555,7 @@ class RestartBattleReplayTests(unittest.TestCase):
         self.assertTrue(campaign.prepare_auto_search_recovery('status'))
         with self.assertRaisesRegex(ScriptEnd, '原有停止条件已触发'):
             campaign.auto_search_execute_a_battle()
-        self.assertIn(EXP_INFO_S.name, replay.clicks)
+        self.assertIn(EXP_INFO_CONFIRM, replay.clicks)
         self.assertIn(WITHDRAW.name, replay.clicks)
         self.assertNotIn(AUTO_SEARCH_MAP_OPTION_OFF.name, replay.clicks)
         self.assertEqual(2, campaign.battle_count)
@@ -589,6 +594,8 @@ class RestartBattleReplayTests(unittest.TestCase):
         runner.campaign = Mock()
         runner.campaign.config = SimpleNamespace(
             Campaign_Mode='normal', modified={}, MAP_IS_ONE_TIME_STAGE=False)
+        # fork 的低心情撤退读取 low_emotion_withdrawn；Mock 默认属性为真值，这里显式关闭。
+        runner.campaign.low_emotion_withdrawn = False
         runner.campaign.event_time_limit_triggered.return_value = False
         runner.triggered_stop_condition = Mock(return_value=False)
         runner.after_campaign_run = Mock()

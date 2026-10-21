@@ -77,8 +77,6 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
 
     def _cl1_run_battle(self):
         """执行侵蚀 1 战后的战略搜索与事件检索逻辑。"""
-        if self._get_pending_event() is not None:
-            self._resume_pending_event()
         try:
             search_completed = self.run_strategic_search()
         except CoinReplenishRequired:
@@ -88,10 +86,6 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
 
         if not search_completed and search_completed is not None:
             logger.warning("[大世界-侵蚀1练级] 战略搜索返回 False，可能已被提前中断")
-
-        # 新一轮实际自律结束后才重置预算，重扫与初始化续查不能重复获得预算。
-        self._event_patrol_attempted = False
-        self._event_recovery_exhausted = False
 
         # debug 录屏：只录“战后找事件 + 处理事件 + 强制移动”这一段
         # 事件/强制移动处理完进入下一轮前结束。每一轮都保留，不论有没有遇到事件。
@@ -109,20 +103,14 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             self._solved_map_event = set()
             self._solved_fleet_mechanism = False
             self.map_rescan()
-            if self._get_pending_event() is not None:
-                self._recover_pending_event()
 
             # 强制移动（开关）：开启后先零移动遍历 1~4 队雷达找问号；仍没找到
             # 且行动力大于阈值时，再逐个挪动舰队重扫（见 _execute_fixed_patrol_scan）。
             # 挪舰队那段的整图重扫在 _execute_fixed_patrol_scan 内部完成，返回后
             # 不再二次重扫，否则清完明石后会再次重复进明石商店（购买之外的多余进店）。
             if self._forced_move_enabled():
-                if (not self._solved_map_event and not self._event_patrol_attempted
-                        and not self._event_recovery_exhausted):
+                if not self._solved_map_event:
                     self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
-
-            if self._get_pending_event() is not None:
-                self._recover_pending_event()
 
             self.handle_after_auto_search()
 
@@ -274,6 +262,12 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         elif self.zone.hazard_level != 1 or not self.is_zone_name_hidden:
             self.globe_goto(self.name_to_zone(22), types="SAFE", refresh=True)
         self.fleet_set(self.config.OpsiFleet_Fleet)
+
+        # ===== 续查上次看到却没处理完的地图事件（卡死重启后）=====
+        # 明石/探测装置/塞壬装置在点击或后续自律途中卡死重启时，重启后本轮
+        # 先把它做完，避免重开一局把这只猫/这个装置漏掉。完整走完一遍全图
+        # 扫描与强制移动仍没看到事件时，续查会自行清除记录并继续下一轮。
+        self._resume_pending_map_event()
 
         # ===== 海里数记录（按配置的天数间隔检测）=====
         sea_miles = None

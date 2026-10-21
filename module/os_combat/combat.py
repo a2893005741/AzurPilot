@@ -460,8 +460,9 @@ class Combat(Combat_, MapEventHandler):
         """
         自动搜索模式下的经验结算页面处理。
 
-        依次检查 S/A/B/C/D 经验结算按钮，点击后清除 S 评价计时器。
-        通过点击冷却防止连击，由调用方继续截图确认下一状态。
+        依次检查 S/A/B/C/D 经验结算按钮并点击，点击后清除 S 评价计时器。
+        点击沿用战斗结算的点击冷却，避免同一页面被连点；页面是否关闭由调用方
+        继续截图确认，不再用固定时长休眠猜测界面状态。
 
         Pages:
             in: 经验结算页面（S/A/B/C/D 任一可见）
@@ -514,12 +515,12 @@ class Combat(Combat_, MapEventHandler):
                 continue
 
             # 结束
+            if self.handle_os_auto_search_map_option(drop=drop):
+                self._clear_battle_status_s_timer()
+                break
             pause = self.is_combat_executing()
             if pause:
                 logger.attr('战斗UI', pause)
-                break
-            if self.handle_os_auto_search_map_option(drop=drop):
-                self._clear_battle_status_s_timer()
                 break
             if self.is_in_map():
                 break
@@ -547,9 +548,6 @@ class Combat(Combat_, MapEventHandler):
 
             if self.handle_submarine_call(submarine_mode):
                 continue
-            if self.is_combat_executing():
-                battle_status_s_timer.clear()
-                continue
             # 失败时不更改自动搜索选项
             enable = success if success is not None else None
             if self.handle_os_auto_search_map_option(drop=drop, enable=enable):
@@ -560,7 +558,11 @@ class Combat(Combat_, MapEventHandler):
             if self.is_in_map():
                 self.device.screenshot_interval_set()
                 break
-            # 自律被游戏或任务中断后，经验页需要主动确认，与是否启用自动修理无关。
+            if self.is_combat_executing():
+                battle_status_s_timer.clear()
+                continue
+            # 自律被游戏或任务中断后，经验结算页需要主动确认才能回到地图，
+            # 与是否启用自动修理无关；此前按修理阈值门控会在关闭修理时卡在结算页。
             if self.handle_auto_search_exp_info():
                 battle_status_s_timer.clear()
                 success = None
@@ -573,6 +575,9 @@ class Combat(Combat_, MapEventHandler):
                 continue
             
         logger.info('战斗结束。')
+        # 刚回到地图时界面仍在重建，自律寻敌按钮可能是过渡外观；记录窗口，
+        # 期间不操作地图自律开关，避免把仍在执行的自律寻敌点停。
+        self._os_auto_search_battle_settle_start()
         
         # 通过相同的指标源结束，避免 CL1 和 short-meow 样本意外共享存储键。
         finish_battle_timer(self.config, battle_timer_source)

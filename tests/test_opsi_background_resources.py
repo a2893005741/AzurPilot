@@ -132,10 +132,9 @@ class BackgroundRuntimeTests(unittest.TestCase):
             config_name='isolated', task=SimpleNamespace(command='OpsiHazard1Leveling'),
             OpsiHazard1Leveling_ActionPointCheckInterval=5, OS_ACTION_POINT_BOX_USE=True,
             OpsiHazard1Leveling_OperationCoinsPreserve=50000,
-            # fork 的智能调度闭环会让 run_smart_scheduling_once 经
-            # _is_explore_scheduling_enabled 读 cross_get；上游该用例的简化配置
-            # 早于这条链路，补一个默认关闭的桩，不改变用例原有断言。
-            cross_get=Mock(return_value=False),
+            # fork 的开荒闭环读取开关、上游单轮入口读取隐藏的事件续查记录，
+            # 桩配置均按默认值返回（开荒关闭、无待续查），不改变用例原有断言。
+            cross_get=lambda keys, default=None: default, cross_set=Mock(),
         )
         self.runner.device = Mock(image=np.zeros((720, 1280, 3), np.uint8))
         self.runner.is_in_map = Mock(return_value=True)
@@ -187,7 +186,9 @@ class BackgroundRuntimeTests(unittest.TestCase):
         state.candidate = CoinReading(self.runner._background_coin_identity(), datetime.now(), 97451, True)
         state.future = Future()
         state.future.set_result(state.candidate)
-        self.assertFalse(self.runner.background_coin_replenish_required())
+        with patch('module.os_handler.os_status.logger.info') as info:
+            self.assertFalse(self.runner.background_coin_replenish_required())
+        info.assert_not_called()
         self.assertEqual(self.runner._last_yellow_coins, 97451)
         self.assertEqual(self.runner._shop_purple_coins, 31163)
         self.writer.assert_called_once_with(

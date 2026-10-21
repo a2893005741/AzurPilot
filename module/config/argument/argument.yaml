@@ -687,6 +687,7 @@ Campaign:
   UseClearMode: true
   UseFleetLock: true
   UseAutoSearch: true
+  ContinueAfterRestart: false
   Use2xBook: false
   AmbushEvade: true
   UseRecommendFleet: false
@@ -1721,7 +1722,9 @@ OpsiHazard1Leveling:
     type: stored
     value: null
     display: hide
-  PendingEventRecovery:
+  # 跨重启续查：记录“已经看见、但还没处理完”的地图事件（明石/探测装置/
+  # 塞壬装置），供卡死重启后继续完成；由代码自动维护，不在界面上暴露。
+  PendingMapEvent:
     type: stored
     value: null
     display: hide

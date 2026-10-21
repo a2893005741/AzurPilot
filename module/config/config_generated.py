@@ -320,6 +320,7 @@ class GeneratedConfig:
     Campaign_UseClearMode = True
     Campaign_UseFleetLock = True
     Campaign_UseAutoSearch = True
+    Campaign_ContinueAfterRestart = False
     Campaign_Use2xBook = False
     Campaign_AmbushEvade = True
     Campaign_UseRecommendFleet = False
@@ -847,7 +848,7 @@ class GeneratedConfig:
     OpsiHazard1Leveling_RecordNonCL1AP = True
     OpsiHazard1Leveling_RecordSeaMiles = -1
     OpsiHazard1Leveling_SeaMilesLastRecord = None
-    OpsiHazard1Leveling_PendingEventRecovery = None
+    OpsiHazard1Leveling_PendingMapEvent = None
     OpsiHazard1Leveling_DebugClip = False
 
     # 配置组 `OpsiSirenBug`

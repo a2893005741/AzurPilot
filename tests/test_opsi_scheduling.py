@@ -1025,8 +1025,9 @@ class TestHazard1FreshActionPoint(unittest.TestCase):
             OpsiFleet_Fleet=1,
             override=Mock(),
             is_task_enabled=Mock(return_value=False),
-            # fork 的开荒闭环会在独立侵蚀 1 中读取开关，这里按默认值（关闭）返回。
-            cross_get=lambda keys, default=None: default,
+            # fork 的开荒闭环读取开关、上游单轮入口读取隐藏的事件续查记录，
+            # 桩配置均按默认值返回（开荒关闭、无待续查），不改变用例原有断言。
+            cross_get=lambda keys, default=None: default, cross_set=Mock(),
         )
         runner.zone = SimpleNamespace(zone_id=1, hazard_level=2)
         return runner

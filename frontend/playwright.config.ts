@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
-  // 配对、股票与心智单元依赖专用 mock 服务，由对应的 Playwright 配置执行。
+  // 配对、股票与心智单元用例依赖专用 Mock 服务，由对应的 Playwright 配置执行。
   testIgnore: ['**/mock.spec.ts', '**/pairing.spec.ts', '**/stock-exchange/**', '**/mind-*.spec.ts'],
   fullyParallel: false,
   workers: 1,

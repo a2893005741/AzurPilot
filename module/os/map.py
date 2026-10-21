@@ -47,13 +47,13 @@ from module.handler.login import LoginHandler, MAINTENANCE_ANNOUNCE
 from module.logger import logger
 from module.map.map import Map
 from module.map.map_base import location2node
-from module.os.event_recovery import MAP_EVENT_TYPES, MapEventRecovery
 from module.os.assets import FLEET_EMP_DEBUFF, MAP_GOTO_GLOBE_FOG
 from module.handler.assets import POPUP_CONFIRM
 from module.os.config import opsi_drop_record
 from module.os.fleet import OSFleet, BossFleet
 from module.os.globe_camera import GlobeCamera
 from module.os.globe_operation import RewardUncollectedError
+from module.os.map_event_resume import MapEventResumeMixin
 from module.os_handler.assets import (
     AUTO_SEARCH_OS_MAP_OPTION_OFF,
     AUTO_SEARCH_OS_MAP_OPTION_OFF_DISABLED,
@@ -80,10 +80,12 @@ from module.ui.page import page_os
 # （点掉记录塔 / 购买明石商店 / 完成信息探测装置自律等），说明本轮漏检
 # 已补齐、雷达上已无残留问号，无需再强制移动更多舰队。用于强制移动
 # 相关逻辑的统一停止判定。
-ALREADY_SOLVED_MAP_EVENTS = frozenset(MAP_EVENT_TYPES)
+ALREADY_SOLVED_MAP_EVENTS = frozenset(
+    {"is_akashi", "is_scanning_device", "is_logging_tower"}
+)
 
 
-class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
+class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     """大世界地图主控类。
 
     整合舰队控制 (OSFleet)、地图操作 (Map)、全球地图摄像机 (GlobeCamera)、
@@ -249,9 +251,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
 
         # 初始化
         self.zone_init()
-
-        # 重启后先处理原海域的已知事件，修船、换图和新自律都可能刷新现场。
-        self._resume_pending_event()
 
         # self.map_init()
         self.hp_reset()
@@ -1291,54 +1290,45 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 in_map_timer.clear()
                 continue
 
-    def os_auto_search_run(self, drop=None, strategic=False, interrupt=None, *, siren_resource=False):
+    def os_auto_search_run(self, drop=None, strategic=False, interrupt=None):
         """
         Args:
             drop (DropRecord): 掉落记录对象。
             strategic (bool): 是否使用战略搜索。
             interrupt (callable): 中断回调函数。
-            siren_resource (bool): 资源探测后的拾取搜索，开启自律按 0.5 秒重试。
 
         Returns:
             int: 完成的战斗次数。
         """
-        # 每轮搜索独立计时：事件恢复、换队和强制移动期间不会经过自律开关，跨轮
-        # 残留的 45 秒预算会让新一轮第一次点击就误报“连续点击仍未生效”。
-        self._os_auto_search_enable_budget_clear()
-        previous_resource = getattr(self, '_os_auto_search_siren_resource', False)
-        self._os_auto_search_siren_resource = siren_resource
-        try:
-            finished_combat = 0
-            for _ in range(5):
-                backup = self.config.temporary(Campaign_UseAutoSearch=True)
-                try:
-                    if strategic:
-                        self.strategic_search_start(skip_first_screenshot=True)
-                    combat = self.os_auto_search_daemon(
-                        drop=drop, strategic=strategic, interrupt=interrupt
-                    )
-                    finished_combat += combat
-                except CampaignEnd:
-                    logger.info("[大世界-搜索] 大世界自动搜索完成")
-                finally:
-                    backup.recover()
+        finished_combat = 0
+        for _ in range(5):
+            backup = self.config.temporary(Campaign_UseAutoSearch=True)
+            try:
+                if strategic:
+                    self.strategic_search_start(skip_first_screenshot=True)
+                combat = self.os_auto_search_daemon(
+                    drop=drop, strategic=strategic, interrupt=interrupt
+                )
+                finished_combat += combat
+            except CampaignEnd:
+                logger.info("[大世界-搜索] 大世界自动搜索完成")
+            finally:
+                backup.recover()
 
-                # 如果自动搜索被余烬弹窗中断则继续
-                # 海域清理完毕则退出
-                if self.config.is_task_enabled("OpsiAshBeacon"):
-                    if self.handle_ash_beacon_attack() or self.ash_popup_canceled:
-                        strategic = False
-                        continue
-                    break
-                if self.info_bar_count() >= 2:
-                    break
-                if self.ash_popup_canceled:
+            # 如果自动搜索被余烬弹窗中断则继续
+            # 海域清理完毕则退出
+            if self.config.is_task_enabled("OpsiAshBeacon"):
+                if self.handle_ash_beacon_attack() or self.ash_popup_canceled:
+                    strategic = False
                     continue
                 break
-            return finished_combat
-        finally:
-            # 资源拾取结束或异常后恢复，不能让后续普通战斗沿用快速重试。
-            self._os_auto_search_siren_resource = previous_resource
+            if self.info_bar_count() >= 2:
+                break
+            if self.ash_popup_canceled:
+                continue
+            break
+
+        return finished_combat
 
     @property
     def _is_siren_research_enabled(self):
@@ -1396,7 +1386,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 return False
 
             logger.info(f"[大世界-搜索] 在 {grid} 找到问号")
-            radar_location = grid
             self.handle_info_bar()
 
             self.update_os()
@@ -1422,15 +1411,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     logger.warning(f"[大世界-搜索] 雷达问号 {grid} 越界到地图外，跳过")
                 continue
 
-            if self.config.task.command == 'OpsiHazard1Leveling' and self._event_recovery_enabled():
-                # 雷达定位只更新局部视图；先保留事件身份，再校准全局相机。
-                self._remember_pending_event(self._map_event_type(grid))
-                if not hasattr(self, 'map'):
-                    self.map_data_init(map_=None)
-                self.update()
-                grid = self.convert_radar_to_local(radar_location)
-                return self._visit_map_event(self._map_event_type(grid), grid, drop=drop)
-
             # ========== 移动前检查：是否为塞壬研究装置且功能未开启 ==========
             if self._should_skip_siren_research(grid):
                 record_siren_research_device(self)
@@ -1438,6 +1418,9 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 return True
 
             self.is_siren_device_confirmed = False
+            # 清掉上一次装置留下的模式：本次若没识别出模式，续查按“未知”
+            # 只补一次自律，不能拿上一只装置的模式当这次的选择。
+            self.siren_device_mode = None
             self.device.click(grid)
             with self.config.temporary(
                 STORY_ALLOW_SKIP=False, OS_SIREN_DEVICE_USAGE="use_until_destroyed"
@@ -1446,6 +1429,8 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     drop=drop, walk_out_of_step=False, confirm_timer=Timer(3, count=4),
                     allow_event_finish=True,
                 )
+            # 点击被舰队选择栏吃掉时画面仍是地图：收起下拉栏后重新预测问号重试。
+            self._close_fleet_bar_if_open()
             if "akashi" in result:
                 self._solved_map_event.add("is_akashi")
                 return True
@@ -1472,9 +1457,21 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 # ========== 装置处理 ==========
                 # 选项点击已由 wait_until_walk_stable -> info_handler.story_skip 处理
 
+                # 装置对话已确认，先把待办记下来：后续自律中途卡死重启时，
+                # 由续查流程补上剩下没跑完的自律。
+                node = location2node(grid.location)
+                self._save_pending_map_event("scanning_device", grid)
+
                 # 检测选择的模式
                 siren_mode = getattr(self, "siren_device_mode", None)
                 logger.attr("塞壬装置模式", siren_mode)
+                # 记下模式和需要补跑的自律次数：敌人模式 3 次（自律可能被
+                # 游戏暂停，需要重新点击直到三次），资源模式 1 次。
+                self._update_pending_map_event(
+                    mode=siren_mode,
+                    submitted=True,
+                    remaining=self._siren_followup_run_count(siren_mode),
+                )
 
                 # 如果选择了敌人模式
                 if siren_mode == "enemy":
@@ -1499,10 +1496,12 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     else:
                         logger.info("[大世界] [装置处理] 使用当前舰队")
 
-                    # 执行三次自律寻敌
+                    # 执行三次自律寻敌：自律可能被游戏暂停，需要逐次重新点击直到三次
                     for i in range(3):
                         logger.info(f"[大世界] [装置处理] 执行第 {i + 1}/3 次自律寻敌")
                         self.os_auto_search_run(drop=drop)
+                        # 每跑完一次就落盘剩余次数，卡死重启后只补没跑完的
+                        self._update_pending_map_event(remaining=2 - i)
 
                     # 如果切换了舰队，切换回原舰队
                     if siren_fleet > 0:
@@ -1514,7 +1513,8 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     logger.info("[大世界] [装置处理] 检测到资源模式，执行标准处理")
                     # 执行一次自律寻敌
                     logger.info("[大世界] [装置处理] 执行自律寻敌")
-                    self.os_auto_search_run(drop=drop, siren_resource=True)
+                    self.os_auto_search_run(drop=drop)
+                    self._update_pending_map_event(remaining=0)
 
                 # 塞壬信息收集装置 / 探测装置产物柱子：点中间已主动点击完成，无需自律
                 elif siren_mode == "collected":
@@ -1526,6 +1526,9 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     # 执行一次自律寻敌
                     logger.info("[大世界] [装置处理] 执行自律寻敌")
                     self.os_auto_search_run(drop=drop)
+                    self._update_pending_map_event(remaining=0)
+
+                self._finish_pending_map_event("scanning_device", node=node)
 
                 # 标记处理
                 self._solved_map_event.add("is_scanning_device")
@@ -1755,26 +1758,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         Returns:
             bool: 是否解决了地图随机事件。
         """
-        if self.config.task.command == 'OpsiHazard1Leveling' and self._event_recovery_enabled():
-            # 与旧版一致：视野内识别到的随机事件按固定优先级直接交互。续查快照只
-            # 用于重启后当前视野没有事件时的定位，不再要求格子严格相等——相机漂移
-            # 或换队后同一事件会落在相邻格子，旧实现会因此把可见事件当成没找到。
-            for kind in MAP_EVENT_TYPES[:-1]:
-                if kind in self._solved_map_event:
-                    continue
-                grids = self.view.select(**{kind: True})
-                if grids:
-                    logger.info(f'[大世界-搜索] 在 {grids[0]} 找到事件 {kind}')
-                    return self._visit_map_event(kind, grids[0], drop=drop)
-            state = self._get_pending_event()
-            grid = self._event_grid_from_state(state)
-            if grid is not None:
-                kind = self._map_event_type(grid)
-                if kind == 'is_question':
-                    kind = state['kind']
-                return self._visit_map_event(kind, grid, drop=drop)
-            return False
-
         grids = self.view.select(is_exploration_container=True)
         if (
             "is_exploration_container" not in self._solved_map_event
@@ -1816,7 +1799,64 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         if "is_akashi" not in self._solved_map_event and grids and grids[0].is_akashi:
             grid = grids[0]
             logger.info(f"[大世界-搜索] 在 {grid} 找到明石")
-            return self._visit_akashi(grid, drop=drop)
+            # 明石可能和左下角的舰队选择栏/按钮重合，点击会落在 UI 上而永远
+            # 打不开商店。先记录待办再动手：中途卡死重启时由续查流程重新找它。
+            self._save_pending_map_event("akashi", grid)
+            node = location2node(grid.location)
+            fleet = self.convert_radar_to_local((0, 0))
+            if fleet.distance_to(grid) > 1:
+                self.device.click(grid)
+                with self.config.temporary(STORY_ALLOW_SKIP=False):
+                    walk_time = 1.5 + 0.6 * grid.distance_to(fleet)
+                    result = self.wait_until_walk_stable(
+                        confirm_timer=Timer(walk_time, count=4),
+                        drop=drop,
+                        walk_out_of_step=False,
+                        allow_event_finish=True,
+                    )
+                if "akashi" in result:
+                    self._solved_map_event.add("is_akashi")
+                    self._finish_pending_map_event("akashi", node=node)
+                    return True
+                # 点击被舰队选择栏吃掉时画面仍是地图，先收起下拉栏再重新找明石。
+                # 交互是有界的：一次点击只等固定时长，不再无界空转。
+                # 行军失败的等待里 update_os() 只 load 不 predict，旧视图对象已经
+                # 没有事件标记，必须重新截图并预测，否则 select 永远为空、这条
+                # “同一舰队收起舰队栏后再点一次”的路径等于死代码。
+                self._close_fleet_bar_if_open()
+                self.device.screenshot()
+                self.update_os()
+                self.view.predict()
+                grids = self.view.select(is_akashi=True)
+                if "is_akashi" not in self._solved_map_event and grids and grids[0].is_akashi:
+                    grid = grids[0]
+                    fleet = self.convert_radar_to_local((0, 0))
+                    if fleet.distance_to(grid) <= 1 and self._open_akashi_store(
+                        grid, drop=drop
+                    ):
+                        self._solved_map_event.add("is_akashi")
+                        self._finish_pending_map_event("akashi", node=node)
+                        return True
+                    logger.info("[大世界] 无法到达明石位置，先尝试换舰队前往")
+                else:
+                    # 明石在视图里“消失”了：刚才明明点过它却没能触发商店，
+                    # 说明当前舰队到不了。明石图标会被舰队模型遮住，视图检测
+                    # 本来就会闪断，不能因为没有重新识别到就当没事发生，否则
+                    # 这一次点击白费、这只猫直接漏掉。照旧换舰队再试。
+                    logger.info("[大世界] 明石未被重新识别，尝试换舰队前往")
+                result = self._recover_unreachable_akashi(drop, node)
+                self._finish_pending_map_event("akashi", node=node)
+                return result
+            else:
+                logger.info(f"[大世界-搜索] 明石 ({grid}) 靠近当前舰队 ({fleet})")
+                if self._open_akashi_store(grid, drop=drop):
+                    self._solved_map_event.add("is_akashi")
+                    self._finish_pending_map_event("akashi", node=node)
+                    return True
+                logger.info("[大世界] 明石点击多次没有反应，先尝试换舰队前往")
+                result = self._recover_unreachable_akashi(drop, node)
+                self._finish_pending_map_event("akashi", node=node)
+                return result
 
         grids = self.view.select(is_scanning_device=True)
         if (
@@ -1836,12 +1876,20 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 self._solved_map_event.add("is_scanning_device")
                 return True
 
+            # 先记录待办再点装置：装置对话/后续自律中途卡死重启时，
+            # 由续查流程重新完成它，不能因为“已经开始处理”就当处理完了。
+            self._save_pending_map_event("scanning_device", grid)
+            node = location2node(grid.location)
+
             # ========== 移动并处理 ==========
             logger.info(f"[大世界] [移动装置] 开始移动到装置位置: {grid}")
             self.device.click(grid)
 
             # 重置标志位
             self.is_siren_device_confirmed = False
+            # 清掉上一次装置留下的模式：本次若没识别出模式，续查按“未知”
+            # 只补一次自律，不能拿上一只装置的模式当这次的选择。
+            self.siren_device_mode = None
 
             # wait_until_walk_stable 会调用 handle_story_skip 处理选项
             logger.info("[大世界] [移动装置] 等待移动稳定...")
@@ -1854,13 +1902,16 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 )
             logger.info(f"[大世界] [移动装置] 移动完成,结果: {result}")
 
+            # 点击落在舰队选择栏上时画面仍是地图，装置对话不会出现。
+            self._close_fleet_bar_if_open()
+
             # 行军被其他舰队挡住时装置对话不会触发，换其他舰队尝试点击装置
-            node = location2node(grid.location)
             if not getattr(self, "is_siren_device_confirmed", False):
                 if node in self._unreachable_event_nodes:
                     logger.info(
                         f"[大世界] [装置处理] {node} 的装置本轮已判定无法到达，跳过重复尝试"
                     )
+                    self._finish_pending_map_event("scanning_device", node=node)
                     return False
                 if self._goto_scanning_device_with_other_fleets(drop=drop):
                     logger.info("[大世界] [装置处理] 已由其他舰队触发装置对话")
@@ -1869,6 +1920,13 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 # 检测选择的模式
                 siren_mode = getattr(self, "siren_device_mode", None)
                 logger.attr("塞壬装置模式", siren_mode)
+                # 记下模式和需要补跑的自律次数：敌人模式 3 次（自律可能被
+                # 游戏暂停，需要重新点击直到三次），资源模式 1 次。
+                self._update_pending_map_event(
+                    mode=siren_mode,
+                    submitted=True,
+                    remaining=self._siren_followup_run_count(siren_mode),
+                )
 
                 # 如果选择了敌人模式
                 if siren_mode == "enemy":
@@ -1893,10 +1951,12 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     else:
                         logger.info("[大世界] [装置处理] 使用当前舰队")
 
-                    # 执行三次自律寻敌
+                    # 执行三次自律寻敌：自律可能被游戏暂停，需要逐次重新点击直到三次
                     for i in range(3):
                         logger.info(f"[大世界] [装置处理] 执行第 {i + 1}/3 次自律寻敌")
                         self.os_auto_search_run(drop=drop)
+                        # 每跑完一次就落盘剩余次数，卡死重启后只补没跑完的
+                        self._update_pending_map_event(remaining=2 - i)
 
                     # 如果切换了舰队，切换回原舰队
                     if siren_fleet > 0:
@@ -1908,7 +1968,8 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     logger.info("[大世界] [装置处理] 检测到资源模式，执行标准处理")
                     # 执行一次自律寻敌
                     logger.info("[大世界] [装置处理] 执行自律寻敌")
-                    self.os_auto_search_run(drop=drop, siren_resource=True)
+                    self.os_auto_search_run(drop=drop)
+                    self._update_pending_map_event(remaining=0)
 
                 # 塞壬信息收集装置 / 探测装置产物柱子：点中间已主动点击完成，无需自律
                 elif siren_mode == "collected":
@@ -1920,6 +1981,9 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     # 执行一次自律寻敌
                     logger.info("[大世界] [装置处理] 执行自律寻敌")
                     self.os_auto_search_run(drop=drop)
+                    self._update_pending_map_event(remaining=0)
+
+                self._finish_pending_map_event("scanning_device", node=node)
 
                 # 先标记为已处理，防止二次重扫时再次处理塞壬装置
                 self._solved_map_event.add("is_scanning_device")
@@ -1934,7 +1998,11 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
             # 以为事件已处理，原地空转 5 轮反复点击同一个装置，最后还是没解决。
             logger.info("[大世界] [装置处理] 所有舰队均无法到达装置，执行强制移动")
             self._mark_event_unreachable(node)
-            self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
+            # 装置已经看见了，挪舰队找它和行动力无关：置位后 L2 直接执行，
+            # 不再受当前行动力门槛限制，避免"看见了却因为 AP 不够放跑"。
+            self._question_unreachable = True
+            self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True, recovery=True)
+            self._finish_pending_map_event("scanning_device", node=node)
             return False
 
         grids = self.view.select(is_logging_tower=True)
@@ -2013,9 +2081,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         if self.map_rescan_current(drop=drop):
             logger.info("[大世界-扫描] 地图重新扫描一次结束, 结果=True")
             return True
-        if (getattr(self, '_event_recovery_exhausted', False)
-                and self.config.task.command == 'OpsiHazard1Leveling'):
-            return False
 
         if rescan_mode == "full":
             logger.hr("完全重新扫描地图", level=2)
@@ -2029,9 +2094,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
 
                 if self.map_rescan_current(drop=drop):
                     result = True
-                    break
-                if (getattr(self, '_event_recovery_exhausted', False)
-                        and self.config.task.command == 'OpsiHazard1Leveling'):
                     break
                 queue = queue[1:]
 
@@ -2057,9 +2119,7 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 self.fleet_set(self.config.OpsiFleet_Fleet)
             else:
                 self.fleet_set(self.get_second_fleet())
-            if (not self.is_in_task_explore and self._solved_map_event
-                    and (not getattr(self, '_event_recovery_active', False)
-                         or self._get_pending_event() is None)):
+            if not self.is_in_task_explore and len(self._solved_map_event):
                 logger.info("[大世界-扫描] 解决了地图事件且不在大世界探索中，停止重新扫描")
                 logger.attr("已解决地图事件", self._solved_map_event)
                 self.fleet_set(self.config.OpsiFleet_Fleet)
@@ -2287,7 +2347,7 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
 
     # 基于ShaddockNH3极致侵蚀一的个人修改
     def _execute_fixed_patrol_scan(
-        self, ExecuteFixedPatrolScan: bool = False, event_recovery: bool = False, **kwargs
+        self, ExecuteFixedPatrolScan: bool = False, recovery: bool = False, **kwargs
     ):
         """执行强制移动并触发全图重扫。
 
@@ -2309,7 +2369,11 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         Args:
             ExecuteFixedPatrolScan (bool, optional): 是否启用强制移动。
                 为 False 时直接跳过。默认值为 False。
-            event_recovery (bool): 仅为已确认且未完成的侵蚀一事件临时启用 L2。
+            recovery (bool, optional): 是否用于恢复“已经看见、但没处理完”的
+                事件（卡死重启续查）。为 True 时不受“强制移动”开关限制：
+                事件已经看见了，不能因为开关关着就把它漏掉。调用方如需连
+                行动力门槛一起绕过，应先把 _question_unreachable 置 True。
+                默认值为 False。
             **kwargs: 预留参数，当前未使用。
 
         Returns:
@@ -2330,28 +2394,24 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
             # “换队扫雷达清问号”（_meow_fixed_patrol_scan）。
             logger.info("[大世界] 短猫相接不走共享强制移动，只换队扫雷达")
             return
-        emergency = (event_recovery and self.config.task.command == 'OpsiHazard1Leveling'
-                     and self._get_pending_event() is not None)
-        if not emergency and not self._forced_move_enabled():
-            logger.info("[大世界] 强制移动已关闭，跳过。")
-            return
+        if not self._forced_move_enabled():
+            if not recovery:
+                logger.info("[大世界] 强制移动已关闭，跳过。")
+                return
+            # 事件已经看见了，恢复流程不能因为开关关着就把这只猫/装置漏掉。
+            logger.info("[大世界] 强制移动已关闭，但正在恢复已看见的事件，本次仍执行")
 
         self.map_init(map_=None)
         if not hasattr(self, "map") or not self.map.grids:
             logger.warning("[大世界] 无法获取当前地图网格数据，已跳过强制移动。")
             return
 
-        if getattr(self, "_in_event_recovery", False):
+        if getattr(self, "_in_akashi_recovery", False):
             logger.info("[大世界] 已在强制恢复流程中，跳过嵌套调用")
             return
 
-        self._in_event_recovery = True
-        self._event_patrol_attempted = True
+        self._in_akashi_recovery = True
         try:
-            if emergency:
-                # 已逐队尝试过同一事件，不能再被无事件扫描或行动力门槛挡住。
-                self._move_fleets_and_rescan()
-                return
             # ---- L0/L1：只切换舰队看雷达找问号（零移动，一支都不挪动） ----
             logger.hr("[大世界] 效率模式（仅切换舰队看雷达，不移动）")
             self._solved_map_event = set()
@@ -2381,7 +2441,7 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
             logger.hr("[大世界] 强制移动 L2：逐队挪动舰队后整图重扫")
             self._move_fleets_and_rescan()
         finally:
-            self._in_event_recovery = False
+            self._in_akashi_recovery = False
             # 复位主队，避免后续流程作用在错误的舰队上
             self.fleet_set(self.config.OpsiFleet_Fleet)
 
@@ -2443,7 +2503,6 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
             bool: 是否找到并解决了目标事件。
         """
         primary = self.config.OpsiFleet_Fleet
-        recovering = getattr(self, '_event_recovery_active', False)
         location = {1: (2, 0), 2: (3, 0), 3: (4, 0), 4: (5, 0)}  # C1, D1, E1, F1
         order = [primary] + [f for f in [1, 2, 3, 4] if f != primary]
         backup = self.config.temporary(
@@ -2458,8 +2517,7 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 self._solved_map_event = set()
                 self._solved_fleet_mechanism = False
                 self.clear_question(drop=None)
-                if ((recovering and self._get_pending_event() is None)
-                        or (not recovering and self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS)):
+                if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
                     logger.info("[大世界] 强制移动 L2：移动前雷达预检解决事件，停止")
                     return True
 
@@ -2483,8 +2541,7 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                         f"[大世界] 单队移动后的重扫异常，继续: {e}", exc_info=True
                     )
 
-                if ((recovering and self._get_pending_event() is None)
-                        or (not recovering and self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS)):
+                if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
                     logger.info("[大世界] 强制移动 L2：扫描命中事件，停止继续强制移动")
                     return True
         finally:
@@ -2623,6 +2680,61 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
         """
         self._unreachable_event_nodes = set(self._unreachable_event_nodes) | {node}
 
+    def _close_fleet_bar_if_open(self):
+        """点击事件落在左下角舰队选择栏上时，把下拉栏收起来。
+
+        事件图标和各种按钮重合时（典型是明石/装置刷新在左下角），点击坐标会
+        先命中“第一舰队 FLEET SELECT”并展开舰队下拉栏。下拉栏打开后画面仍是
+        地图，按地图状态判断的循环不会自己退出，必须主动收起，否则后续点击
+        和换队都会被它挡住。
+
+        Returns:
+            bool: 是否发现并收起了舰队下拉栏。
+        """
+        selector = getattr(self, "fleet_selector", None)
+        if selector is None or not selector.bar_opened():
+            return False
+        logger.warning("[大世界-搜索] 点击落在舰队选择栏上，收起下拉栏")
+        selector.close()
+        return True
+
+    def _open_akashi_store(self, grid, drop=None, attempts=3):
+        """有界地点击明石，点不到就快速返回交给换舰队/强制移动。
+
+        明石与左下角舰队栏重合时，点击会命中按钮而不是明石；
+        handle_akashi_supply_buy 的 ui_click 会一直等 is_in_map，直到设备
+        卡死检查抛 GameStuckError。这里用有界等待判断点击是否真的触发了明石
+        商店，最多尝试 attempts 次，每次点击之间没有进展就直接返回。
+
+        Args:
+            grid (OSGrid): 明石所在格子。
+            drop: 掉落记录对象。
+            attempts (int, optional): 最多点击次数。默认值为 3。
+
+        Returns:
+            bool: 是否成功完成明石商店购买。
+        """
+        for index in range(attempts):
+            logger.info(f"[大世界-搜索] 点击明石 {grid}（第 {index + 1}/{attempts} 次）")
+            self.device.click(grid)
+            with self.config.temporary(STORY_ALLOW_SKIP=False):
+                result = self.wait_until_walk_stable(
+                    drop=drop,
+                    walk_out_of_step=False,
+                    confirm_timer=Timer(1.5, count=4),
+                    allow_event_finish=True,
+                )
+            if "akashi" in result:
+                return True
+            if self._close_fleet_bar_if_open():
+                # 点击被舰队栏吃掉，画面其他内容没变，再点同一坐标也还是按钮。
+                return False
+            if not self.is_in_map():
+                logger.warning("[大世界-搜索] 点击明石后已不在海域地图，停止重试")
+                return False
+        logger.warning(f"[大世界-搜索] 明石 {grid} 点击 {attempts} 次均无反应")
+        return False
+
     def _recover_unreachable_akashi(self, drop, node):
         """明石够不着时的统一兜底：换其他舰队点 → 强制移动。
 
@@ -2653,7 +2765,10 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
             return True
         logger.info("[大世界] 所有舰队均无法到达明石，执行强制移动")
         self._mark_event_unreachable(node)
-        self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
+        # 明石已经看见了，挪舰队找它和行动力无关：置位后 L2 直接执行，
+        # 不再受当前行动力门槛限制，避免"看见了却因为 AP 不够放跑这只猫"。
+        self._question_unreachable = True
+        self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True, recovery=True)
         return False
 
     def _goto_akashi_with_other_fleets(self, drop=None):
@@ -2676,21 +2791,16 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
             bool: 是否已通过某支舰队完成明石购买。
         """
         current = self.fleet_selector.get()
-        if current not in (1, 2, 3, 4):
-            current = self.config.OpsiFleet_Fleet
         logger.info(f"[大世界] 当前舰队 {current} 无法到达明石，尝试切换其他舰队")
         try:
             for fleet in [f for f in [1, 2, 3, 4] if f != current]:
                 self.fleet_set(fleet)
-                # 换队会移动镜头；同时更新全局相机，不能沿用上一队的坐标原点。
-                self.update()
+                self.device.screenshot()
+                self.update_os()
+                self.view.predict()
                 grids = self.view.select(is_akashi=True)
                 if grids and grids[0].is_akashi:
                     grid = grids[0]
-                    if self._try_akashi_grid(grid, drop=drop):
-                        self._solved_map_event.add('is_akashi')
-                        return True
-                    continue
                 else:
                     grid = self._radar_question_to_local()
                     if grid is None:
@@ -2699,15 +2809,18 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                     logger.info(
                         f"[大世界] 舰队 {fleet} 视野内未识别到明石，回退用雷达问号定位"
                     )
-                # 雷达问号可能是其他事件，只能安全行军，不能直接当商店进入。
-                target = self._event_global_location(grid)
-                button = self._prepare_event_click(target)
-                if button is None:
-                    continue
-                grid = self._event_local_grid(target)
                 fleet_loc = self.convert_radar_to_local((0, 0))
+                # “紧贴明石就直接购买”只在视图确认是明石时使用：雷达问号也可能是
+                # 记录塔/装置等其他事件，那些要点击行军才能触发，不能当商店点开。
+                if grid.is_akashi and fleet_loc.distance_to(grid) <= 1:
+                    logger.info(f"[大世界] 明石 ({grid}) 靠近舰队 {fleet} ({fleet_loc})，直接购买")
+                    if self._open_akashi_store(grid, drop=drop):
+                        self._solved_map_event.add("is_akashi")
+                        return True
+                    logger.info(f"[大世界] 舰队 {fleet} 也无法购买明石，切换下一队")
+                    continue
                 logger.info(f"[大世界] 舰队 {fleet} 点击明石 ({grid}) 尝试前往")
-                self.device.click(button)
+                self.device.click(grid)
                 with self.config.temporary(STORY_ALLOW_SKIP=False):
                     walk_time = 1.5 + 0.6 * grid.distance_to(fleet_loc)
                     result = self.wait_until_walk_stable(
@@ -2718,6 +2831,9 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 if "akashi" in result:
                     self._solved_map_event.add("is_akashi")
                     return True
+                if self._close_fleet_bar_if_open():
+                    logger.info(f"[大世界] 舰队 {fleet} 点击明石落在舰队栏上，收起后切换下一队")
+                    continue
                 logger.info(f"[大世界] 舰队 {fleet} 也无法到达明石，切换下一队")
             return False
         finally:
@@ -2764,6 +2880,7 @@ class OSMap(MapEventRecovery, OSFleet, Map, GlobeCamera, StorageHandler, Strateg
                 self.device.click(grid)
                 # 重置标志位，wait_until_walk_stable -> story_skip 会识别装置选项并置位
                 self.is_siren_device_confirmed = False
+                self.siren_device_mode = None
                 with self.config.temporary(
                     STORY_ALLOW_SKIP=False, OS_SIREN_DEVICE_USAGE="use_until_destroyed"
                 ):

@@ -23,8 +23,9 @@ class TestSchedulingActionPointPanel(unittest.TestCase):
             OpsiGeneral_BuyActionPointLimit=0, OpsiGeneral_OilLimit=0,
             OpsiMeowfficerFarming_StayInZone=True,
             is_task_enabled=Mock(return_value=False),
-            # fork 的开荒闭环在决策前读取开关与黄币保留值，这里按默认值返回。
-            cross_get=lambda keys, default=None: default,
+            # fork 的开荒闭环读取开关、上游单轮入口读取隐藏的事件续查记录，
+            # 桩配置均按默认值返回（开荒关闭、无待续查），不改变用例原有断言。
+            cross_get=lambda keys, default=None: default, cross_set=Mock(),
         )
         self.runner.device = Mock()
         self.runner.action_point_enter = Mock(side_effect=self.enter)

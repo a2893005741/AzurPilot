@@ -43,7 +43,7 @@ export interface Schema {
   /** 活动目录到地图关卡名的映射，供关卡输入框给出候选；旧服务端没有此字段。 */
   stages?: Record<string, string[]>
 }
-export interface Config { instance: string; revision: string; values: Values }
+export interface Config { instance: string; revision: string; values: Values; options?: Record<string, Value[]> }
 export interface OpsiSimulatorResult {
   cl1Count: number; meowCount: number; crashedProbability: number
   cl1Time: number; meowTime: number; ap: number; coin: number

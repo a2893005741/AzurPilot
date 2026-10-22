@@ -7,11 +7,12 @@ from pathlib import Path
 
 from module.api.config_service import ConfigService, ROOT, stage_input_name
 from module.api.protocol import ApiError, ConfigChange
-from module.config.config_updater import EVENTS, ConfigUpdater
+from module.config.config_updater import EVENTS, GEMS_FARMINGS, ConfigUpdater
 
 UNIFIED = 'EventGeneral.EventGeneral.UnifiedEvent'
-LIGHT = 'event_20250227_cn'
-ROSE = 'event_20250520_cn'
+# 两个仍有地图文件的活动；保存用例把它们注入临时 args 的 cn 候选，不依赖当期复刻列表。
+LIGHT = 'event_20260908_cn'
+ROSE = 'event_20261022_cn'
 
 
 class UnifiedEventPatchTests(unittest.TestCase):
@@ -23,6 +24,13 @@ class UnifiedEventPatchTests(unittest.TestCase):
             destination = root / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ROOT / relative, destination)
+        args_path = root / 'module/config/argument/args.json'
+        args = json.loads(args_path.read_text(encoding='utf-8'))
+        for task in EVENTS + GEMS_FARMINGS:
+            # 低耗保留主线候选，只验证跟随规则；运行器把低耗主线刷新为活动的行为不在此范围。
+            prefix = ['campaign_main'] if task in GEMS_FARMINGS else []
+            args[task]['Campaign']['Event']['option_cn'] = prefix + [LIGHT, ROSE]
+        args_path.write_text(json.dumps(args, ensure_ascii=False), encoding='utf-8')
         shutil.copyfile(root / 'config/template.json', root / 'config/testpilot.json')
         self.path = root / 'config/testpilot.json'
         self.service = ConfigService(root)
@@ -87,6 +95,17 @@ class UnifiedEventPatchTests(unittest.TestCase):
         with self.assertRaises(ApiError):
             self.patch((UNIFIED, 'campaign_main'))
 
+    def test_candidates_follow_instance_server(self):
+        self.assertEqual(self.service.get('testpilot')['options'][UNIFIED], ['manual', LIGHT, ROSE])
+        self.patch((UNIFIED, ROSE))
+        # 切到台服后统一活动不再是当前候选：读取时回到分别选择，且不能再显式选择跨服活动。
+        self.patch(('Alas.Emulator.PackageName', 'com.hkmanjuu.azurlane.gp'))
+        self.assertEqual(self.values()['EventGeneral']['EventGeneral']['UnifiedEvent'], 'manual')
+        options = self.service.get('testpilot')['options']
+        self.assertEqual(options[UNIFIED], ['manual'] + options['Event.Campaign.Event'])
+        with self.assertRaises(ApiError):
+            self.patch((UNIFIED, ROSE))
+
 
 class UnifiedEventSchemaTests(unittest.TestCase):
     def test_options_match_event_tasks(self):
@@ -98,8 +117,10 @@ class UnifiedEventSchemaTests(unittest.TestCase):
     def test_stale_value_resets_on_load(self):
         updated = ConfigUpdater().config_update({'EventGeneral': {'EventGeneral': {'UnifiedEvent': 'event_19990101_cn'}}})
         self.assertEqual(updated['EventGeneral']['EventGeneral']['UnifiedEvent'], 'manual')
-        updated = ConfigUpdater().config_update({'EventGeneral': {'EventGeneral': {'UnifiedEvent': LIGHT}}})
-        self.assertEqual(updated['EventGeneral']['EventGeneral']['UnifiedEvent'], LIGHT)
+        current = json.loads((ROOT / 'module/config/argument/args.json').read_text(encoding='utf-8'))[
+            'Event']['Campaign']['Event']['option_cn'][0]
+        updated = ConfigUpdater().config_update({'EventGeneral': {'EventGeneral': {'UnifiedEvent': current}}})
+        self.assertEqual(updated['EventGeneral']['EventGeneral']['UnifiedEvent'], current)
 
     def test_translations_are_complete(self):
         options = json.loads((ROOT / 'module/config/argument/args.json').read_text(encoding='utf-8'))[
@@ -114,9 +135,10 @@ class UnifiedEventSchemaTests(unittest.TestCase):
 
     def test_stage_suggestions_follow_map_files(self):
         stages = ConfigService(ROOT).schema()['stages']
-        self.assertEqual(stages[LIGHT], ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3', 'SP'])
-        self.assertEqual(stages['event_20250814_cn'][:2], ['HT1', 'HT2'])
-        self.assertIn('T6', stages['event_20250814_cn'])
+        self.assertEqual(stages[LIGHT], ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3',
+                                         'D3-3', 'SP'])
+        self.assertIn('T1', stages[ROSE])
+        self.assertIn('T6', stages[ROSE])
         main = stages['campaign_main']
         self.assertLess(main.index('7-2'), main.index('12-4'))
         self.assertNotIn('CAMPAIGN-BASE', main)

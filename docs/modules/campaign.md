@@ -331,7 +331,7 @@ stateDiagram-v2
 | `StopCondition.OilLimit` / `OilLimitHardFloor` | int | 1000 / 500 | 实际阈值取两者较大值（#444 的低耗安全网） |
 | `StopCondition.MapAchievement` | option | `non_stop` | 连打 / 全清 / 100% / 三星 / 威胁安全 |
 | `StopCondition.ReachLevel` / `GetNewShip` / `CoinLimit` | 混合 | 0/false | 等级、新舰船、金币上限停止条件 |
-| `EventGeneral.UnifiedEvent` | option | `manual` | 统一活动：选中后 WebUI 保存时把所有活动图任务及正在刷活动的低耗、作战委托任务的 `Campaign.Event` 改成同一目录；单独改某任务的活动会退回 `manual`。候选与活动任务一致，失效时加载配置会重置为 `manual` |
+| `EventGeneral.UnifiedEvent` | option | `manual` | 统一活动：选中后 WebUI 保存时把所有活动图任务及正在刷活动的低耗、作战委托任务的 `Campaign.Event` 改成同一目录；单独改某任务的活动会退回 `manual`。候选取活动任务在实例包名所属服务器的候选，跨服活动保存时拒绝；切换包名或活动下线后不在当前候选中时，加载配置会重置为 `manual` |
 | `EventGeneral.PtLimit` / `TimeLimit` | 混合 | 0 / 默认时间 | 活动 PT 与活动结束时间，超限联动 `_disable_tasks` |
 | `TaskBalancer.Enable` / `CoinLimit` / `TaskCall` | 混合 | false / 10000 / Main | 金币不足时切换到指定任务 |
 | `GemsFarming.*` | 混合 | — | 换旗舰/先锋、普通船筛选、装备码、情绪策略、先锋等级区间 |

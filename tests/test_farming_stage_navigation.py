@@ -16,6 +16,8 @@ from tests.test_farming_combat_config import make_config
 class FarmingStageNavigationTests(unittest.TestCase):
     def prepare_runner(self, task='ThreeOilLowCost', stage='C2', current_mode='normal', retirement=False):
         config = make_config(task, Campaign={'Name': stage, 'Event': 'event_20260908_cn'})
+        # 配置更新会把已下线活动刷新为当期候选；用例验证导航，固定使用该活动的地图。
+        config.override(Campaign_Event='event_20260908_cn')
         runner = GemsFarming(config=config, device=Mock())
         name, folder = runner.handle_stage_name(stage, config.Campaign_Event)
         config.override(Campaign_Name=name, Campaign_Event=folder)

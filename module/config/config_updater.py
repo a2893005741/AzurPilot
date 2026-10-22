@@ -85,9 +85,18 @@ def campaign_event_options(data, args):
     return options
 
 
+def unified_event_options(options):
+    """统一活动的实例候选：manual 加上活动任务在当前服务器的候选。"""
+    return ['manual'] + options.get(EVENTS[0], [])
+
+
 def refresh_campaign_events(data, args, is_template=False):
     """在内存配置中刷新已结束的活动，保留档案选择与主线刷图语义。"""
     options = campaign_event_options(data, args)
+    # 统一活动不在当前服务器候选中时回到各任务分别选择，任务自身的活动由下方逻辑更新。
+    unified = deep_get(data, 'EventGeneral.EventGeneral.UnifiedEvent', 'manual')
+    if unified not in unified_event_options(options):
+        deep_set(data, 'EventGeneral.EventGeneral.UnifiedEvent', 'manual')
     if not is_template:
         for task in EVENTS + RAIDS + COALITIONS + GEMS_FARMINGS:
             candidates = options.get(task, [])
@@ -813,10 +822,6 @@ class ConfigUpdater:
             deep_default(new, 'Alas.DropRecord.AzurStatsID', random_id())
         # 更新到最新活动
         refresh_campaign_events(new, self.args, is_template=is_template)
-        # 统一活动不再在候选中时回到各任务分别选择，任务自身的活动由上方逻辑更新。
-        unified = deep_get(self.args, keys='EventGeneral.EventGeneral.UnifiedEvent.option', default=[])
-        if deep_get(new, keys='EventGeneral.EventGeneral.UnifiedEvent', default='manual') not in unified:
-            deep_set(new, keys='EventGeneral.EventGeneral.UnifiedEvent', value='manual')
 
         # 活动不允许默认关卡 12-4
         def default_stage(t, stage):

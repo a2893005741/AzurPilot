@@ -17,7 +17,7 @@ import yaml
 from deploy.atomic import atomic_write
 from module.api.protocol import ApiError
 from module.combat.emotion_state import EmotionRecoveryState
-from module.config.config_updater import campaign_event_options, refresh_campaign_events
+from module.config.config_updater import campaign_event_options, refresh_campaign_events, unified_event_options
 from module.config.redirect_utils.utils import meta_assist_limit_redirect, sea_miles_interval_redirect
 from module.config.time_source import now as current_time
 from module.config.transaction import config_transaction
@@ -383,8 +383,9 @@ class ConfigService:
         data, revision = self.read(name)
         # 内部身份不属于参数契约，编辑界面只接收参数组。
         data.pop('_stockInstance', None)
-        options = {f'{task}.Campaign.Event': candidates
-                   for task, candidates in campaign_event_options(data, self.args).items()}
+        events = campaign_event_options(data, self.args)
+        options = {f'{task}.Campaign.Event': candidates for task, candidates in events.items()}
+        options[UNIFIED_EVENT] = unified_event_options(events)
         return {'instance': name, 'revision': revision, 'values': data, 'options': options}
 
     def export(self, name):
@@ -553,9 +554,13 @@ class ConfigService:
                     self._reset_opsi_explore_progress(data, change.path)
                 edited_groups.setdefault((task, group), set()).add(arg)
             # 同一批可能同时修改包名，必须以最终服务器校验显式选择的活动。
-            for task, options in campaign_event_options(data, self.args).items():
+            events = campaign_event_options(data, self.args)
+            for task, options in events.items():
                 if options and f'{task}.Campaign.Event' in seen and data[task]['Campaign']['Event'] not in options:
                     raise ApiError('INVALID_PARAMS', f'{task}.Campaign.Event: 请选择当前服务器的活动')
+            unified = data.get('EventGeneral', {}).get('EventGeneral', {}).get('UnifiedEvent', 'manual')
+            if UNIFIED_EVENT in seen and unified not in unified_event_options(events):
+                raise ApiError('INVALID_PARAMS', f'{UNIFIED_EVENT}: 请选择当前服务器的活动')
             refresh_campaign_events(data, self.args)
             # 按最终配置校准；同一批先改心情再改恢复条件，也使用最终条件。
             now = current_time() if any(group in ('Emotion', 'PublicEmotion') and

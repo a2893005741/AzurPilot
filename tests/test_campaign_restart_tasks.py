@@ -73,7 +73,9 @@ class CampaignTaskRecoveryTests(unittest.TestCase):
         for task in ('EventA', 'EventB', 'EventC', 'EventD'):
             with self.subTest(task=task):
                 config = make_config(task, Campaign={'Event': 'event_20240912_cn', 'ContinueAfterRestart': True})
-                config.override(EventDaily_StageFilter='B1 > B2 > B3', EventDaily_LastStage=0,
+                # 配置更新会把已下线活动刷新为当期候选；用例验证续接，固定原活动。
+                config.override(Campaign_Event='event_20240912_cn',
+                                EventDaily_StageFilter='B1 > B2 > B3', EventDaily_LastStage=0,
                                 Scheduler_NextRun=datetime(2026, 10, 21, 12))
                 # LastStage 必须允许正常赋值，不用 override 固定住进度。
                 config.overridden.pop('EventDaily_LastStage')

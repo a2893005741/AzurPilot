@@ -11,6 +11,7 @@ import uvicorn
 
 from module.api.app import create_app
 from module.api.config_service import ROOT
+from module.config.config_updater import EVENTS
 from tests.test_api import fixture
 from module.runtime.account_local import LocalProtector
 
@@ -37,6 +38,12 @@ def main():
             patch('module.base.api_client.ApiClient.get_announcement', return_value=None):
         root = fixture(directory)
         shutil.copytree(ROOT / 'frontend/dist', root / 'frontend/dist')
+        # 活动候选按实例服务器过滤，当期国服可能只有一个活动；固定两个有地图文件的活动供统一活动用例切换。
+        args_path = root / 'module/config/argument/args.json'
+        args = json.loads(args_path.read_text(encoding='utf-8'))
+        for task in EVENTS:
+            args[task]['Campaign']['Event']['option_cn'] = ['event_20260908_cn', 'event_20261022_cn']
+        args_path.write_text(json.dumps(args, ensure_ascii=False), encoding='utf-8')
         path = root / 'config/testpilot.json'
         data = json.loads(path.read_text(encoding='utf-8'))
         # 保留旧版的数字断点，验证文本字段能编辑历史配置中的 0。

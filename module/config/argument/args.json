@@ -4908,6 +4908,16 @@
       }
     },
     "EventRotation": {
+      "SharedFleet": {
+        "type": "select",
+        "value": "none",
+        "option": [
+          "none",
+          "fleet1",
+          "fleet2",
+          "both"
+        ]
+      },
       "Stats": {
         "type": "stored",
         "value": null,
@@ -5407,6 +5417,16 @@
       }
     },
     "EventRotation": {
+      "SharedFleet": {
+        "type": "select",
+        "value": "none",
+        "option": [
+          "none",
+          "fleet1",
+          "fleet2",
+          "both"
+        ]
+      },
       "Stats": {
         "type": "stored",
         "value": null,
@@ -5905,6 +5925,16 @@
       }
     },
     "EventRotation": {
+      "SharedFleet": {
+        "type": "select",
+        "value": "none",
+        "option": [
+          "none",
+          "fleet1",
+          "fleet2",
+          "both"
+        ]
+      },
       "Stats": {
         "type": "stored",
         "value": null,
@@ -6404,6 +6434,16 @@
       }
     },
     "EventRotation": {
+      "SharedFleet": {
+        "type": "select",
+        "value": "none",
+        "option": [
+          "none",
+          "fleet1",
+          "fleet2",
+          "both"
+        ]
+      },
       "Stats": {
         "type": "stored",
         "value": null,
@@ -6903,6 +6943,16 @@
       }
     },
     "EventRotation": {
+      "SharedFleet": {
+        "type": "select",
+        "value": "none",
+        "option": [
+          "none",
+          "fleet1",
+          "fleet2",
+          "both"
+        ]
+      },
       "Stats": {
         "type": "stored",
         "value": null,

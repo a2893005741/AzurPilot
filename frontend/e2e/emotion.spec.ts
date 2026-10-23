@@ -80,3 +80,47 @@ test('实测心情重新输入同值会校准，浏览页面和普通字段不�
   await reread()
   expect(patches).not.toContain('Alas.Error.GameStuckThreshold')
 })
+
+test('活动图选择共享二队后继承心情，恢复条件同步且道中队独立', async ({page}) => {
+  const read = () => page.evaluate(() => new Promise<Config>((resolve, reject) => {
+    const socket = new WebSocket(`${location.origin.replace(/^http/, 'ws')}/api/v1/ws`)
+    socket.onopen = () => socket.send(JSON.stringify({v: 1, type: 'request', id: 'shared-read',
+      method: 'config.get', params: {instance: 'testpilot'}}))
+    socket.onerror = () => reject(new Error('配置读取连接失败'))
+    socket.onmessage = event => {
+      const response = JSON.parse(event.data)
+      if (response.id !== 'shared-read') return
+      socket.close()
+      if (response.ok) resolve(response.result as Config)
+      else reject(new Error(response.error.message))
+    }
+  }))
+  const select = async (task: string, label: string) => {
+    await page.goto(`/#/i/testpilot/task/${task}`)
+    const field = page.locator(`[id="${task}.EventRotation.SharedFleet"]`)
+    await field.scrollIntoViewIfNeeded()
+    await field.click()
+    await page.getByRole('option', {name: label, exact: true}).click()
+    await expect(field).toContainText(label)
+  }
+  await select('Event4', '二队')
+  const measured = page.locator('[id="Event4.Emotion.Fleet2Value"]')
+  await measured.fill('85')
+  await measured.press('Enter')
+  await expect.poll(async () => (await read()).values.Event4.Emotion.Fleet2Value).toBe(85)
+  const before = await read()
+  await select('Event5', '二队')
+  await expect.poll(async () => (await read()).values.Event5.Emotion.Fleet2Value).toBe(85)
+  const oath = page.locator('[id="Event5.Emotion.Fleet2Oath"]')
+  await expect(oath).toHaveAttribute('aria-checked', 'false')
+  await oath.click()
+  await expect.poll(async () => (await read()).values.Event4.Emotion.Fleet2Oath).toBe(true)
+  const after = await read()
+  for (const task of ['Event4', 'Event5']) {
+    expect(after.values[task].Emotion.Fleet1Value).toBe(before.values[task].Emotion.Fleet1Value)
+  }
+  await page.reload()
+  await expect(page.locator('[id="Event5.EventRotation.SharedFleet"]')).toContainText('二队')
+  await select('Event4', '关闭')
+  await select('Event5', '关闭')
+})

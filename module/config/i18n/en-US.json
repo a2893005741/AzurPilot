@@ -100,11 +100,11 @@
     },
     "Event4": {
       "name": "Event Map-4",
-      "help": "After each map, choose a fleet by morale recovery and time until full. Use separate ships for each queue and set dorm, oath and morale controls to match the fleet."
+      "help": "After each map, choose a fleet by recovery speed and time until full. Independent fleets keep separate records. When reusing a port fleet across event tasks, select its slot for morale sharing in each task. Recovery settings must match the ships."
     },
     "Event5": {
       "name": "Event Map-5",
-      "help": "After each map, choose a fleet by morale recovery and time until full. Use separate ships for each queue and set dorm, oath and morale controls to match the fleet."
+      "help": "After each map, choose a fleet by recovery speed and time until full. Independent fleets keep separate records. When reusing a port fleet across event tasks, select its slot for morale sharing in each task. Recovery settings must match the ships."
     },
     "Raid": {
       "name": "Raid Event",
@@ -2145,7 +2145,15 @@
   "EventRotation": {
     "_info": {
       "name": "Event rotation",
-      "help": "After each map, choose a fleet by morale recovery and time until full. Use separate ships for each queue and set dorm, oath and morale controls to match the fleet."
+      "help": "After each map, choose a fleet by recovery speed and time until full. Independent fleets keep separate records. When reusing a port fleet across event tasks, select its slot for morale sharing in each task. Recovery settings must match the ships."
+    },
+    "SharedFleet": {
+      "name": "Shared morale fleet",
+      "help": "Share the selected fleet across regular event tasks by its actual port fleet number. Choose Fleet 2 in each task for a shared boss fleet. The first task supplies the record; later tasks inherit it. Measured morale, dorm, oath and onsen changes sync to all linked slots; each task keeps its own control threshold. Recalibrate after changing ships. Cannot be combined with global shared morale.",
+      "none": "Off",
+      "fleet1": "Fleet 1",
+      "fleet2": "Fleet 2",
+      "both": "Both fleets"
     },
     "Stats": {
       "name": "Rotation record",

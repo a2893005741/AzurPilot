@@ -25,10 +25,11 @@ test('统一活动切换全部活动任务，关卡可下拉选择或手动填�
     }).toContain('幽影迷城')
   }
 
-  // 新增槽位复用完整配置页，隐藏的运行记录不应出现空卡片或翻译键。
+  // 新增槽位提供共享选择，运行记录保持隐藏。
   await reread(page, 'Event5')
   await expect(page.locator('[id="Event5.Emotion.Fleet1Recover"]')).toBeVisible()
-  await expect(page.locator('#group-EventRotation')).toHaveCount(0)
+  await expect(page.locator('[id="Event5.EventRotation.SharedFleet"]')).toContainText('关闭')
+  await expect(page.locator('[id="Event5.EventRotation.Stats"]')).toHaveCount(0)
   await reread(page, 'Event')
 
   const name = page.locator('[id="Event.Campaign.Name"]')

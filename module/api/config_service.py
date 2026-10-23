@@ -17,6 +17,7 @@ import yaml
 from deploy.atomic import atomic_write
 from module.api.protocol import ApiError
 from module.combat.emotion_state import EmotionRecoveryState
+from module.config.shared_emotion import inherit_shared_emotion, sync_shared_emotion
 from module.config.config_updater import campaign_event_options, refresh_campaign_events, unified_event_options
 from module.config.redirect_utils.utils import meta_assist_limit_redirect, sea_miles_interval_redirect
 from module.config.time_source import now as current_time
@@ -542,6 +543,7 @@ class ConfigService:
             # revision 仅为旧客户端兼容参数。字段赋值合并到锁内最新快照，
             # 无关字段的运行状态更新不应拒绝用户输入；同字段按事务顺序生效。
             data, _ = self.read(name)
+            before = copy.deepcopy(data)
             seen = set()
             edited_groups = {}
             for change in changes:
@@ -562,6 +564,10 @@ class ConfigService:
             if UNIFIED_EVENT in seen and unified not in unified_event_options(events):
                 raise ApiError('INVALID_PARAMS', f'{UNIFIED_EVENT}: 请选择当前服务器的活动')
             refresh_campaign_events(data, self.args)
+            try:
+                inherit_shared_emotion(data, before, seen)
+            except ValueError as exc:
+                raise ApiError('INVALID_PARAMS', str(exc)) from exc
             # 按最终配置校准；同一批先改心情再改恢复条件，也使用最终条件。
             now = current_time() if any(group in ('Emotion', 'PublicEmotion') and
                                         any(arg.endswith('Value') for arg in args)
@@ -589,6 +595,10 @@ class ConfigService:
                         elif any(prefix + suffix in args for suffix in ('Recover', 'Oath', 'Onsen')):
                             fields[prefix + 'RecoveryState'] = None
             self._sync_unified_event(data, seen)
+            try:
+                sync_shared_emotion(data, before, seen)
+            except ValueError as exc:
+                raise ApiError('INVALID_PARAMS', str(exc)) from exc
             for change in changes:
                 task, group, arg = change.path.split('.')
                 if group == 'Scheduler' and arg == 'NextRun' and change.value == '2020-01-01 00:00:00':

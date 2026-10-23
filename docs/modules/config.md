@@ -439,3 +439,6 @@ self.config.task_delay(minute=30)         # 当前任务 30 分钟后再跑
 - [基础层 module/base](base/index.md) — `Filter`（优先级解析）、原子 IO 的底层依赖
 - [编码规范与设计模式](overview/conventions.md) — 配置路径约定与生成器工作流的总纲
 - [MCP SSE 服务器](entry/mcp-server.md) — `mcp_helper` 的消费方
+
+
+活动图的 `EventRotation.SharedFleet`（关闭／一队／二队／两队）按港区舰队编号共享心情，规则见 [战役执行](campaign.md#按港区舰队共享活动心情)。API 先在同一事务中继承已有共享记录，再按最终恢复条件处理实测校准，最后同步共享字段；运行器保存沿用三字段防覆盖并检查共享身份。修改一个共享槽位的数值、后宅、誓约或温泉会同步到同实例已加入的匹配槽位，控制线不跟随。读取和配置迁移不推进或回写共享记录。

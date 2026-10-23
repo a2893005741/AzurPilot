@@ -20,6 +20,7 @@ from module.config.config_manual import ManualConfig
 from module.config.config_updater import ConfigUpdater, ensure_time, get_server_next_update, nearest_future
 from module.config.deep import deep_get, deep_set
 from module.config.event_rotation import order_event_tasks
+from module.config.shared_emotion import inherit_shared_emotion, shared_fleet_id, sync_shared_emotion
 from module.config.time_source import now as current_time
 from module.config.utils import DEFAULT_TIME, dict_to_kv, filepath_config, get_os_reset_remain, path_to_arg, is_good_gpu
 from module.config.watcher import ConfigWatcher
@@ -404,7 +405,12 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         observation_guards = self.__dict__.get('_emotion_observation_guards')
         for prefix in emotion_prefixes:
             guards = observation_guards.get(prefix, {}) if observation_guards else None
-            if ((guards and any(deep_get(current, keys=path) != expected for path, expected in guards.items())) or
+            task, group, fleet = prefix.split('.')
+            mapping_changed = (group == 'Emotion' and fleet in ('Fleet1', 'Fleet2') and
+                               shared_fleet_id(current, task, int(fleet[-1])) !=
+                               shared_fleet_id(baseline, task, int(fleet[-1])))
+            if (mapping_changed or
+                    (guards and any(deep_get(current, keys=path) != expected for path, expected in guards.items())) or
                     any(deep_get(current, keys=prefix + suffix, default=missing) !=
                    deep_get(baseline, keys=prefix + suffix, default=missing)
                    for suffix in ('Value', 'Record', 'RecoveryState', 'Recover', 'Oath', 'Onsen'))):
@@ -426,11 +432,20 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         with config_transaction(filepath_config(self.config_name, mod_name)):
             current = self.read_file(self.config_name)
             self._discard_stale_changes(current)
+            before = copy.deepcopy(current)
             for path, value in self.modified.items():
                 deep_set(current, keys=path, value=value)
+            try:
+                synced = inherit_shared_emotion(current, before, self.modified)
+                synced.update(sync_shared_emotion(current, before, self.modified))
+            except ValueError as exc:
+                raise ScriptError(str(exc)) from exc
             self.write_file(self.config_name, data=current)
             self.data = current
             self._loaded_data = copy.deepcopy(current)
+            for attr, path in self.bound.items():
+                if path in synced and attr not in self.overridden:
+                    super().__setattr__(attr, deep_get(current, path))
             logger.info(f"[配置] 已保存 {filepath_config(self.config_name, mod_name)}，共 {len(self.modified)} 项修改")
             # 写入成功后再清理，磁盘错误不会丢失待保存的更改。
             self.modified.clear()

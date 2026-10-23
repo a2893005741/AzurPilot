@@ -334,6 +334,11 @@ class Emotion:
 
     def update(self):
         """更新情绪值。应在执行任何操作之前调用。"""
+        # 同一港区舰队可能刚被另一个活动槽位使用；旧对象也要读取最新共享扣减。
+        if (self.config.task.command in EMOTION_ROTATION_TASKS and
+                getattr(self.config, 'EventRotation_SharedFleet', 'none') != 'none'):
+            self.config.load()
+            self.config.bind(getattr(self.config, '_bind_task_override', self.config.task))
         now = current_time()
         if self.using_public:
             self.public_fleet.update(now, require_calibration=False)

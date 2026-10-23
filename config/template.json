@@ -911,6 +911,7 @@
       "EnemyScaleBalanceWeight": "default_mode"
     },
     "EventRotation": {
+      "SharedFleet": "none",
       "Stats": null
     },
     "Storage": {
@@ -1004,6 +1005,7 @@
       "EnemyScaleBalanceWeight": "default_mode"
     },
     "EventRotation": {
+      "SharedFleet": "none",
       "Stats": null
     },
     "Storage": {
@@ -1097,6 +1099,7 @@
       "EnemyScaleBalanceWeight": "default_mode"
     },
     "EventRotation": {
+      "SharedFleet": "none",
       "Stats": null
     },
     "Storage": {
@@ -1190,6 +1193,7 @@
       "EnemyScaleBalanceWeight": "default_mode"
     },
     "EventRotation": {
+      "SharedFleet": "none",
       "Stats": null
     },
     "Storage": {
@@ -1283,6 +1287,7 @@
       "EnemyScaleBalanceWeight": "default_mode"
     },
     "EventRotation": {
+      "SharedFleet": "none",
       "Stats": null
     },
     "Storage": {

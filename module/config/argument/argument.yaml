@@ -863,6 +863,9 @@ Submarine:
           support: true # 远洋支援
           move: true # 移动
 EventRotation:
+  SharedFleet:
+    value: none
+    option: [none, fleet1, fleet2, both]
   Stats:
     type: stored
     value: null

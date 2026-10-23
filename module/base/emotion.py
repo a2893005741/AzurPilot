@@ -1,7 +1,7 @@
 """心情调度的共享规则和纯计算函数；恢复模型见 ``module.combat.emotion_state``。"""
 
 # 仅重复刷图任务参与心情轮转，限次 SP 与活动开图保留各自的完成判定。
-EMOTION_ROTATION_TASKS = ('Event', 'Event2', 'Event3')
+EMOTION_ROTATION_TASKS = ('Event', 'Event2', 'Event3', 'Event4', 'Event5')
 
 # 情绪控制阈值：当情绪低于此值时触发等待/延迟
 DIC_LIMIT = {

@@ -22,7 +22,7 @@ class MemoryConfig(AzurLaneConfig):
 
     @property
     def SCHEDULER_PRIORITY(self):
-        return 'Restart > Commission > Event > Event2 > Event3 > Main'
+        return 'Restart > Commission > Event > Event2 > Event3 > Event4 > Event5 > Main'
 
     def __init__(self, store, command, clock):
         self.bound = {}
@@ -103,7 +103,8 @@ class TestCampaignEmotionScheduling(unittest.TestCase):
         }
         queue = self.config(store)
         # 相位未知时按最晚批次估算：12 点分别需要 6、3、3 个恢复批次。
-        for name, minutes in [('Event', 36), ('Event2', 18), ('Event3', 18)]:
+        # 同样心情时，恢复较快、即将补满的队伍先接受预检。
+        for name, minutes in [('Event3', 18), ('Event2', 18), ('Event', 36)]:
             queue.load()
             self.assertEqual(queue.get_next().command, name)
             runner = self.runner(store, name)

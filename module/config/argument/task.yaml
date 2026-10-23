@@ -96,6 +96,7 @@ Event:
       - Emotion
       - HpControl
       - EnemyPriority
+      - EventRotation
     Event2:
       - Scheduler
       - Campaign
@@ -105,6 +106,7 @@ Event:
       - Emotion
       - HpControl
       - EnemyPriority
+      - EventRotation
     Event3:
       - Scheduler
       - Campaign
@@ -114,6 +116,27 @@ Event:
       - Emotion
       - HpControl
       - EnemyPriority
+      - EventRotation
+    Event4:
+      - Scheduler
+      - Campaign
+      - StopCondition
+      - Fleet
+      - Submarine
+      - Emotion
+      - HpControl
+      - EnemyPriority
+      - EventRotation
+    Event5:
+      - Scheduler
+      - Campaign
+      - StopCondition
+      - Fleet
+      - Submarine
+      - Emotion
+      - HpControl
+      - EnemyPriority
+      - EventRotation
     Raid:
       - Scheduler
       - Raid

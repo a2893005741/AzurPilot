@@ -227,6 +227,9 @@ class CampaignStatus(UI):
         tasks = [
             'Event',
             'Event2',
+            'Event3',
+            'Event4',
+            'Event5',
             'Raid',
             'Coalition',
             'GemsFarming',

@@ -515,7 +515,7 @@ class Emotion:
     def wait(self, fleet_index):
         """战前检查指定舰队心情，普通任务等待恢复，重复活动图交回调度。
 
-        Event、Event2、Event3 心情不足时抛出 EmotionRecoveryRequired，
+        五个重复活动图队列心情不足时抛出 EmotionRecoveryRequired，
         由 CampaignRun 撤退并按下一轮需求延期；每日 SP 和活动开图原地等待至满足
         出击需求及已触发的预留恢复。
         应在进入任何战斗之前调用。

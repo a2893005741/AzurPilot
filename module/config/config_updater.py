@@ -64,7 +64,7 @@ ARCHIVES_PREFIX = {
     'tw': '檔案 '
 }
 MAINS = ['Main', 'Main2', 'Main3']
-EVENTS = ['Event', 'Event2', 'Event3', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp']
+EVENTS = ['Event', 'Event2', 'Event3', 'Event4', 'Event5', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp']
 GEMS_FARMINGS = ['GemsFarming', 'ThreeOilLowCost']
 OPERATION_HANDOVERS = ['OperationHandover']
 RAIDS = ['Raid', 'RaidDaily', 'RaidScuttle']

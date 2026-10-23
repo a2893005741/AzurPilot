@@ -7,7 +7,7 @@ from module.combat.emotion_state import EmotionRecoveryState, MAX_OBSERVATION_US
 
 # 仅接纳已核实按请求现截的后端。流式或缓存后端没有采集时间，不能猜延迟。
 TIMED_METHODS = {'ADB', 'ADB_nc', 'uiautomator2', 'aScreenCap', 'aScreenCap_nc'}
-CAMPAIGN_TASKS = {'Main', 'Main2', 'Main3', 'Main4', 'Main5', 'Event', 'Event2',
+CAMPAIGN_TASKS = {'Main', 'Main2', 'Main3', 'Main4', 'Main5', 'Event', 'Event2', 'Event3', 'Event4', 'Event5',
                   'EventA', 'EventB', 'EventC', 'EventD', 'WarArchives'}
 ORDERS = {'fleet1_all_fleet2_standby': (1,), 'fleet1_standby_fleet2_all': (2,),
           'fleet1_mob_fleet2_boss': (1, 2), 'fleet1_boss_fleet2_mob': (1, 2)}

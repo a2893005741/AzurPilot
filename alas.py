@@ -1915,6 +1915,12 @@ class AzurLaneAutoScript:
     def event3(self):
         self._run_campaign()
 
+    def event4(self):
+        self._run_campaign()
+
+    def event5(self):
+        self._run_campaign()
+
     def raid(self):
         from module.raid.run import RaidRun
         RaidRun(config=self.config, device=self.device).run()

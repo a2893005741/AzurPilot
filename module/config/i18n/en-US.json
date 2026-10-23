@@ -98,6 +98,14 @@
       "name": "Event Map-3",
       "help": "This function is designed for regular events; co-op raid events usually have a dedicated settings page."
     },
+    "Event4": {
+      "name": "Event Map-4",
+      "help": "After each map, choose a fleet by morale recovery and time until full. Use separate ships for each queue and set dorm, oath and morale controls to match the fleet."
+    },
+    "Event5": {
+      "name": "Event Map-5",
+      "help": "After each map, choose a fleet by morale recovery and time until full. Use separate ships for each queue and set dorm, oath and morale controls to match the fleet."
+    },
     "Raid": {
       "name": "Raid Event",
       "help": ""
@@ -1538,7 +1546,7 @@
     },
     "Tasks": {
       "name": "Shared morale tasks",
-      "help": "Select tasks that use shared morale, separated by half-width commas, such as \"Main, Event, EventA\"\nMain Campaign-1: Main, Main Campaign-2: Main2, Main Campaign-3: Main3\nEvent Map-1: Event, Event Map-2: Event2, War Archives: WarArchives\nDaily Map A: EventA, Daily Map B: EventB, Daily Map C: EventC, Daily Map D: EventD, Daily Map SP: EventSp"
+      "help": "Select tasks that use shared morale, separated by half-width commas, such as \"Main, Event, EventA\"\nMain Campaign-1: Main, Main Campaign-2: Main2, Main Campaign-3: Main3\nEvent Map-1: Event, Event Map-2: Event2, Event3, Event4, Event5, War Archives: WarArchives\nDaily Map A: EventA, Daily Map B: EventB, Daily Map C: EventC, Daily Map D: EventD, Daily Map SP: EventSp"
     },
     "FleetValue": {
       "name": "Morale value",
@@ -2132,6 +2140,16 @@
     "AdvancedConfig": {
       "name": "Advanced config",
       "help": "The advanced config takes effect only when the Submarine Sortie Plan is set to \"Advanced\". The configuration must strictly follow the YAML format.\n\n[Basic parameters]\n- ammo: Total ammunition of the submarine.\n- support: Number of Open Ocean Support uses available.\n- range: Hunting range, composed of 7 strings of length 7. \"N\" means covered; \"O\" means not covered; \"H\" is the submarine position, which only appears at row 4 column 4 (center).\n\n[Rules]\n- Battle index: battle_0 (all battles), battle_N (the Nth battle, 1-based), battle_-N (the Nth from the end). If a battle matches multiple rules, the sortie order is \"summon > hunt > don't sortie\".\n- type: Sortie type. hunt, call.\n- condition: Trigger condition (sortie unconditionally if omitted).\n    ammo: Ammo condition expression, e.g. \">2\", \">=2\", \"=3\". Supported operators: \">\", \">=\", \"<\", \"<=\", \"=\", \"!=\".\n    support: Open Ocean Support count condition expression, e.g. \">2\", \">=2\", \"=3\". Supported operators: \">\", \">=\", \"<\", \"<=\", \"=\", \"!=\".\n    enemy: Target enemy fleet type list, expressed as scale + class. E.g. \"3M\" means a large main fleet. Wildcard \"*\" is supported, e.g. \"3*\" means all large fleets, \"*T\" means all transports.\n    - Scale: 1: small fleet; 2: medium fleet; 3: large fleet; 0: unknown scale.\n    - Class: L: scout fleet; M: main fleet; C: aircraft carrier fleet; T: transport; E: unknown type.\n    in_range (true/false): Whether the submarine is within hunting range. Summoning outside the hunting range consumes Open Ocean Support uses.\n- move: Whether to spend oil to move the submarine to the cheapest fuel position covering the target when out of range (true/false). If Open Ocean Support uses remain, it won't move and will use Open Ocean Support instead."
+    }
+  },
+  "EventRotation": {
+    "_info": {
+      "name": "Event rotation",
+      "help": "After each map, choose a fleet by morale recovery and time until full. Use separate ships for each queue and set dorm, oath and morale controls to match the fleet."
+    },
+    "Stats": {
+      "name": "Rotation record",
+      "help": "Stores completed sortie costs, duration and completion time."
     }
   },
   "Emotion": {

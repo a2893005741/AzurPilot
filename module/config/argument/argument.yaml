@@ -646,7 +646,7 @@ YukikazeTaskManager:
       > IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant
       > IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture
       > IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation
-      > Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3
+      > Event > Event2 > Event3 > Event4 > Event5 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3
       > OpsiScheduling
       > OpsiMeowfficerFarming
       > GemsFarming
@@ -862,6 +862,12 @@ Submarine:
           # 这里没写条件所以是必定出击
           support: true # 远洋支援
           move: true # 移动
+EventRotation:
+  Stats:
+    type: stored
+    value: null
+    display: hide
+
 Emotion:
   Mode:
     value: calculate

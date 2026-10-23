@@ -6,7 +6,7 @@ from module.config.time_source import now
 from module.logger import logger
 
 
-FARM_TASKS = ('Main', 'Main2', 'Main3', 'Event', 'Event2', 'Event3')
+FARM_TASKS = ('Main', 'Main2', 'Main3', 'Event', 'Event2', 'Event3', 'Event4', 'Event5')
 
 
 class NativeOilControl:

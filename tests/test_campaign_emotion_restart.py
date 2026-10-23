@@ -27,6 +27,7 @@ class CampaignEmotionRestartTests(unittest.TestCase):
                 emotion = production.Emotion(ledger)
                 emotion.map_is_2x_book = double_book
                 config = SimpleNamespace(
+                    task=SimpleNamespace(command='Main'),
                     StopCondition_RunCount=0, StopCondition_MapAchievement='non_stop',
                     modified={}, override=Mock(), task_call=Mock(),
                     task_switched=Mock(return_value=False))

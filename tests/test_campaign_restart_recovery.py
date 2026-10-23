@@ -502,7 +502,8 @@ class RestartMapReplayTests(unittest.TestCase):
     def test_resumed_round_uses_original_completion_and_remaining_run_count(self):
         runner = object.__new__(CampaignRun)
         runner.config = SimpleNamespace(
-            StopCondition_RunCount=2, modified={}, override=Mock(), task_switched=Mock(return_value=False))
+            task=SimpleNamespace(command='Main'), StopCondition_RunCount=2,
+            modified={}, override=Mock(), task_switched=Mock(return_value=False))
         runner.device = Mock(has_cached_image=True)
         runner.name = 'campaign_16_4'
         runner.folder = 'campaign_main'
@@ -625,7 +626,7 @@ assert not c.combat_result.shipwreck_reduced
             self.assertEqual('checkbox', option['type'])
             if option.get('display') != 'hide':
                 visible.add(task)
-        self.assertEqual({'Main', 'Main2', 'Main3', 'Event', 'Event2', 'Event3',
+        self.assertEqual({'Main', 'Main2', 'Main3', 'Event', 'Event2', 'Event3', 'Event4', 'Event5',
                           'EventA', 'EventB', 'EventC', 'EventD', 'EventSp',
                           'GemsFarming', 'ThreeOilLowCost'}, visible)
         for lang in ('zh-CN', 'zh-MIAO', 'en-US', 'ja-JP', 'zh-TW'):

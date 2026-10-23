@@ -18,12 +18,18 @@ test('统一活动切换全部活动任务，关卡可下拉选择或手动填�
   await pick(page, '[id="EventGeneral.EventGeneral.UnifiedEvent"]', '幽影迷城')
   await expect(page.locator('[id="EventGeneral.EventGeneral.UnifiedEvent"]')).toContainText('幽影迷城')
 
-  for (const task of ['EventB', 'Event']) {
+  for (const task of ['EventB', 'Event4', 'Event5', 'Event']) {
     await expect.poll(async () => {
       await reread(page, task)
       return page.locator(`[id="${task}.Campaign.Event"]`).textContent()
     }).toContain('幽影迷城')
   }
+
+  // 新增槽位复用完整配置页，隐藏的运行记录不应出现空卡片或翻译键。
+  await reread(page, 'Event5')
+  await expect(page.locator('[id="Event5.Emotion.Fleet1Recover"]')).toBeVisible()
+  await expect(page.locator('#group-EventRotation')).toHaveCount(0)
+  await reread(page, 'Event')
 
   const name = page.locator('[id="Event.Campaign.Name"]')
   const picker = page.getByRole('combobox', {name: /选择关卡/})

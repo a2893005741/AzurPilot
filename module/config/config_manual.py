@@ -63,7 +63,7 @@ class ManualConfig:
     > IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant
     > IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture
     > IslandAirDrop > IslandBusiness
-    > Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > CoalitionScuttle > RaidScuttle > Main > Main2 > Main3
+    > Event > Event2 > Event3 > Event4 > Event5 > Raid > Hospital > HospitalEvent > Coalition > CoalitionScuttle > RaidScuttle > Main > Main2 > Main3
     > OpsiMeowfficerFarming
     > GemsFarming
     > Ambush11

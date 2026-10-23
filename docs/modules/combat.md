@@ -239,7 +239,7 @@ combat_result_record()  ← 已识别 A/B 或确定 C/D 战败：本场最多额
 record()  ← 与 update 成对：同一计算时刻的 Value + 完整 Record + RecoveryState 原子保存
 ```
 
-重复活动图（`EMOTION_ROTATION_TASKS`：Event、Event2、Event3）不在图内阻塞等待：`wait()` 心情不足时抛 `EmotionRecoveryRequired`，由 `CampaignRun` 撤退，再用 `get_recovered_for_battle()` 按下一轮完整地图的消耗延期当前任务；每日 SP 与活动开图仍原地等待。拆分战斗数使用 `fleet_battle_counts()`，未启用的第二舰队不参与。游戏端低心情撤退时，`handle_low_emotion_withdrawal()` 只对实际参战的舰队调用 `Emotion.reset_fleets()` 按 0 重建三件套，待命舰队的存档保持不动。调度器在多张可运行活动图之间排序时，`campaign_emotion_score()` 在配置副本上推进恢复存档并取心情下限，与出击控制同一口径；读取配置时不回写推算值，否则加载基线与保存前重读的值不一致，会触发三字段防覆盖保护，丢弃运行器写入的扣减。
+重复活动图（`EMOTION_ROTATION_TASKS`：Event、Event2、Event3、Event4、Event5）不在图内阻塞等待：`wait()` 心情不足时抛 `EmotionRecoveryRequired`，由 `CampaignRun` 撤退，再用 `get_recovered_for_battle()` 按下一轮完整地图的消耗延期当前任务；每日 SP 与活动开图仍原地等待。拆分战斗数使用 `fleet_battle_counts()`，未启用的第二舰队不参与。游戏端低心情撤退时，`handle_low_emotion_withdrawal()` 只对实际参战的舰队调用 `Emotion.reset_fleets()` 按 0 重建三件套，待命舰队的存档保持不动。调度器在五个可运行活动队列之间，按完整出击需求、距各自恢复上限的时间和上次完成时间排序；150 与 119 上限不会直接比较心情数值。恢复存档只在副本上推进并取下限，排序不回写估计值。真实出击与恢复延期仍使用整数批次模型，排序中的补满时间只用于比较恢复压力。详细轮换与耗时记录见 [战役执行](campaign.md#活动图逐局轮换)。
 
 公海舰队（`PublicEmotion_Enable` 且当前任务在 `PublicEmotion_Tasks` 列表）把上述过程收敛到一份共享情绪上。每次更新都读取最新共享存档，跨任务不能缓存旧的相位状态。计算模式下若仍出现红脸弹窗，`handle_combat_low_emotion()`（处理器层）会退出关卡，将对应舰队心情基准重建为 0，并按当前地图的心情消耗计算恢复时间、延后任务后自动重试；无需等待服务器刷新或人工重填校准值。
 

@@ -93,7 +93,7 @@ class WindFogCorridorTests(unittest.TestCase):
 
     def test_registered_event_uses_shared_directory_for_cn_en_jp(self):
         args = json.loads((ROOT / 'module/config/argument/args.json').read_text(encoding='utf-8'))
-        for task in ('Event', 'Event2', 'Event3', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp'):
+        for task in ('Event', 'Event2', 'Event3', 'Event4', 'Event5', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp'):
             for server in ('cn', 'en', 'jp'):
                 with self.subTest(task=task, server=server):
                     self.assertEqual(args[task]['Campaign']['Event'][f'option_{server}'], [EVENT])

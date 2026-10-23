@@ -8,6 +8,7 @@ from pathlib import Path
 from module.api.config_service import ConfigService, ROOT, stage_input_name
 from module.api.protocol import ApiError, ConfigChange
 from module.config.config_updater import EVENTS, GEMS_FARMINGS, ConfigUpdater
+from module.config.task_priority import parse_task_priority
 
 UNIFIED = 'EventGeneral.EventGeneral.UnifiedEvent'
 # 两个仍有地图文件的活动；保存用例把它们注入临时 args 的 cn 候选，不依赖当期复刻列表。
@@ -58,6 +59,32 @@ class UnifiedEventPatchTests(unittest.TestCase):
                 self.assertEqual(values[task]['Campaign']['Event'], LIGHT)
         self.patch((UNIFIED, ROSE))
         self.assertEqual({self.values()[task]['Campaign']['Event'] for task in EVENTS}, {ROSE})
+
+    def test_old_config_adds_two_disabled_slots_without_replacing_existing_fleets(self):
+        old = self.values()
+        for name in ('Event4', 'Event5'):
+            old.pop(name)
+        old['Event']['Fleet']['Fleet1'] = 4
+        old['Event2']['Fleet']['Fleet1'] = 5
+        old['Event3']['Fleet']['Fleet1'] = 6
+        priority = 'Commission > Event3 > Event > Event2 > Main'
+        old['General']['YukikazeTaskManager']['TaskPriorityAdjustment'] = priority
+        migrated = ConfigUpdater().config_update(old)
+        self.assertEqual([migrated[name]['Fleet']['Fleet1'] for name in ('Event', 'Event2', 'Event3')],
+                         [4, 5, 6])
+        for name in ('Event4', 'Event5'):
+            self.assertFalse(migrated[name]['Scheduler']['Enable'])
+            self.assertEqual(migrated[name]['Scheduler']['Command'], name)
+            self.assertEqual(migrated[name]['Emotion']['Fleet1Recover'], 'not_in_dormitory')
+        merged = parse_task_priority(migrated['General']['YukikazeTaskManager']['TaskPriorityAdjustment'])
+        self.assertEqual([name for name in merged if name in parse_task_priority(priority)],
+                         parse_task_priority(priority))
+        self.assertTrue({'Event4', 'Event5'}.issubset(merged))
+
+    def test_rotation_runtime_record_cannot_be_edited_from_config_api(self):
+        with self.assertRaises(ApiError) as caught:
+            self.patch(('Event5.EventRotation.Stats', {'duration': 1}))
+        self.assertEqual(caught.exception.code, 'READ_ONLY')
 
     def test_low_cost_tasks_follow_only_when_farming_event(self):
         self.set_raw('GemsFarming', 'campaign_main')

@@ -15,6 +15,7 @@ import copy
 import importlib
 import os
 import random
+from time import monotonic
 
 from module.base.emotion import EMOTION_ROTATION_TASKS, fleet_battle_counts
 from module.campaign.campaign_base import CampaignBase
@@ -24,6 +25,8 @@ from module.shop.shop_status import ShopStatus
 from module.campaign.campaign_ui import MODE_SWITCH_1
 from module.combat.emotion import EmotionRecoveryRequired
 from module.config.config import AzurLaneConfig, TaskEnd
+from module.config.event_rotation import record_event_rotation, rotation_settings
+from module.config.time_source import now as current_time
 from module.config.task_priority import parse_task_priority
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import map_files, to_map_file_name
@@ -368,6 +371,19 @@ class CampaignRun(CampaignEvent, ShopStatus):
         """单次战役完成后的扩展钩子。"""
         pass
 
+    def record_event_rotation(self, seconds, settings):
+        """仅在重复活动图完整结束后记录本图的真实出击需求。"""
+        if self.config.task.command not in EMOTION_ROTATION_TASKS:
+            return
+        config = self.campaign.config
+        counts = fleet_battle_counts(self.campaign._map_battle, config.Fleet_FleetOrder, config.Fleet_Fleet2)
+        costs = tuple(count * self.campaign.emotion.reduce_per_battle_before_entering for count in counts)
+        record_event_rotation(config, costs, seconds, current_time(), settings)
+        logger.info(f'[活动轮换] {config.task.command} 完成本局，耗时 {seconds:.1f} 秒，'
+                    f'下轮心情成本 {costs}，重新选择队列')
+        # 地图与运行器持有独立配置，避免下一次切换读取旧的轮换记录。
+        self.config.load()
+
     def delay_event_for_emotion(self, refresh_map=False):
         """按下一轮实际消耗延期活动图，将后续任务留给调度器选择。"""
         task = self.config.task.command
@@ -522,6 +538,10 @@ class CampaignRun(CampaignEvent, ShopStatus):
             self.run_limit = self.config.StopCondition_RunCount
         resume_map = resume and self.__dict__.pop('_resume_map', False)
         while 1:
+            round_started = monotonic()
+            resumed_round = resume_map
+            round_settings = (rotation_settings(self.config.data, self.config.task.command)
+                              if self.config.task.command in EMOTION_ROTATION_TASKS else None)
             # 结束条件
             if total and self.run_count >= total:
                 break
@@ -587,10 +607,11 @@ class CampaignRun(CampaignEvent, ShopStatus):
             # 运行
             self.device.stuck_record_clear()
             self.device.click_record_clear()
+            completed = False
             try:
                 self.campaign._resume_after_restart = resume_map
                 resume_map = False
-                self.campaign.run()
+                completed = self.campaign.run()
             except CampaignEnd:
                 if not getattr(self.campaign, 'low_emotion_withdrawn', False):
                     raise
@@ -612,6 +633,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
 
             if self.handle_low_emotion_withdrawal():
                 self.config.task_stop('[低心情] 已撤退并延后当前任务')
+
+            if completed is True and not resumed_round:
+                self.record_event_rotation(monotonic() - round_started, round_settings)
 
             # 更新配置
             if len(self.campaign.config.modified):

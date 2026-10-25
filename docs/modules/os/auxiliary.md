@@ -100,6 +100,8 @@ module/os_simulator/
 
 计划作战入口允许上一轮合计奖励延迟弹出。`strategy_search_enter()` 识别奖励后调用 `handle_auto_search_reward()` 按两秒间隔点击离开；奖励仍可见时持续截图，冷却期间也不能点击背后的地图按钮。只有识别到 `STRATEGIC_SEARCH_POPUP_CHECK` 才交给选项设置。
 
+`strategic_search_confirm()` 确认计划作战后，游戏可能再提示召回正在搜寻的指挥喵并离开当前海域。该提示出现时计划作战面板已关闭，必须继续调用已有的 `handle_popup_confirm()`，不能用面板标题限制确认操作。确认按钮沿用两秒点击间隔，点击及冷却期间持续截图，直到 `is_in_map()` 正向确认地图才返回；未推进仍由设备层卡死与过多点击检测处理。
+
 ### os_ash
 
 | 类 | 要点 |

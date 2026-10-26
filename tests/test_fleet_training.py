@@ -394,7 +394,9 @@ class TrainingIntegrationTests(unittest.TestCase):
         self.config.StopCondition_ReachLevel = 0
         enabled = self.config.Scheduler_Enable
         runner = SimpleNamespace(config=self.config, campaign=self.campaign, run_limit=False,
-                                 status_get_gems=Mock(), get_coin=Mock(), get_oil=Mock(return_value=100))
+                                 status_get_gems=Mock(), get_coin=Mock(), get_oil=Mock(return_value=100),
+                                 # fork 的活动图心情延期先于石油检查执行；本用例只验证石油短缺。
+                                 delay_event_for_emotion=Mock(return_value=False))
         self.assertTrue(CampaignRun.triggered_stop_condition(runner))
         self.assertEqual(enabled, self.config.Scheduler_Enable)
         self.manager.rotate_slot.assert_not_called()

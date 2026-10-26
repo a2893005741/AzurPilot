@@ -387,7 +387,9 @@ class AutoSearchDefeatTests(unittest.TestCase):
         runner = object.__new__(CampaignRun)
         runner.config = SimpleNamespace(
             Scheduler_Enable=True, StopCondition_RunCount=0, StopCondition_MapAchievement='non_stop',
-            modified={}, override=Mock(), task_switched=Mock(return_value=False))
+            modified={}, override=Mock(), task_switched=Mock(return_value=False),
+            # fork 的活动图心情轮换按当前任务名取配置；主线任务不参与轮换。
+            task=SimpleNamespace(command='Main'))
         runner.device = replay.device
         runner.campaign = campaign
         runner.stage = '2-4'

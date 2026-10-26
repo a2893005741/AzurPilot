@@ -16,6 +16,16 @@ LIGHT = 'event_20260908_cn'
 ROSE = 'event_20261022_cn'
 
 
+
+def inject_candidates(args):
+    """把夹具活动补进全服候选；上游刷新当期活动列表后，旧活动可能已不在 option 中。"""
+    for task in EVENTS + GEMS_FARMINGS:
+        field = args[task]['Campaign']['Event']
+        field['option'] = field['option'] + [event for event in (LIGHT, ROSE) if event not in field['option']]
+    unified = args['EventGeneral']['EventGeneral']['UnifiedEvent']
+    unified['option'] = unified['option'] + [event for event in (LIGHT, ROSE) if event not in unified['option']]
+
+
 class UnifiedEventPatchTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -31,6 +41,7 @@ class UnifiedEventPatchTests(unittest.TestCase):
             # 低耗保留主线候选，只验证跟随规则；运行器把低耗主线刷新为活动的行为不在此范围。
             prefix = ['campaign_main'] if task in GEMS_FARMINGS else []
             args[task]['Campaign']['Event']['option_cn'] = prefix + [LIGHT, ROSE]
+        inject_candidates(args)
         args_path.write_text(json.dumps(args, ensure_ascii=False), encoding='utf-8')
         shutil.copyfile(root / 'config/template.json', root / 'config/testpilot.json')
         self.path = root / 'config/testpilot.json'
@@ -161,7 +172,9 @@ class UnifiedEventSchemaTests(unittest.TestCase):
                     self.assertNotEqual(field[key], key)
 
     def test_stage_suggestions_follow_map_files(self):
-        stages = ConfigService(ROOT).schema()['stages']
+        service = ConfigService(ROOT)
+        inject_candidates(service.args)
+        stages = service.stages()
         self.assertEqual(stages[LIGHT], ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2', 'C3', 'D1', 'D2', 'D3',
                                          'D3-3', 'SP'])
         self.assertIn('T1', stages[ROSE])

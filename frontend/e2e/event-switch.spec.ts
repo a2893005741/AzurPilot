@@ -15,14 +15,14 @@ async function reread(page: Page, task: string) {
 
 test('统一活动切换全部活动任务，关卡可下拉选择或手动填写', async ({page}) => {
   await page.goto('/#/i/testpilot/task/EventGeneral')
-  await pick(page, '[id="EventGeneral.EventGeneral.UnifiedEvent"]', '幽影迷城')
-  await expect(page.locator('[id="EventGeneral.EventGeneral.UnifiedEvent"]')).toContainText('幽影迷城')
+  await pick(page, '[id="EventGeneral.EventGeneral.UnifiedEvent"]', '复刻起舞于天原之上')
+  await expect(page.locator('[id="EventGeneral.EventGeneral.UnifiedEvent"]')).toContainText('复刻起舞于天原之上')
 
   for (const task of ['EventB', 'Event4', 'Event5', 'Event']) {
     await expect.poll(async () => {
       await reread(page, task)
       return page.locator(`[id="${task}.Campaign.Event"]`).textContent()
-    }).toContain('幽影迷城')
+    }).toContain('复刻起舞于天原之上')
   }
 
   // 新增槽位提供共享选择，运行记录保持隐藏。

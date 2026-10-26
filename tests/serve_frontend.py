@@ -39,10 +39,16 @@ def main():
         root = fixture(directory)
         shutil.copytree(ROOT / 'frontend/dist', root / 'frontend/dist')
         # 活动候选按实例服务器过滤，当期国服可能只有一个活动；固定两个有地图文件的活动供统一活动用例切换。
+        # 上游刷新当期活动后旧活动可能不在全服 option 中，统一活动候选也一并补齐。
+        fixed = ['event_20250912_cn', 'event_20261022_cn']
         args_path = root / 'module/config/argument/args.json'
         args = json.loads(args_path.read_text(encoding='utf-8'))
         for task in EVENTS:
-            args[task]['Campaign']['Event']['option_cn'] = ['event_20260908_cn', 'event_20261022_cn']
+            field = args[task]['Campaign']['Event']
+            field['option_cn'] = fixed
+            field['option'] = field['option'] + [event for event in fixed if event not in field['option']]
+        unified = args['EventGeneral']['EventGeneral']['UnifiedEvent']
+        unified['option'] = unified['option'] + [event for event in fixed if event not in unified['option']]
         args_path.write_text(json.dumps(args, ensure_ascii=False), encoding='utf-8')
         path = root / 'config/testpilot.json'
         data = json.loads(path.read_text(encoding='utf-8'))

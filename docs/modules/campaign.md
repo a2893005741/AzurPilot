@@ -17,6 +17,93 @@
 
 ## 2. 模块职责
 
+### 普通主线与活动的智能换船-心情控制
+
+#### 等级、好感培养调度
+
+舰队管理另有“等级调度”和“好感调度”两个独立配置页，开关默认关闭，复用
+`FleetRotation.Rules`的实际舰队、勾选舰位和同号候补，不注册新的可执行任务。
+`FleetLevelTraining.Target`默认120、范围1–125；`FleetAffinityTraining.Target`默认100、
+范围1–200。两者`CheckInterval`均以分钟计，默认30，0表示每次结算检查。
+
+| 启用组合 | 完成条件与换船 |
+| --- | --- |
+| 仅等级 | 等级达标完成换船；心情不足只延时 |
+| 仅好感 | 好感达标完成换船；心情不足只延时 |
+| 仅心情 | 保留原临时轮换，不写培养完成 |
+| 心情＋等级 | 心情临时换船；等级达标才永久排除 |
+| 心情＋好感 | 心情临时换船；好感达标才永久排除 |
+| 等级＋好感 | 同一舰船两项全部达标才完成换船 |
+| 心情＋等级＋好感 | 心情临时换船；同舰两项全部达标才完成换船 |
+
+开始/换船后实读；结算边界检查间隔，到期仍先打完当前地图，在下一次出击前读取，不主动撤退。
+任务在边界停止时，剩余实读留到下次启动，不能用经过时间推断培养完成。任一间隔到期
+同步核对全部启用条件，避免旧高好感和新等级拼成完成。仅等级/好感时先只读目标队详情，
+达标需换船才实读候补、复用原选船页与心情校正。心情同时开启时先读心情，再读角色详情。
+
+`module/campaign/fleet_training.py`编排，`module/runtime/fleet_training.py`负责逐船条件和
+持久记录，`module/retire/fleet_training.py`复用大世界`ShipLevel/ShipExp`，好感读取
+“当前”后的0–200数值。均要求新截图一致；同名歧义、Lua身份未确认、未知读数不记录完成。
+只验证国服1280×720布局，不自动誓约、赠礼或觉醒。
+
+`FleetInfo.FleetTraining.State`独立保存`records`、读取中的`reading`和互换前落盘的
+`pending`。重启核对双方舰位的唯一身份，已交换则清除待确认项，未交换才续接；目标改变
+时取消尚未执行的旧计划。已完成记录保存当时目标，修改目标不自动撤销已经确认的完成状态。
+没有合适候补则按配置间隔延迟本任务（至少1分钟），不禁用调度器、不无限选船。
+
+临时心情换船保留逐船记录，候补须实读且未完成当前组合。换后继续由原
+`emotion.check_reduce()`判断能否出击，不能用等级/好感目标代替心情要求；仅计算更换舰船
+心情开关保留原语义，红脸和石油限制沿用已有路径。装备开启时仍先卸装、换船再补装。
+定向验证见`tests/test_fleet_training.py`，截图来源见`tests/fixtures/fleet_training/README.md`。
+
+`CampaignRun` 为单次出击实例安装 `preflight_rotation()` 回调，`CampaignBase.run()`
+在读取地图战斗次数之后、原有 `emotion.check_reduce()` 之前执行。开关及规则位于
+`FleetInfo.FleetRotation`，默认关闭，不注册执行任务或调度状态。仅 Main/Main2–5、
+Event/Event2/A–D 的普通主线/活动目录参与；还检查实际地图模式及活动困难关卡名，
+不会对困难编成、作战档案、低耗换船任务或大世界复用港区舰位。
+
+另有默认关闭的`FleetInfo.FleetEquipment.Enabled`，仅为上述智能换船联动装备码。
+开启后在候补和舰位确定后先统一卸装，全部互换完成再按角色详情的实际舰种清空并应用码，
+最后回母港继续原任务。同舰种按每队前后排的实际舰位顺序分别使用三个装备码，未换船的
+同舰种也计入顺序；未填写对应顺序位时保留换入舰船当前装备。卸装失败或换装失败保留独立
+待完成舰位，下次开启时先核对实际编队补完。关闭时不改变本节原有路径。流程、国服模板
+及配置约束见[退役与装备](game/retire-equipment.md#智能换船联动自动换装备)。
+
+策略按 `Fleet.Fleet1/Fleet2` 将出击角色映射到实际的1–6号舰队，使用本轮战斗数、
+出击顺序、双倍书和原有情绪控制线判断是否不足。零战斗的待命角色不换船。
+开启后，每次切换到受支持的刷图任务，先完成一次舰队扫描并校正实际心情；同一任务
+连续周回不重复这次入口扫描。Alas在派发任务时维护进程内的任务上下文，并把同一上下文
+交给CampaignRun；经过委托等其他任务再返回也会重扫。地图内的重启续接仍不插入扫描。
+
+账本心情不足时，`prepare_rotation()`只选择一次目标队，先从舰位4实测前排，取消后
+直接从同队舰位1实测后排，并停留在该选船页。实际心情充足只校正记录；
+未知读数不作为换船依据，仍走原出击检查。候补按整队最低心情降序、同值按队号升序，
+且必须拥有全部待换的同号舰位并满足出击心情要求。每轮只使用一支来源队，勾选4、5、6
+即调用4↔4、5↔5、6↔6，不从同排另选最高心情角色。
+`rotate_slot()`复用舰船信息的固定舰位与进程内卡面，直接从当前选船页点击来源角色，
+确认后只刷新这一排的所有已编队成员；下一舰位仍从目标队进入，不为采卡面切换来源队。
+一轮内保持等级降序，不重置排序，不逐艘往返主界面或采集详情。最后一次更新后的累计
+快照包含前后排及未换角色，直接用于双方最低心情，校正关联任务并返回原关卡，再执行
+正常的心情预检和入场。没有跳过原停止条件、原心情检查或战后扣减。
+
+重启后仍在地图内的续接路径不调用该出击前回调，保留已核实的地图恢复语义。
+互换执行或清理无法确认时抛出 `FleetManagementError`，不通过重启重复换船。
+
+培养换船始终检查勾选舰位的最低实测心情，固定舰船不足不能触发培养换船。
+`FleetRotation.SelectedOnly`默认关闭：关闭时，整队仍按任务原有控制线及单图消耗检查，
+固定舰船不足只延迟。开启后，培养舰位另用`RotationEmotion`保存会话内的恢复相位，
+按实际战斗及沉船惩罚扣减；培养换船要求沿用任务心情控制和单图消耗预留。
+整队仍记录全队最低心情供原界面及其他功能使用，但开启时等待和红脸确认只检查培养舰位，
+不额外设置全队出击下限；固定舰船低心情不阻塞出击。关闭时继续按全队原控制线等待，
+培养心情仍单独计算，固定低值不能触发培养换船。两种模式都不能用任务ignore设置绕过培养计算。
+候补在开启时只比较对应勾选舰位，关闭时保留整队排序。无合格候补则等待培养心情恢复，
+不会因整队出击下限较低而强行出击。心情轮换仅记录互换完成，不修改培养完成状态。
+切换任务、重启或规则/模式变化会实测重建；连续周回复用培养心情，避免固定低值反复扫描。
+石油、出击次数等其他停止/延迟条件保持原有顺序，不受此开关影响。
+旧待确认、旧策略及失败记录会自动清理，下一次先强制扫描实际编队；恢复轮次只换仍不足
+的勾选舰位，已恢复心情的舰位不重复互换。有效的运行中关闭进度仍可继续，无需手动清空。
+候补排序、部分完成记录及同名舰船限制见[退役与装备](game/retire-equipment.md)。
+
 ### 负责
 
 - 关卡名规范化：用户输入（`7-2`、`D3`、`TH1`）到地图文件名（`campaign_7_2`、`d3`）的转换，活动专属别名（`stage_name.py`）。
@@ -226,7 +313,7 @@ flowchart TD
 | [auto_search_combat.py](../../module/combat/auto_search_combat.py)、[combat.py](../../module/combat/combat.py)、[result.py](../../module/combat/result.py) | 普通战斗执行、严格开关检测与每场心情记录 |
 | [argument.yaml](../../module/config/argument/argument.yaml)、[override.yaml](../../module/config/argument/override.yaml) | 默认关闭的配置定义与不适用任务的隐藏覆盖 |
 | [args.json](../../module/config/argument/args.json)、[config_generated.py](../../module/config/config_generated.py)、[template.json](../../config/template.json) | 配置生成器维护的定义、Python 属性和模板 |
-| [zh-CN.json](../../module/config/i18n/zh-CN.json)、[zh-MIAO.json](../../module/config/i18n/zh-MIAO.json)、[en-US.json](../../module/config/i18n/en-US.json)、[ja-JP.json](../../module/config/i18n/ja-JP.json)、[zh-TW.json](../../module/config/i18n/zh-TW.json) | 五种语言的名称与限制说明 |
+| [zh-CN.json](../../module/config/i18n/zh-CN.json)、[en-US.json](../../module/config/i18n/en-US.json)、[ja-JP.json](../../module/config/i18n/ja-JP.json)、[zh-TW.json](../../module/config/i18n/zh-TW.json) | 四种语言的名称与限制说明 |
 | [test_campaign_restart_recovery.py](../../tests/test_campaign_restart_recovery.py)、[test_campaign_restart_tasks.py](../../tests/test_campaign_restart_tasks.py) | 隔离配置、恢复回放、跨任务编排及四服资源组合测试 |
 | 本文、[combat.md](combat.md)、[entry/alas.md](entry/alas.md) | 战役、战斗与调度的机制及验收边界 |
 
@@ -415,7 +502,7 @@ stateDiagram-v2
 
 1. **复制相近活动**：从结构最接近的 `event_*` 目录复制，逐关修改 `MAP` 网格/权重/刷新表、`Config` 机制开关、`Campaign` 策略函数；活动级共享调整放该目录的 `campaign_base.py`。
 2. **登记 Readme.md**：在 `campaign/Readme.md` 表格加一行（Aired Date | Directory | Event Name | CN/EN/JP/TW），复用旧地图的活动也必须登记（目录名可与首播日期不同）。
-3. **生成配置**：运行 `uv run -m module.config.config_updater`，为 `Campaign.Event` 生成各服务器选项与 i18n 键，随后补齐 `zh-CN`/`zh-MIAO`/`en-US`/`ja-JP`/`zh-TW` 翻译。
+3. **生成配置**：运行 `uv run -m module.config.config_updater`，为 `Campaign.Event` 生成各服务器选项与 i18n 键，随后补齐 `zh-CN`/`en-US`/`ja-JP`/`zh-TW` 翻译。
 4. **资源**：活动专属按钮/PT 图标经 `uv run -m dev_tools.button_extract` 提取进 `assets/{server}/campaign/`。
 5. **特殊 UI**（按需）：新章节侧边栏布局在 `campaign_ui.py` 加 `ASIDE_SWITCH_YYYYMMDD` 与 `campaign_set_chapter_*` 分支；新关卡名别名（如 `vsp`→`sp`）加进 `stage_name.py` 的别名字典；无「威胁：安全」指示器的活动在 `_apply_event_achievement_fallback` 处理。
 
@@ -423,12 +510,13 @@ stateDiagram-v2
 
 ### 飓风与雾霭回廊（20261022）
 
-- 国服、国际服和日服共用 `campaign/event_20261022_cn/` 的 T1–T6 与 SP。关卡数据来自活动 `51601` 的 `config_data`：`2070001`–`2070006`、`2070041`；该活动的 `act_id` 也出现在旧 `197xxxx` 章节中，不能仅按关联结果的首项提取。EX 不在自动刷图范围内。
-- Lua 的 `expedition_data_by_map` 使用 `ui_type=10`，T1–T3 属于上篇、T4–T6 属于下篇，SP 使用独立分区。活动基类沿用 `page_sp` 和 20241219 四分区导航；关卡没有普通／困难模式切换。`stage_name.py` 保留 T 关名，并支持与同类活动一致的 A/SP 数字别名及 A/B 日常关卡转换。
+- 国服、国际服和日服共用 `campaign/event_20261022_cn/` 的 T1–T6 与 SP，地图、机制配置和战斗策略采用 Lme 上游实现。EX 不在自动刷图范围内。
+- T1–T3 属于上篇、T4–T6 属于下篇，SP 使用独立分区。活动基类沿用 `page_sp` 和 20241219 四分区导航；关卡没有普通／困难模式切换。`stage_name.py` 保留 T 关名，并支持与同类活动一致的 A/SP 数字别名及 A/B 日常关卡转换。
 - 活动剧情工具同样使用 `page_sp` 作为本期活动入口，到达后通过左下角模式开关进入剧情模式；上下篇作战页和剧情页共用 `S.P.` 页面标识。
-- T 关精英为 `type=95`，由客户端 `ChapterConst.EnemySize` 与 `StaticChampionCellView.StartEggCellView` 渲染小型橙色精英图标，复用 `MAP_SIREN_HAS_BOSS_ICON_SMALL`。SP 的 `type=98` 不显示此图标且 `is_ai=0`，每次出击从地图的三个 `MS` 出生格（D2、C3、B4）初始化固定敌人，保留清除后的正常状态更新。
-- 日文名称「テンペスタと霧靄回廊」来自 JP `memory_group[380].title` 与 `expedition_data_by_map[2070001].name`。当前 EN Lua 尚无对应条目，英文名称暂自行翻译为 “Tempesta and the Corridor of Mist”；后续有正式名称时更新 `campaign/Readme.md` 并重新生成配置。
-- 地图、波次、配置和导航可离线核对；新海面背景的网格识别与滑动参数仍需本期 1280×720 截图或经授权的模拟器验收，不能将旧活动的校准值视为本期实测结果。
+- T 关启用移动精英与舰队步数限制，精英移动回合为 `(2,)`，通过 `MAP_SIREN_HAS_BOSS_ICON_SMALL` 识别小型橙色图标。SP 关闭移动精英和舰队步数限制，通过 `MAP_SIREN_TEMPLATE = ['TempestaGhostBoss02']` 引用上游 GIF 模板，精英位置由通用地图识别流程确认。
+- 活动名称以 `campaign/Readme.md` 登记表为准，英文为 “Tempesta and the Corridor of Fog”；配置生成器同步各服活动候选和五种语言的名称。
+- `war_archives_20241024_cn`（飓风与沉眠之海）和 `war_archives_20251023_cn`（飓风与自由群岛）各提供 T1–T6，并通过作战档案模板字典登记。两组地图同样接入 `stage_name.py` 的 T 关别名规则；A1–A6、SP1–SP6 和日常 A/B 名称可转换到对应 T 关。
+- 地图、波次、配置和导航可离线核对；上游滑动参数与新海面背景的识别仍需本期 1280×720 截图或经授权的模拟器验收，离线检查不代表实机通过。
 
 ## 16. 修改注意事项
 

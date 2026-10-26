@@ -269,7 +269,6 @@ class GeneratedConfig:
     DropRecord_MeowfficerBuy = 'do_not'  # do_not, save
     DropRecord_MeowfficerTalent = 'do_not'  # do_not, save, upload, save_and_upload
     DropRecord_TelemetryReport = True
-    DropRecord_BugReport = True
 
     # 配置组 `Backup`
     Backup_Enable = True
@@ -295,7 +294,7 @@ class GeneratedConfig:
     PublicEmotion_FleetOnsen = False
 
     # 配置组 `YukikazeTaskManager`
-    YukikazeTaskManager_TaskPriorityAdjustment = 'Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward > StorageStatistics\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore > OpsiExploreCleanup\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > LimitChallenge > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Event4 > Event5 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover'
+    YukikazeTaskManager_TaskPriorityAdjustment = 'Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward > StorageStatistics\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore > OpsiExploreCleanup\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > LimitChallenge > Hard > OpsiAshBeacon > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Event4 > Event5 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover'
 
     # 配置组 `OneClickRetire`
     OneClickRetire_KeepLimitBreak = 'keep_limit_break'  # keep_limit_break, do_not_keep
@@ -586,7 +585,7 @@ class GeneratedConfig:
     GuildOperation_Enable = True
     GuildOperation_SelectNewOperation = False
     GuildOperation_NewOperationMaxDate = 15
-    GuildOperation_JoinThreshold = 1
+    GuildOperation_JoinThreshold = 1.0
     GuildOperation_AttackBoss = True
     GuildOperation_BossFleetRecommend = False
 
@@ -745,6 +744,7 @@ class GeneratedConfig:
     Sos_Chapter = 3  # 3, 4, 5, 6, 7, 8, 9, 10
 
     # 配置组 `OpsiAshAssist`
+    OpsiAshAssist_Enable = True
     OpsiAshAssist_Tier = 15
 
     # 配置组 `OpsiGeneral`
@@ -769,6 +769,7 @@ class GeneratedConfig:
     OpsiAshBeacon_AssistRequestLimit = 0
     OpsiAshBeacon_AssistRequestState = None
     OpsiAshBeacon_DossierAutoAttackMode = False
+    OpsiAshBeacon_DossierSkipAssist = False
     OpsiAshBeacon_RequestAssist = True
     OpsiAshBeacon_EnsureFullyCollected = True
     OpsiAshBeacon_AutoCollectShip = True
@@ -1194,7 +1195,32 @@ class GeneratedConfig:
     FleetTech_MaxLevel = 125
     FleetTech_Record = {}
 
+    # 配置组 `FleetRotation`
+    FleetRotation_Enabled = False
+    FleetRotation_SelectedOnly = False
+    FleetRotation_Rules = '{}'
+    FleetRotation_State = {}
+
+    # 配置组 `FleetLevelTraining`
+    FleetLevelTraining_Enabled = False
+    FleetLevelTraining_Target = 120
+    FleetLevelTraining_CheckInterval = 30
+
+    # 配置组 `FleetAffinityTraining`
+    FleetAffinityTraining_Enabled = False
+    FleetAffinityTraining_Target = 100
+    FleetAffinityTraining_CheckInterval = 30
+
+    # 配置组 `FleetTraining`
+    FleetTraining_State = {}
+
+    # 配置组 `FleetEquipment`
+    FleetEquipment_Enabled = False
+    FleetEquipment_Codes = '{}'
+    FleetEquipment_State = {}
+
     # 配置组 `FleetInfo`
+    FleetInfo_UpdateEmotion = True
     FleetInfo_Result = {}
     FleetInfo_Record = datetime.datetime(2020, 1, 1, 0, 0)
 
@@ -1277,6 +1303,11 @@ class GeneratedConfig:
     OpsiSimulatorParameters_Meow3Time = 0
     OpsiSimulatorParameters_Meow5Time = 0
     OpsiSimulatorParameters_Deterministic = False
+
+    # 配置组 `Equipment`
+    Equipment_Enable = False
+    Equipment_ClearBeforeApply = True
+    Equipment_Config = 'flagship:\n  before: null\n  after: null\nup:\n  before: null\n  after: null\ndown:\n  before: null\n  after: null\nhead:\n  before: null\n  after: null\nmiddle:\n  before: null\n  after: null\ntail:\n  before: null\n  after: null'
 
     # 配置组 `Storage`
     Storage_Storage = {}

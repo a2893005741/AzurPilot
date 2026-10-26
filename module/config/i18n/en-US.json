@@ -262,10 +262,6 @@
       "name": "META Battle",
       "help": ""
     },
-    "OpsiAshAssist": {
-      "name": "META Support",
-      "help": ""
-    },
     "OpsiExplore": {
       "name": "Monthly Exploration",
       "help": ""
@@ -1477,10 +1473,6 @@
     "TelemetryReport": {
       "name": "Telemetry data reporting",
       "help": "After being enabled, CL1 statistics (anonymous data such as the number of battles and Akashi encounter probability) will be reported anonymously to the server on a regular basis. For details on ID generation, please see the source code. For statistical information https://azurpilot.com/"
-    },
-    "BugReport": {
-      "name": "Bug log reporting",
-      "help": "When enabled, bug logs will be anonymously reported to the server when an exception is encountered to help improve ID generation. See the source code for details."
     }
   },
   "Backup": {
@@ -1764,7 +1756,7 @@
       "event_20260625_cn": "Miracle by Midnight",
       "event_20260813_cn": "Depths of the Astrarium",
       "event_20260908_cn": "Tales of the Paranormal",
-      "event_20261022_cn": "Tempesta and the Corridor of Mist",
+      "event_20261022_cn": "Tempesta and the Corridor of Fog",
       "raid_20200624": "Air Raid Drills with Essex Rerun",
       "raid_20210708": "Cross Wave rerun",
       "raid_20220127": "Mystery Investigation",
@@ -1824,7 +1816,9 @@
       "war_archives_20230525_cn": "archives Confluence of Nothingness",
       "war_archives_20230803_cn": "archives Anthem of Remembrance",
       "war_archives_20231026_cn": "archives Tempesta and the Fountain of Youth",
-      "war_archives_20240725_cn": "archives Interlude of Illusions"
+      "war_archives_20240725_cn": "archives Interlude of Illusions",
+      "war_archives_20241024_cn": "archives Tempesta and the Sleeping Sea",
+      "war_archives_20251023_cn": "archives Tempesta and Islas de Libertád"
     },
     "Mode": {
       "name": "Select stage mode",
@@ -2474,8 +2468,14 @@
       "name": "Unified Event",
       "help": "When set, Event Map-1/2/3, Daily Map A-D and Daily Map SP all switch to this event; Urgent Commission, 3-Oil Low Cost and Operation Handover Contract also follow while they are farming an event.\nChanging the event of a single task resets this to \"Per task\".\nSwitch the in-game rerun first, then choose the same event here.",
       "manual": "Per task",
-      "event_20260908_cn": "Tales of the Paranormal",
-      "event_20261022_cn": "Tempesta and the Corridor of Mist"
+      "event_20240815_cn": "Windborne Steel Wings Rerun",
+      "event_20240912_cn": "Ode of Everblooming Crimson Rerun",
+      "event_20241219_cn": "Substellar Crepuscule Rerun",
+      "event_20250227_cn": "Paradiso of Shackled Light Rerun",
+      "event_20250520_cn": "A Rose on the High Tower Rerun",
+      "event_20250814_cn": "Secrets of the Abyss Rerun",
+      "event_20250912_cn": "A Dance for Amahara Above Rerun",
+      "event_20261022_cn": "Tempesta and the Corridor of Fog"
     },
     "PtLimit": {
       "name": "Stop when event PT reaches X",
@@ -3900,6 +3900,10 @@
       "name": "META assist",
       "help": "Beacon assist three times a day"
     },
+    "Enable": {
+      "name": "Enable META assists",
+      "help": "Complete the three daily assists within META fights, sharing equipment settings with your current-season beacons."
+    },
     "Tier": {
       "name": "Find beacons with level above X",
       "help": "If you try several times and still can't find a beacon that meets the criteria, fight a random one."
@@ -4000,6 +4004,10 @@
     "DossierAutoAttackMode": {
       "name": "Dossier beacon auto combat",
       "help": "Automatically fight after the first battle at the Dossier beacon. Currently only available on CN Server."
+    },
+    "DossierSkipAssist": {
+      "name": "Pause assists while a Dossier is active",
+      "help": "Pause daily META assists while a Dossier is open, being analyzed, or in auto combat. Collect pending Dossier rewards before resuming assists.\nYou must enable this option when using automatic equipment switching."
     },
     "RequestAssist": {
       "name": "Request assist",
@@ -6836,10 +6844,100 @@
       "help": "Store groups, manual corrections, level toggle history and scan coverage per instance."
     }
   },
+  "FleetRotation": {
+    "_info": {
+      "name": "Smart rotation - morale control",
+      "help": "Normal main and event stages only; disabled by default."
+    },
+    "Enabled": {
+      "name": "Enable smart rotation - morale control",
+      "help": "Normal main and event stages only; disabled by default."
+    },
+    "SelectedOnly": {
+      "name": "Calculate morale for rotating ships only",
+      "help": "Off by default. When enabled, only selected slots control morale waiting and rotation; warnings from fixed ships may be confirmed. When disabled, wait for the whole fleet minimum. Both modes track training ships and retain task morale controls for rotation."
+    },
+    "Rules": {
+      "name": "Rotation rules",
+      "help": "Configure slots and sources for each fleet. Slots stay unchanged by default. Reserves rotate in number order."
+    },
+    "State": {
+      "name": "Rotation history",
+      "help": "Stores the last reserve and completed slots. Check the in-game formation before clearing."
+    }
+  },
+  "FleetLevelTraining": {
+    "_info": {
+      "name": "Level training",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Enabled": {
+      "name": "Enabled",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Target": {
+      "name": "Target level",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "CheckInterval": {
+      "name": "Read interval (minutes)",
+      "help": "0 checks every battle result. Any due interval verifies all enabled goals."
+    }
+  },
+  "FleetAffinityTraining": {
+    "_info": {
+      "name": "Affinity training",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Enabled": {
+      "name": "Enabled",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Target": {
+      "name": "Target affinity",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "CheckInterval": {
+      "name": "Read interval (minutes)",
+      "help": "0 checks every battle result. Any due interval verifies all enabled goals."
+    }
+  },
+  "FleetTraining": {
+    "_info": {
+      "name": "Training records",
+      "help": "Persists verified readings, completed goals and pending swaps across restarts."
+    },
+    "State": {
+      "name": "Training records",
+      "help": "Persists verified readings, completed goals and pending swaps across restarts."
+    }
+  },
+  "FleetEquipment": {
+    "_info": {
+      "name": "Automatic equipment",
+      "help": "Unequip outgoing ships and apply incoming ship codes by actual type. Off by default."
+    },
+    "Enabled": {
+      "name": "Enable automatic equipment",
+      "help": "When off, keep the original smart rotation behavior."
+    },
+    "Codes": {
+      "name": "Equipment codes by type",
+      "help": "Up to three codes per type, ordered by actual slot separately in each row. Empty positions are skipped; old single codes remain first."
+    },
+    "State": {
+      "name": "Pending equipment",
+      "help": "Pending target slots are processed before resuming a task when enabled."
+    }
+  },
   "FleetInfo": {
     "_info": {
       "name": "Fleet information",
       "help": "Stores fleet scan results. Existing reliable readings can passively reduce uncertainty in calibrated morale without additional scans or waits."
+    },
+    "UpdateEmotion": {
+      "name": "Update morale during scan",
+      "help": "Choose whether to read morale for this scan. When disabled, existing slot morale references are retained and recovery-phase learning is skipped."
     },
     "Result": {
       "name": "Scan result",
@@ -7175,6 +7273,24 @@
     "Deterministic": {
       "name": "Disable randomness",
       "help": "For debugging. Generally should be off."
+    }
+  },
+  "Equipment": {
+    "_info": {
+      "name": "Automatic equipment changes",
+      "help": "For exercises, META beacons, and META assists. Dossier fleets are excluded."
+    },
+    "Enable": {
+      "name": "Enable",
+      "help": "Apply the before setup before the first battle and restore the after setup when the task ends. Requires a control method that supports equipment code input."
+    },
+    "ClearBeforeApply": {
+      "name": "Clear equipment before applying codes",
+      "help": "Before both setup changes, unequip all selected ships before applying any codes so shared equipment can move between ships."
+    },
+    "Config": {
+      "name": "Equipment code configuration",
+      "help": "YAML: before is the code used before battle; after is the code restored afterward. The entire configuration is checked before changing equipment.\nAn empty before skips that position. If before is set and after is empty, all equipment on that ship is removed afterward. Unused positions or phases may be omitted; blank strings count as empty.\nflagship: flagship; up/down: upper/lower main fleet escort; head/middle/tail: leading/middle/rear vanguard ship."
     }
   },
   "Storage": {

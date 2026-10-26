@@ -73,7 +73,7 @@ class CampaignTaskRecoveryTests(unittest.TestCase):
         for task in ('EventA', 'EventB', 'EventC', 'EventD'):
             with self.subTest(task=task):
                 config = make_config(task, Campaign={'Event': 'event_20240912_cn', 'ContinueAfterRestart': True})
-                # 配置更新会把已下线活动刷新为当期候选；用例验证续接，固定原活动。
+                # 固定夹具活动，避免旧活动刷新后把 B 关别名转换为当前活动的 T 关。
                 config.override(Campaign_Event='event_20240912_cn',
                                 EventDaily_StageFilter='B1 > B2 > B3', EventDaily_LastStage=0,
                                 Scheduler_NextRun=datetime(2026, 10, 21, 12))

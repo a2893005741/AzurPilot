@@ -152,7 +152,7 @@ class UnifiedEventSchemaTests(unittest.TestCase):
     def test_translations_are_complete(self):
         options = json.loads((ROOT / 'module/config/argument/args.json').read_text(encoding='utf-8'))[
             'EventGeneral']['EventGeneral']['UnifiedEvent']['option']
-        for language in ('zh-CN', 'zh-MIAO', 'en-US', 'ja-JP', 'zh-TW'):
+        for language in ('zh-CN', 'en-US', 'ja-JP', 'zh-TW'):
             with self.subTest(language=language):
                 data = json.loads((ROOT / 'module/config/i18n' / f'{language}.json').read_text(encoding='utf-8'))
                 field = data['EventGeneral']['UnifiedEvent']

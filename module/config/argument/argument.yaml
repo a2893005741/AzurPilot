@@ -575,7 +575,6 @@ DropRecord:
     value: do_not
     option: [do_not, save, upload, save_and_upload]
   TelemetryReport: true
-  BugReport: true
 Backup:
   Enable: true
   KeepDays:
@@ -640,7 +639,7 @@ YukikazeTaskManager:
       > OpsiAshBeacon
       > OpsiDaily > OpsiShop > OpsiVoucher > EventShop
       > OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive
-      > Daily > LimitChallenge > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss
+      > Daily > LimitChallenge > Hard > OpsiAshBeacon > OpsiMonthBoss
       > Sos > EventSp > EventA > EventB > EventC > EventD
       > RaidDaily > CoalitionSp > WarArchives > MaritimeEscort
       > IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant
@@ -1280,7 +1279,10 @@ GuildOperation:
   Enable: true
   SelectNewOperation: false
   NewOperationMaxDate: 15
-  JoinThreshold: 1
+  JoinThreshold:
+    value: 1.0
+    valuetype: float
+    validate: [0.0, 1.0]
   AttackBoss: true
   BossFleetRecommend: false
 Reward:
@@ -1547,6 +1549,7 @@ Sos:
 # ==================== Opsi ====================
 
 OpsiAshAssist:
+  Enable: true
   Tier: 15
 OpsiGeneral:
   UseLogger: true
@@ -1586,6 +1589,7 @@ OpsiAshBeacon:
     value: null
     display: hide
   DossierAutoAttackMode: false
+  DossierSkipAssist: false
   RequestAssist: true
   EnsureFullyCollected: true
   AutoCollectShip: true
@@ -2529,7 +2533,52 @@ FleetTech:
     value: {}
     display: hide
 
+FleetRotation:
+  Enabled: false
+  SelectedOnly: false
+  Rules:
+    type: textarea
+    value: '{}'
+  State:
+    type: storage
+    value: {}
+
+FleetLevelTraining:
+  Enabled: false
+  Target:
+    value: 120
+    validate: [1, 125]
+  CheckInterval:
+    value: 30
+    validate: [0, 1440]
+
+FleetAffinityTraining:
+  Enabled: false
+  Target:
+    value: 100
+    validate: [1, 200]
+  CheckInterval:
+    value: 30
+    validate: [0, 1440]
+
+FleetTraining:
+  State:
+    type: stored
+    value: {}
+    display: hide
+
+FleetEquipment:
+  Enabled: false
+  Codes:
+    type: textarea
+    value: '{}'
+  State:
+    type: stored
+    value: {}
+    display: hide
+
 FleetInfo:
+  UpdateEmotion: true
   Result:
     type: stored
     value: {}
@@ -2677,3 +2726,28 @@ OpsiSimulatorParameters:
   Meow3Time: 0
   Meow5Time: 0
   Deterministic: false
+Equipment:
+  Enable: false
+  ClearBeforeApply: true
+  Config:
+    type: textarea
+    mode: yaml
+    value: |-
+      flagship:
+        before: null
+        after: null
+      up:
+        before: null
+        after: null
+      down:
+        before: null
+        after: null
+      head:
+        before: null
+        after: null
+      middle:
+        before: null
+        after: null
+      tail:
+        before: null
+        after: null

@@ -42,7 +42,8 @@ class CampaignEmotionRestartTests(unittest.TestCase):
                 runner.handle_commission_notice = Mock()
                 runner.triggered_stop_condition = Mock(return_value=False)
                 campaign = Mock()
-                campaign.config = SimpleNamespace(Campaign_Mode='normal', modified={}, MAP_IS_ONE_TIME_STAGE=False)
+                campaign.config = SimpleNamespace(Campaign_Mode='normal', modified={}, MAP_IS_ONE_TIME_STAGE=False,
+                                                  cross_get=lambda path, default=None: default)
                 campaign.emotion = emotion
                 campaign.map_is_auto_search = True
                 # fork 的低心情撤退钩子读取此标志，Mock 默认值为真。

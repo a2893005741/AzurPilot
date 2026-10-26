@@ -41,6 +41,9 @@ const StockExchange = lazy(() => import('./pages/StockExchange').then(module => 
 const MindCalculator = lazy(() => import('./pages/MindCalculator').then(module => ({default: module.MindCalculator})))
 const FleetTechnology = lazy(() => import('./pages/FleetTechnology').then(module => ({default: module.FleetTechnology})))
 const ErrorRecords = lazy(() => import('./pages/ErrorRecords').then(module => ({default: module.ErrorRecords})))
+const FleetRotation = lazy(() => import('./pages/FleetRotation').then(module => ({default: module.FleetRotation})))
+const FleetTraining = lazy(() => import('./pages/FleetTraining').then(module => ({default: module.FleetTraining})))
+const FleetEquipment = lazy(() => import('./pages/FleetEquipment').then(module => ({default: module.FleetEquipment})))
 
 const router = createHashRouter([
   {path: '/', element: <App/>, errorElement: <ErrorPage/>, children: [{index: true, element: <Home/>}, {path: 'errors', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><ErrorRecords/></Suspense>}, {path: 'announcement', element: <Announcement/>}, {path: 'interface', element: <InterfaceSettings/>}, {path: 'remote', element: <RemoteAccess/>}, {path: 'settings', element: <Settings/>}, {path: 'updater', element: <Updater/>}, {path: 'configs', element: <ConfigManager/>}, {path: 'dev', element: <DevControls/>}]},
@@ -55,6 +58,10 @@ const router = createHashRouter([
     {path: 'task/SchedulerProgram', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><SchedulerProgram/></Suspense>},
     {path: 'task/MindCalculator', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><MindCalculator/></Suspense>},
     {path: 'task/FleetTechnology', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetTechnology/></Suspense>},
+    {path: 'task/FleetRotation', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetRotation/></Suspense>},
+    {path: 'task/FleetLevelTraining', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetTraining metric="level"/></Suspense>},
+    {path: 'task/FleetAffinityTraining', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetTraining metric="affinity"/></Suspense>},
+    {path: 'task/FleetEquipment', element: <Suspense fallback={<div>{translateCurrentUi('common.loading')}</div>}><FleetEquipment/></Suspense>},
   ]},
   {path: '*', element: <Navigate to="/" replace/>},
 ])

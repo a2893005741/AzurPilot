@@ -31,7 +31,7 @@ function Records({instance, onInstanceChange}: {instance: string; onInstanceChan
   const [offset, setOffset] = useState(0), [refresh, setRefresh] = useState(0), [loading, setLoading] = useState(false)
   const [enlarged, setEnlarged] = useState(false), [downloading, setDownloading] = useState(false)
   const ready = connection === 'ready'
-  const date = (timestamp: number) => new Date(timestamp).toLocaleString(language === 'zh-MIAO' ? 'zh-CN' : language, {hour12: false})
+  const date = (timestamp: number) => new Date(timestamp).toLocaleString(language, {hour12: false})
 
   useEffect(() => {
     if (!ready) return

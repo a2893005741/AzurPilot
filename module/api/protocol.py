@@ -39,6 +39,18 @@ class Params(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
 
 
+class LauncherAutostartParams(Params):
+    enabled: StrictBool
+
+
+class LauncherCommandParams(Params):
+    commandId: StrictStr = Field(min_length=1, max_length=100)
+
+
+class LauncherTicketParams(Params):
+    ticket: StrictStr = Field(min_length=1, max_length=128)
+
+
 class RemotePairingParams(Params):
     """服务器生成的配对会话标识。"""
     id: StrictStr = Field(pattern=r'^[a-f0-9]{64}$')
@@ -81,7 +93,7 @@ class AnnouncementParams(Params):
 
 class SchemaParams(Params):
     """配置界面架构查询参数模型。"""
-    language: Literal['zh-CN', 'zh-MIAO', 'en-US', 'ja-JP', 'zh-TW'] = 'zh-CN'
+    language: Literal['zh-CN', 'en-US', 'ja-JP', 'zh-TW'] = 'zh-CN'
 
 
 class SearchContentParams(Params):
@@ -246,7 +258,7 @@ class RevisionParams(InstanceParams):
 class SubscribeParams(Params):
     """WebSocket 主题订阅请求参数模型。"""
     instance: StrictStr | None = None
-    topics: list[Literal['instances', 'overview', 'logs', 'preview', 'stock', 'notifications']] = Field(max_length=6)
+    topics: list[Literal['instances', 'overview', 'logs', 'preview', 'stock', 'notifications', 'launcher']] = Field(max_length=7)
 
 
 class LogsParams(InstanceParams):

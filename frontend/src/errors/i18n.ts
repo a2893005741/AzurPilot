@@ -48,4 +48,3 @@ export const errorsJaJP: Record<Key, string> = {
   'errors.truncated': '末尾の 256 KiB を表示しています。ログ全体をダウンロードできます。',
   'errors.previous': '前へ', 'errors.next': '次へ', 'errors.image': '画像を選択',
 }
-export const errorsZhMiao = Object.fromEntries(Object.entries(errorsZhCN).map(([key, value]) => [key, `${value}喵`])) as Record<Key, string>

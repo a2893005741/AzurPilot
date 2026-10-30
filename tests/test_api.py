@@ -16,6 +16,7 @@ from module.api.config_service import ConfigService, ROOT
 from module.api.protocol import ApiError, ConfigChange
 from module.api.runtime_service import RuntimeService
 from module.api.socket import Gateway, Session
+from tests.platform_capabilities import supports_symlinks
 
 
 def fixture(directory):
@@ -36,6 +37,15 @@ class ConfigApiTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.configs = ConfigService(fixture(self.temp.name))
+
+    @unittest.skipUnless(supports_symlinks(), 'OS does not grant symbolic-link creation privileges')
+    def test_importable_excludes_symbolic_links(self):
+        imports = self.configs.directory / 'import'
+        imports.mkdir(exist_ok=True)
+        source = imports / 'shared.json'
+        source.write_text(json.dumps({'General': {}}), encoding='utf-8')
+        (imports / 'link.json').symlink_to(source)
+        self.assertNotIn('link', [entry['name'] for entry in self.configs.importable()])
 
     def test_dorm_food_reserve_defaults_for_old_configs(self):
         from module.config.config_updater import ConfigUpdater
@@ -121,12 +131,10 @@ class ConfigApiTests(unittest.TestCase):
         imports.mkdir()
         shutil.copyfile(self.configs.directory / 'testpilot.json', imports / 'shared.json')
         (imports / 'broken.json').write_text('{ not json', encoding='utf-8')
-        (imports / 'link.json').symlink_to(imports / 'shared.json')
 
         names = [entry['name'] for entry in self.configs.importable()]
         self.assertIn('shared', names)
         self.assertNotIn('broken', names)     # 解不开的 JSON
-        self.assertNotIn('link', names)       # 符号链接
         self.assertNotIn('testpilot', names)  # 实例目录里的不会被当作导入源
 
         # 文件名不合规的不能被列出来：read_import 会拒掉它，列出来就是一个选不了的选项
@@ -605,7 +613,7 @@ class SocketApiTests(unittest.TestCase):
                 patch('module.runtime.updater.updater', SimpleNamespace(event=stop_event)), \
                 self.client.websocket_connect('/api/v1/ws') as ws:
             self.login(ws)
-            for task, group in [('MindCalculatorScan', 'MindCalculator'), ('FleetTechScan', 'FleetTech')]:
+            for task, group in [('DockScan', 'Dock')]:
                 with self.subTest(task=task):
                     config = self.call(ws, 'config.get', {'instance': 'testpilot'})['result']
                     patched = self.call(ws, 'config.patch', {
@@ -631,7 +639,7 @@ class SocketApiTests(unittest.TestCase):
         with patch.object(ProcessManager, 'get_manager', return_value=manager), \
                 self.client.websocket_connect('/api/v1/ws') as ws:
             self.login(ws)
-            for task in ['FleetTechnology', 'Main', 'UnknownScan']:
+            for task in ['FleetTechnology', 'MindCalculatorScan', 'FleetTechScan', 'Main', 'UnknownScan']:
                 with self.subTest(task=task):
                     response = self.call(ws, 'tasks.run', {'instance': 'testpilot', 'task': task})
                     self.assertEqual('INVALID_PARAMS', response['error']['code'])
@@ -644,7 +652,7 @@ class SocketApiTests(unittest.TestCase):
         with patch.object(ProcessManager, 'get_manager', return_value=manager), \
                 self.client.websocket_connect('/api/v1/ws') as ws:
             self.login(ws)
-            response = self.call(ws, 'tasks.run', {'instance': 'testpilot', 'task': 'FleetTechScan'})
+            response = self.call(ws, 'tasks.run', {'instance': 'testpilot', 'task': 'DockScan'})
             self.assertEqual('INSTANCE_RUNNING', response['error']['code'])
             manager.start.assert_not_called()
 

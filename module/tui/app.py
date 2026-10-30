@@ -6,7 +6,6 @@ from typing import Any, Dict, List, Optional
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.css.query import NoMatches
 from textual.widgets import Footer
 
 from module.tui.backend import TUIBackend
@@ -73,12 +72,11 @@ class AzurPilotTUI(App[None]):
 
     def tick_clock(self) -> None:
         """更新状态栏时钟。"""
-        try:
-            header = self.screen_stack[0].query_one(HeaderBar)
-        except NoMatches:
-            # 定时器可能先于主屏挂载完成触发；定时回调抛异常会让整个 TUI 退出。
-            return
-        header.tick_clock()
+        if self.screen_stack:
+            # 定时器可能在主屏挂载或销毁期间触发；定时回调抛异常会让整个 TUI 退出。
+            header = next(iter(self.screen_stack[0].query(HeaderBar)), None)
+            if header is not None:
+                header.tick_clock()
 
     def refresh_all_data(self) -> None:
         """全量刷新实例列表、当前总览与时间表。"""

@@ -762,6 +762,10 @@
         "type": "input",
         "value": null
       },
+      "CloudUpload": {
+        "type": "checkbox",
+        "value": true
+      },
       "API": {
         "type": "select",
         "value": "default",
@@ -803,7 +807,9 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save"
+          "save",
+          "upload",
+          "save_and_upload"
         ]
       },
       "OpsiHazard1Leveling": {
@@ -18955,6 +18961,10 @@
         "type": "input",
         "value": 660
       },
+      "CropTargets": {
+        "type": "textarea",
+        "value": ""
+      },
       "PlantPotatoes": {
         "type": "select",
         "value": 4,
@@ -18985,6 +18995,10 @@
       "MinOrchard": {
         "type": "input",
         "value": 300
+      },
+      "CropTargets": {
+        "type": "textarea",
+        "value": ""
       },
       "IgnoreAvocado": {
         "type": "checkbox",
@@ -19022,6 +19036,10 @@
       "MinNursery": {
         "type": "input",
         "value": 0
+      },
+      "CropTargets": {
+        "type": "textarea",
+        "value": ""
       },
       "IgnorePineapple": {
         "type": "checkbox",
@@ -21285,14 +21303,6 @@
           1,
           125
         ]
-      },
-      "CheckInterval": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          0,
-          1440
-        ]
       }
     },
     "FleetAffinityTraining": {
@@ -21307,17 +21317,21 @@
           1,
           200
         ]
-      },
-      "CheckInterval": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          0,
-          1440
-        ]
       }
     },
     "FleetTraining": {
+      "FullScanRecord": {
+        "type": "stored",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime",
+        "display": "hide"
+      },
+      "CheckIntervalHours": {
+        "type": "input",
+        "value": 6.0,
+        "valuetype": "float",
+        "validate": "^[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$"
+      },
       "State": {
         "type": "stored",
         "value": {},
@@ -21708,54 +21722,17 @@
       }
     }
   },
-  "MindCalculatorScan": {
-    "MindCalculator": {
+  "DockScan": {
+    "Dock": {
       "MinLevel": {
         "type": "input",
-        "value": 95,
+        "value": 1,
         "validate": "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
       },
       "MaxLevel": {
         "type": "input",
         "value": 125,
         "validate": "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
-      },
-      "Result": {
-        "type": "stored",
-        "value": {},
-        "display": "hide"
-      },
-      "FleetTechRecord": {
-        "type": "stored",
-        "value": {},
-        "display": "hide"
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "FleetTechScan": {
-    "FleetTech": {
-      "MinLevel": {
-        "type": "input",
-        "value": 95,
-        "validate": "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
-      },
-      "MaxLevel": {
-        "type": "input",
-        "value": 125,
-        "validate": "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
-      },
-      "Record": {
-        "type": "stored",
-        "value": {},
-        "display": "hide"
       }
     },
     "Storage": {
@@ -22098,6 +22075,135 @@
         "validate": [
           1,
           60
+        ]
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "IslandProductionPlanner": {
+    "IslandProductionPlanner": {
+      "ApplySettings": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "RescanTechnology": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "ScanSeasonTasks": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "SeasonTaskTargets": {
+        "type": "textarea",
+        "value": ""
+      },
+      "ExtraTargets": {
+        "type": "textarea",
+        "value": ""
+      },
+      "DailyProfitLowerLimit": {
+        "type": "input",
+        "value": 50000
+      },
+      "DailyBufferSafetyMargin": {
+        "type": "input",
+        "value": 0
+      },
+      "FieldsEfficiency": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          4,
+          12
+        ]
+      },
+      "OrchardEfficiency": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          4,
+          12
+        ]
+      },
+      "NurseryEfficiency": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          4,
+          12
+        ]
+      },
+      "RestaurantGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "TeahouseGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "JuuEateryGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "GrillGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "JuuCoffeeGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
         ]
       }
     },

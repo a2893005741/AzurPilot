@@ -19,7 +19,9 @@ from module.api.protocol import ApiError
 from module.combat.emotion_state import EmotionRecoveryState
 from module.config.shared_emotion import inherit_shared_emotion, sync_shared_emotion
 from module.config.config_updater import campaign_event_options, refresh_campaign_events, unified_event_options
-from module.config.redirect_utils.utils import meta_assist_limit_redirect, sea_miles_interval_redirect
+from module.config.redirect_utils.utils import (
+    fleet_training_interval_redirect, meta_assist_limit_redirect, sea_miles_interval_redirect,
+)
 from module.config.time_source import now as current_time
 from module.config.transaction import config_transaction
 
@@ -317,6 +319,12 @@ class ConfigService:
                             if 'RecordSeaMiles' in fields:
                                 merged[task][group]['RecordSeaMiles'] = sea_miles_interval_redirect(
                                     fields['RecordSeaMiles'])
+        fleet = data.get('FleetInfo')
+        if isinstance(fleet, dict):
+            merged['FleetInfo']['FleetTraining']['CheckIntervalHours'] = fleet_training_interval_redirect(fleet)
+            for group in ('FleetLevelTraining', 'FleetAffinityTraining'):
+                merged['FleetInfo'][group].pop('CheckIntervalHours', None)
+                merged['FleetInfo'][group].pop('CheckInterval', None)
         from module.config.redirect_utils.shop import migrate_shop_options
 
         merged, shop_warnings = migrate_shop_options(data, merged)
@@ -416,7 +424,14 @@ class ConfigService:
         """
         # 先归一化，落盘名与返回给客户端的实例名才是同一个。
         name = validate_name(name)
-        with self.lock:
+        with self.lock, config_transaction(self.path(name, exists=False)):
+            from module.runtime.fleet_database import FleetDatabase
+            path = self.path(name, exists=False)
+            if not path.exists():
+                database = FleetDatabase(path)
+                database.load()
+                if database.path.exists():
+                    raise ApiError('ALREADY_EXISTS', '同名舰船数据库仍存在，请先备份并移走后再创建实例')
             if import_file:
                 data = self.read_import(import_file)
             elif source:
@@ -646,6 +661,21 @@ class ConfigService:
             atomic_write(str(self.path(name)), json.dumps(data, ensure_ascii=False, indent=2))
             return self.get(name)
 
+    def reset_fleet_training(self, name, revision):
+        """原子清空培养记录、编队快照及中断操作状态，保留全部用户设置。"""
+        with self.lock, config_transaction(self.path(name)):
+            data, current = self.read(name)
+            if revision != current:
+                raise ApiError('CONFLICT', '配置已变化，请重新载入后刷新状态')
+            fleet = data.setdefault('FleetInfo', {})
+            fleet.setdefault('FleetTraining', {})['State'] = {}
+            fleet.setdefault('FleetRotation', {})['State'] = {}
+            fleet.setdefault('FleetEquipment', {})['State'] = {}
+            fleet.setdefault('FleetInfo', {}).update(Result={}, Record='2020-01-01 00:00:00')
+            fleet['FleetTraining']['FullScanRecord'] = '2020-01-01 00:00:00'
+            atomic_write(str(self.path(name)), json.dumps(data, ensure_ascii=False, indent=2))
+            return self.get(name)
+
     @staticmethod
     def _unified_event_tasks(data):
         """返回跟随统一活动的任务：活动任务总是跟随，低耗与作战交接仅在已选活动时跟随。
@@ -738,7 +768,21 @@ class ConfigService:
             target = backup / f'{name}-{datetime.now():%Y%m%d-%H%M%S-%f}.json'
             import shutil
             shutil.copy2(self.path(name), target)
+            from module.runtime.fleet_database import FleetDatabase
+            path = self.path(name)
+            database = FleetDatabase(path)
+            # 先验证舰船库，再归档其他运行数据，避免损坏数据库导致删除半途失败。
+            database.load()
             from module.scheduler.store import ProgramStore
-            ProgramStore(self.directory, store=self.database).archive(name, backup / target.stem)
-            self.path(name).unlink()
+            fleet_backup = backup / f'{target.stem}.fleet.sqlite3'
+            archived_fleet = database.path.exists()
+            if archived_fleet:
+                database.path.replace(fleet_backup)
+            try:
+                ProgramStore(self.directory, store=self.database).archive(name, backup / target.stem)
+                path.unlink()
+            except BaseException:
+                if archived_fleet:
+                    fleet_backup.replace(database.path)
+                raise
             return {'deleted': name}

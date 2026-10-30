@@ -96,7 +96,7 @@ module/os_simulator/
 | `OSStatus(UI)` | 黄币/紫币 OCR（双读确认 + `_cache_lock` 缓存降级）；`is_in_task_explore`/`is_running_cl1_leveling` 等属性读取 `_bind_task_override`，是代理身份判断的唯一实现点 |
 | `PortHandler(OSShop)` | 港口进出（`PORT_CHECK`）、任务接取、`port_dock_repair` 港口维修；被 `OSMap` 与大世界守护共用 |
 | `MissionHandler` | `os_mission_overview_accept`（任务总览接取）、`MissionAtCurrentZone` 异常；`is_in_opsi_explore()` 在此定义（OpsiExplore 启用且 next_run 早于重置前 12 小时） |
-| `StrategicSearchHandler` / `MapOrderHandler` / `OSTargetHandler` | 战略搜索流程、作战指令冷却、海域成就（`TARGET_SWITCH` 为三态选择器：all/unfinished） |
+| `StrategicSearchHandler` / `MapOrderHandler` / `OSTargetHandler` | 计划作战流程（首次确认后如出现指挥喵强制召回提示，继续用现有确认按钮处理）、作战指令冷却、海域成就（`TARGET_SWITCH` 为三态选择器：all/unfinished） |
 
 计划作战入口允许上一轮合计奖励延迟弹出。`strategy_search_enter()` 识别奖励后调用 `handle_auto_search_reward()` 按两秒间隔点击离开；奖励仍可见时持续截图，冷却期间也不能点击背后的地图按钮。只有识别到 `STRATEGIC_SEARCH_POPUP_CHECK` 才交给选项设置。
 

@@ -38,6 +38,7 @@ class TestActionPointDashboardTotal(unittest.TestCase):
             oil_item.amount_ocr.last_batch_validity = (True,)
             items.amount_ocr.last_batch_validity = (True,) * len(self.box)
             ocr.ocr.return_value = self.current
+            ocr.last_valid = True
             handler.action_point_update()
         return handler, log_res
 

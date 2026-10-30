@@ -253,11 +253,12 @@ class GeneratedConfig:
     DropRecord_BackUpMethod = 'zip'  # delete, zip, copy
     DropRecord_ZipMethod = 'zip'  # bz2, gzip, xz, zip
     DropRecord_AzurStatsID = None
+    DropRecord_CloudUpload = True
     DropRecord_API = 'default'  # default, cn_gz_reverse_proxy
     DropRecord_ResearchRecord = 'do_not'  # do_not, save, upload, save_and_upload
     DropRecord_CommissionRecord = 'do_not'  # do_not, save, upload, save_and_upload
     DropRecord_CommissionIncomeScreenshot = 'save'  # do_not, save
-    DropRecord_CombatRecord = 'do_not'  # do_not, save
+    DropRecord_CombatRecord = 'do_not'  # do_not, save, upload, save_and_upload
     DropRecord_OpsiHazard1Leveling = 'upload'  # do_not, save, upload, save_and_upload
     DropRecord_OpsiMeowfficerFarming = 'upload'  # do_not, save, upload, save_and_upload
     DropRecord_OpsiDaily = 'upload'  # do_not, save, upload, save_and_upload
@@ -912,12 +913,14 @@ class GeneratedConfig:
     IslandFarm_Positions = 3  # 1, 2, 3, 4
     IslandFarm_WorkerFilter = 'WorkerJuu'
     IslandFarm_MinFarm = 660
+    IslandFarm_CropTargets = None
     IslandFarm_PlantPotatoes = 4  # 0, 1, 2, 3, 4
 
     # 配置组 `IslandOrchard`
     IslandOrchard_Positions = 4  # 1, 2, 3, 4
     IslandOrchard_WorkerFilter = 'WorkerJuu'
     IslandOrchard_MinOrchard = 300
+    IslandOrchard_CropTargets = None
     IslandOrchard_IgnoreAvocado = True
     IslandOrchard_PlantRubber = 0  # 0, 1, 2, 3, 4
     IslandOrchard_AmagiChanRubber = False
@@ -926,6 +929,7 @@ class GeneratedConfig:
     IslandNursery_Positions = 2  # 1, 2
     IslandNursery_WorkerFilter = 'WorkerJuu'
     IslandNursery_MinNursery = 0
+    IslandNursery_CropTargets = None
     IslandNursery_IgnorePineapple = True
     IslandNursery_PlantLavender = 2  # 0, 1, 2
 
@@ -1184,16 +1188,9 @@ class GeneratedConfig:
     IslandBusinessShop5_Product5 = 'None'  # None, cheese, citrus_coffee, strawberry_milkshake, morning_light, wake_up_call, fruity_fruitier
     IslandBusinessShop5_BoostReplaceFilter = '30 > 20 > cheese > 10'
 
-    # 配置组 `MindCalculator`
-    MindCalculator_MinLevel = 95
-    MindCalculator_MaxLevel = 125
-    MindCalculator_Result = {}
-    MindCalculator_FleetTechRecord = {}
-
-    # 配置组 `FleetTech`
-    FleetTech_MinLevel = 95
-    FleetTech_MaxLevel = 125
-    FleetTech_Record = {}
+    # 配置组 `Dock`
+    Dock_MinLevel = 1
+    Dock_MaxLevel = 125
 
     # 配置组 `FleetRotation`
     FleetRotation_Enabled = False
@@ -1204,14 +1201,14 @@ class GeneratedConfig:
     # 配置组 `FleetLevelTraining`
     FleetLevelTraining_Enabled = False
     FleetLevelTraining_Target = 120
-    FleetLevelTraining_CheckInterval = 30
 
     # 配置组 `FleetAffinityTraining`
     FleetAffinityTraining_Enabled = False
     FleetAffinityTraining_Target = 100
-    FleetAffinityTraining_CheckInterval = 30
 
     # 配置组 `FleetTraining`
+    FleetTraining_FullScanRecord = datetime.datetime(2020, 1, 1, 0, 0)
+    FleetTraining_CheckIntervalHours = 6.0
     FleetTraining_State = {}
 
     # 配置组 `FleetEquipment`
@@ -1241,6 +1238,23 @@ class GeneratedConfig:
     BoxDisassemble_BlueBoxLimit = 1000
     BoxDisassemble_UseWhiteBox = True
     BoxDisassemble_WhiteBoxLimit = 2000
+
+    # 配置组 `IslandProductionPlanner`
+    IslandProductionPlanner_ApplySettings = False  # True, False
+    IslandProductionPlanner_RescanTechnology = True  # True, False
+    IslandProductionPlanner_ScanSeasonTasks = True  # True, False
+    IslandProductionPlanner_SeasonTaskTargets = None
+    IslandProductionPlanner_ExtraTargets = None
+    IslandProductionPlanner_DailyProfitLowerLimit = 50000
+    IslandProductionPlanner_DailyBufferSafetyMargin = 0
+    IslandProductionPlanner_FieldsEfficiency = 0  # 0, 4, 12
+    IslandProductionPlanner_OrchardEfficiency = 0  # 0, 4, 12
+    IslandProductionPlanner_NurseryEfficiency = 0  # 0, 4, 12
+    IslandProductionPlanner_RestaurantGrade = 'bronze'  # bronze, silver, gold, diamond
+    IslandProductionPlanner_TeahouseGrade = 'bronze'  # bronze, silver, gold, diamond
+    IslandProductionPlanner_JuuEateryGrade = 'bronze'  # bronze, silver, gold, diamond
+    IslandProductionPlanner_GrillGrade = 'bronze'  # bronze, silver, gold, diamond
+    IslandProductionPlanner_JuuCoffeeGrade = 'bronze'  # bronze, silver, gold, diamond
 
     # 配置组 `AutoEquip`
     AutoEquip_ShipLimit = 0

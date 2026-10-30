@@ -26,15 +26,19 @@ class TestStrategicSearchConfirm(unittest.TestCase):
         handler.interval_timer = {}
         return handler
 
+    @staticmethod
+    def panel_frame():
+        # 资源图只保留各自识别区域，合成标题与两个按钮模拟初始面板。
+        return np.maximum.reduce([
+            load_image('assets/cn/os_handler/STRATEGIC_SEARCH_POPUP_CHECK.png'),
+            load_image('assets/cn/handler/POPUP_CANCEL.png'),
+            load_image('assets/cn/handler/POPUP_CONFIRM.png'),
+        ])
+
     def test_recall_after_panel_confirmation_waits_for_map(self):
         """开始后出现另一层弹窗，冷却及转场期间不能提前结束。"""
         frames = {
-            # 资源图只保留各自识别区域，合成标题与两个按钮模拟初始面板。
-            'panel': np.maximum.reduce([
-                load_image('assets/cn/os_handler/STRATEGIC_SEARCH_POPUP_CHECK.png'),
-                load_image('assets/cn/handler/POPUP_CANCEL.png'),
-                load_image('assets/cn/handler/POPUP_CONFIRM.png'),
-            ]),
+            'panel': self.panel_frame(),
             'recall': load_image(str(FIXTURES / 'strategic_search_recall.png')),
             'map': load_image('assets/cn/os_handler/IN_MAP.png'),
         }
@@ -84,7 +88,8 @@ class TestStrategicSearchConfirm(unittest.TestCase):
         handler.device.click.assert_not_called()
 
     def test_device_stuck_error_propagates(self):
-        handler = self.make_handler(load_image(str(FIXTURES / 'strategic_search_recall.png')))
+        # 未见过计划作战面板时不确认未知弹窗，因此从面板起步才会产生首次点击。
+        handler = self.make_handler(self.panel_frame())
         handler.device.screenshot.side_effect = GameStuckError('测试设备卡死')
         with self.assertRaises(GameStuckError):
             handler.strategic_search_confirm()

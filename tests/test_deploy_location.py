@@ -72,8 +72,8 @@ class TestDeployLocation(unittest.TestCase):
     def test_cn_alias_uses_git_over_cdn(self):
         for config_module in (deploy_config, windows_config):
             with self.subTest(config_module=config_module.__name__):
+                # 构造时已从磁盘读取并完成一次重定向。
                 config = self.make_config(config_module, 'cn')
-                config.config_redirect()
                 self.assertTrue(config.GitOverCdn)
                 self.assertEqual(config.Repository, config_module.GITHUB_REPOSITORY)
 

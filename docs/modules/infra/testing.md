@@ -74,7 +74,7 @@ frontend/
 
 - **主配置**：连接真实 Python API（Starlette 起在临时配置上），验证协议、认证、表单保存全链路；排除 `mock.spec.ts`、`pairing.spec.ts`、`mind-*.spec.ts` 与 `stock-exchange/`。隔离后端不启动公网隧道，配对按钮保持未就绪。
 - **mock 配置**：`npm run mock`（22492）+ Vite mock 模式（5174），`state.mjs` 全内存，`AZURPILOT_MOCK_SCENARIO=empty` 可测零实例首启，`AZURPILOT_MOCK_PASSWORD` 测登录；运行 `mock.spec.ts` 与 `pairing.spec.ts`。配对测试覆盖六个桌面和移动视口的二维码、复制、滚动与撤销交互；CI 显式执行配对与舰队科技快照用例。
-- **stock 配置**：`npm run test:e2e:stock`，只跑 `stock-exchange/`；交易所 mock 由该配置自行启动，需相邻 `../AzurPilot_StockExchange` 仓库，见 [前端 README](../../../frontend/README.md)。
+- **stock 配置**：`npm run test:e2e:stock`，只跑 `stock-exchange/`；股票页面使用隔离本地夹具，无需相邻交易所仓库，见 [前端 README](../../../frontend/README.md)。
 
 ### Python 测试的隔离手法
 

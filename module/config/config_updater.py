@@ -29,11 +29,13 @@
 import re
 import typing as t
 from copy import deepcopy
+from pathlib import Path
 
 from cached_property import cached_property
 
 from deploy.utils import DEPLOY_TEMPLATE, poor_yaml_read, poor_yaml_write
 from module.base.timer import timer
+from module.campaign.stage_name import normalize_event_stage
 from module.config.deep import deep_default, deep_get, deep_iter, deep_set
 from module.config.env import IS_ON_PHONE_CLOUD
 from module.config.fleet_legacy import LEGACY_PATHS
@@ -68,6 +70,8 @@ MAINS = ['Main', 'Main2', 'Main3']
 EVENTS = ['Event', 'Event2', 'Event3', 'Event4', 'Event5', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp']
 GEMS_FARMINGS = ['GemsFarming', 'ThreeOilLowCost']
 OPERATION_HANDOVERS = ['OperationHandover']
+# 根据关卡名在主线与所选活动之间切换的任务。
+MIXED_CAMPAIGNS = GEMS_FARMINGS + OPERATION_HANDOVERS
 RAIDS = ['Raid', 'RaidDaily', 'RaidScuttle']
 WAR_ARCHIVES = ['WarArchives']
 COALITIONS = ['Coalition', 'CoalitionSp', 'CoalitionScuttle']
@@ -91,18 +95,42 @@ def unified_event_options(options):
     return ['manual'] + options.get(EVENTS[0], [])
 
 
+def _event_stage_exists(folder, stage):
+    """Apply runtime event aliases before checking whether the selected map exists."""
+    if not isinstance(stage, str) or not stage.strip():
+        return False
+    name = re.sub(r'\s+', '', stage).lower()
+    name = re.sub(r'^([a-z]+)-(\d+)$', r'\1\2', name)
+    if name and name[0].isdigit():
+        name = 'campaign_' + name.replace('-', '_')
+    if name in ('d3-3', 'd3_3') and (folder / 'd3_3.py').is_file():
+        name = 'd3_3'
+    return (folder / (normalize_event_stage(name, folder.name) + '.py')).is_file()
+
+
 def refresh_campaign_events(data, args, is_template=False):
-    """在内存配置中刷新已结束的活动，保留档案选择与主线刷图语义。"""
+    """刷新已结束的活动，避免旧关卡名指向新活动中不存在的地图。"""
     options = campaign_event_options(data, args)
     # 统一活动不在当前服务器候选中时回到各任务分别选择，任务自身的活动由下方逻辑更新。
     unified = deep_get(data, 'EventGeneral.EventGeneral.UnifiedEvent', 'manual')
     if unified not in unified_event_options(options):
         deep_set(data, 'EventGeneral.EventGeneral.UnifiedEvent', 'manual')
     if not is_template:
-        for task in EVENTS + RAIDS + COALITIONS + GEMS_FARMINGS:
+        for task in EVENTS + RAIDS + COALITIONS + MIXED_CAMPAIGNS:
             candidates = options.get(task, [])
             if candidates and deep_get(data, f'{task}.Campaign.Event', 'campaign_main') not in candidates:
                 deep_set(data, f'{task}.Campaign.Event', candidates[0])
+            if task in EVENTS and candidates:
+                event = deep_get(data, f'{task}.Campaign.Event', 'campaign_main')
+                folder = Path(__file__).resolve().parents[2] / 'campaign' / event
+                if folder.is_dir() and not _event_stage_exists(
+                        folder, deep_get(data, f'{task}.Campaign.Name')):
+                    # D3 can normalize to ht6 in a T-chapter event with no ht6.py.
+                    preferred = ('sp', 't1', 'a1', 'd3') if task == 'EventSp' else (
+                        't1', 'a1', 'd3', 'sp')
+                    fallback = next((name for name in preferred if (folder / (name + '.py')).is_file()), None)
+                    if fallback:
+                        deep_set(data, f'{task}.Campaign.Name', fallback.upper())
     for task in WAR_ARCHIVES:
         candidates = options.get(task, [])
         if candidates and deep_get(data, f'{task}.Campaign.Event', 'campaign_main') == 'campaign_main':
@@ -583,10 +611,10 @@ class ConfigGenerator:
                         if not hasattr(self, f'_{server}_latest_event_date'):
                             setattr(self, f'_{server}_latest_event_date', int(event.date))
                         if int(event.date) == getattr(self, f'_{server}_latest_event_date'):
-                            for task in EVENTS + GEMS_FARMINGS + OPERATION_HANDOVERS:
+                            for task in EVENTS + MIXED_CAMPAIGNS:
                                 insert(task)
 
-        for task in EVENTS + GEMS_FARMINGS + OPERATION_HANDOVERS + WAR_ARCHIVES + RAIDS + COALITIONS:
+        for task in EVENTS + MIXED_CAMPAIGNS + WAR_ARCHIVES + RAIDS + COALITIONS:
             latest = {}
             for server in ARCHIVES_PREFIX.keys():
                 latest[server] = deep_get(self.args, keys=f'{task}.Campaign.Event.option_{server}', default=[])
@@ -594,6 +622,12 @@ class ConfigGenerator:
             options = sorted([option for option in options if option != 'campaign_main'])
             if task in OPERATION_HANDOVERS:
                 options.insert(0, 'campaign_main')
+                # 作战委托按所选文件夹加载关卡，主线在各服务器都是合法候选，
+                # 否则刷新已结束活动时会把用户选择的主线改成活动。
+                for server, opts in latest.items():
+                    if 'campaign_main' not in opts:
+                        deep_set(self.args, keys=f'{task}.Campaign.Event.option_{server}',
+                                 value=['campaign_main'] + opts)
             if task not in WAR_ARCHIVES:
                 deep_set(self.args, keys=f'{task}.Campaign.Event.option_bold', value=options)
             deep_set(self.args, keys=f'{task}.Campaign.Event.option', value=options)
@@ -824,11 +858,6 @@ class ConfigUpdater:
             value = parse_value(value, data=data)
             deep_set(new, keys=keys, value=value)
 
-        # 处理 AzurStatsID
-        if is_template:
-            deep_set(new, 'Alas.DropRecord.AzurStatsID', None)
-        else:
-            deep_default(new, 'Alas.DropRecord.AzurStatsID', random_id())
         # 更新到最新活动
         refresh_campaign_events(new, self.args, is_template=is_template)
 
@@ -853,6 +882,16 @@ class ConfigUpdater:
 
         if not is_template:
             new = self.config_redirect(old, new)
+            # 在 OpsiRecord 拆分后统一清洗旧档位；只保存的科研/委托按新三档迁移。
+            drop = deep_get(new, 'Alas.DropRecord')
+            old_drop = deep_get(old, 'Alas.DropRecord', {})
+            for arg in ('ResearchRecord', 'CommissionRecord'):
+                # parse_value 已将不再合法的旧选项替换成默认值，迁移时需读原值。
+                if old_drop.get(arg) == 'save':
+                    drop[arg] = 'save_and_upload'
+            for arg in (*OPSI_RECORD_ARGS, 'CombatRecord', 'MeowfficerTalent'):
+                value = old_drop.get(arg, drop[arg])
+                drop[arg] = 'save' if value in ('save', 'save_and_upload') else 'do_not'
             old_priority = deep_get(old, 'General.YukikazeTaskManager.TaskPriorityAdjustment')
             new_priority = deep_get(new, 'General.YukikazeTaskManager.TaskPriorityAdjustment')
             template_priority = deep_get(

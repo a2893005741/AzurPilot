@@ -53,11 +53,13 @@ def efficiency_rate(value):
 def resolve_item(key):
     """物品名或 ID 转物品 ID。同名物品（如两个 Corn）优先取可以生产的那个。"""
     if isinstance(key, str) and not key.strip().isdigit() and '(' not in key:
-        matches = [item_id for item_id, item in DIC_ISLAND_ITEM.items()
-                   if item['name'][server.server] == key.strip()]
-        if len(matches) > 1:
-            produced = [item_id for item_id in matches if item_id in ProductionPlanCalculator.RECIPE_PRODUCT_IDS]
-            return (produced or matches)[0]
+        for language in dict.fromkeys((server.server, 'en')):
+            matches = [item_id for item_id, item in DIC_ISLAND_ITEM.items()
+                       if item['name'].get(language) == key.strip()]
+            if matches:
+                produced = [item_id for item_id in matches
+                            if item_id in ProductionPlanCalculator.RECIPE_PRODUCT_IDS]
+                return (produced or matches)[0]
     return normalize_item_id(key)
 
 
@@ -142,12 +144,13 @@ class IslandProductionPlanner(IslandSeasonTaskScanner, IslandTechnologyScanner):
         ALAS 的「卡住的季节订单」由其订单任务自动记录；AzurPilot 不处理季节订单，
         需要为订单备货时把物品写进 ExtraTargets。
         """
-        if self.get('ScanSeasonTasks'):
-            targets = self.scan_season_task_targets()
+        targets = self.scan_season_task_targets() if self.get('ScanSeasonTasks') else None
+        if targets is not None:
             text = item_mapping_to_yaml(targets, use_item_name=True) if targets else ''
             # 扫描结果属于规划器自己的输入，预览模式也保存，便于查看和手动修改
             self.config.cross_set(f'{TASK}.{TASK}.SeasonTaskTargets', text)
         else:
+            # 未扫描或扫描失败（识别不到任务卡片）时沿用上次保存的目标
             text = self.get('SeasonTaskTargets')
         season = parse_targets(text, 'SeasonTaskTargets')
         extra = parse_targets(self.get('ExtraTargets'), 'ExtraTargets')

@@ -500,6 +500,7 @@ FleetManagement:
       - FleetRotation
       - FleetLevelTraining
       - FleetAffinityTraining
+      - FleetDorm
       - FleetTraining
       - FleetEquipment
 

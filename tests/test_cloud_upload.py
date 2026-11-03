@@ -12,6 +12,33 @@ from module.statistics.commission_drop import parse_commissions, resolve_name, r
 from module.statistics.cloud_upload import permitted
 
 
+def test_cloud_resume_error_does_not_break_local_statistics():
+    from module.statistics.azurstats import AzurStats
+
+    config = SimpleNamespace(config_name='offline')
+    with patch('module.statistics.cloud_upload.resume_pending', side_effect=CloudError('corrupt catalog')):
+        stats = AzurStats(config)
+    assert stats.config is config
+
+
+def test_commission_queue_failure_retains_following_local_events():
+    from module.statistics.commission_drop import record_commission_drops
+
+    events = [
+        {'items': [{'item': 'A', 'amount': 1, 'tag': ''}]},
+        {'items': [{'item': 'B', 'amount': 2, 'tag': ''}]},
+    ]
+    config = SimpleNamespace(config_name='offline')
+    with patch('module.statistics.commission_drop.parse_commissions', return_value=(events, [])), \
+            patch('module.statistics.commission_drop.CommissionReader'), \
+            patch('module.statistics.cl1_database.db.add_cloud_commission_drop') as save, \
+            patch('module.statistics.cloud_upload.enqueue_record',
+                  side_effect=[CloudError('queue full'), None]) as enqueue:
+        assert len(record_commission_drops([], config)) == 2
+    assert save.call_count == 2
+    assert enqueue.call_count == 2
+
+
 def test_transport_keeps_template_bytes_off_main_server():
     session = MagicMock()
     response = session.request.return_value.__enter__.return_value
@@ -39,6 +66,14 @@ def test_optional_registration_batch_uses_template_origin_and_respects_limits():
     for candidates in [[], [{}] * 51, [{'image_base64': 'a' * (256 << 10)}]]:
         with pytest.raises(ValueError):
             api.register_many(candidates)
+
+
+def test_source_screenshots_go_directly_to_template_service():
+    api = PublicAPI('a' * 32)
+    with patch.object(api, 'json', return_value={'stored': True}) as request:
+        api.upload_screenshot('FULL_PNG', [{'identity_id': 'U-1234', 'bounds': [0, 0, 96, 96]}], 'commission')
+    assert request.call_args.args == ('POST', 'https://templates-api.azurpilot.com/api/v3/post/templates/screenshots')
+    assert request.call_args.kwargs['json']['image_base64'] == 'FULL_PNG'
 
 
 @pytest.mark.parametrize('scene', ['commission', 'research'])

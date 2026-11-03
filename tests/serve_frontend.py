@@ -50,6 +50,13 @@ def main():
         unified = args['EventGeneral']['EventGeneral']['UnifiedEvent']
         unified['option'] = unified['option'] + [event for event in fixed if event not in unified['option']]
         args_path.write_text(json.dumps(args, ensure_ascii=False), encoding='utf-8')
+        # 生成器只为当期候选写统一活动文案；补入的旧活动借用 Campaign.Event 的同名文案显示。
+        for language in ('zh-CN', 'en-US'):
+            i18n_path = root / f'module/config/i18n/{language}.json'
+            i18n = json.loads(i18n_path.read_text(encoding='utf-8'))
+            for event in fixed:
+                i18n['EventGeneral']['UnifiedEvent'].setdefault(event, i18n['Campaign']['Event'][event])
+            i18n_path.write_text(json.dumps(i18n, ensure_ascii=False), encoding='utf-8')
         path = root / 'config/testpilot.json'
         data = json.loads(path.read_text(encoding='utf-8'))
         # 保留旧版的数字断点，验证文本字段能编辑历史配置中的 0。

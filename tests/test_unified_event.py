@@ -14,6 +14,8 @@ UNIFIED = 'EventGeneral.EventGeneral.UnifiedEvent'
 # 两个仍有地图文件的活动；保存用例把它们注入临时 args 的 cn 候选，不依赖当期复刻列表。
 LIGHT = 'event_20260908_cn'
 ROSE = 'event_20261022_cn'
+# 台服候选固定为另一个有地图文件的活动；台服跟进同期活动后，切服用例仍能验证跨服候选不可选。
+TW_ONLY = 'event_20250912_cn'
 
 
 
@@ -41,6 +43,7 @@ class UnifiedEventPatchTests(unittest.TestCase):
             # 低耗保留主线候选，只验证跟随规则；运行器把低耗主线刷新为活动的行为不在此范围。
             prefix = ['campaign_main'] if task in GEMS_FARMINGS else []
             args[task]['Campaign']['Event']['option_cn'] = prefix + [LIGHT, ROSE]
+            args[task]['Campaign']['Event']['option_tw'] = prefix + [TW_ONLY]
         inject_candidates(args)
         args_path.write_text(json.dumps(args, ensure_ascii=False), encoding='utf-8')
         shutil.copyfile(root / 'config/template.json', root / 'config/testpilot.json')

@@ -90,6 +90,8 @@ class GotoPageTest(unittest.TestCase):
         import module.ui.assets as ui_assets
         reloaded = {}
         for assets in (island_assets, fish_meat_assets, ui_assets):
+            # 重载会替换共享模块里的按钮对象，结束后还原，避免后续测试按身份比较时失配
+            self.addCleanup(vars(assets).update, dict(vars(assets)))
             reloaded.update(vars(importlib.reload(assets)))
         for name in ('ISLAND_BACK', 'ISLAND_CHECK', 'ISLAND_EXCHANGE_CONFIRM', 'ISLAND_GOTO_ISLAND_SHOP'):
             patcher = unittest.mock.patch.object(fm, name, reloaded[name])

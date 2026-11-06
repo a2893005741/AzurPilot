@@ -83,6 +83,8 @@ class TestBattleStatusTiming(unittest.TestCase):
         combat.device = Mock(image=status)
         combat.interval_timer = {}
         combat.is_combat_executing = Mock(return_value=False)
+        # fork 的评价页处理先检查合计奖励；桩图像不是截图，这里只验证评价页分支。
+        combat.handle_auto_search_reward = Mock(return_value=False)
         return combat
 
     def test_boss_s_page_is_clicked_on_first_observation(self):

@@ -11,7 +11,7 @@ from module.config.time_source import now as current_time
 from module.handler.login import LoginHandler
 from module.island.warehouse import *
 from module.logger import logger
-from module.island.island_season import get_global_season_config
+from module.island.island_season import SEASONAL_ITEMS, get_global_season_config
 
 
 class IslandShopBase(Island, WarehouseOCR):
@@ -180,6 +180,53 @@ class IslandShopBase(Island, WarehouseOCR):
                 meal_number = getattr(self.config, number_key, 0)
                 self.post_products.append((meal_name, meal_number))
 
+    def _normalize_seasonal_post_products(self, module_key):
+        """Replace off-season configured products with the current season layout.
+
+        Products configured for another season are mapped to the same slot in the
+        current season. If that slot does not exist, the configured demand is
+        removed. Products unavailable in ``shop_items`` are also removed so a
+        later production pass cannot index a missing ``name_to_config`` entry.
+
+        Args:
+            module_key (str): Seasonal item group, such as ``restaurant`` or
+                ``juu_eatery``.
+        """
+        if not hasattr(self, 'season_config') or self.season_config is None:
+            return
+
+        current_items = self.season_config.get_seasonal_items(module_key) or []
+        seasonal_slots = {}
+        for season_data in SEASONAL_ITEMS.values():
+            for slot_index, item_name in enumerate(season_data.get(module_key, [])):
+                seasonal_slots.setdefault(item_name, slot_index)
+
+        available_names = {item['name'] for item in self.shop_items}
+        normalized_products = []
+        for product_name, target in self.post_products:
+            slot_index = seasonal_slots.get(product_name)
+            if slot_index is not None and product_name not in current_items:
+                replacement = current_items[slot_index] if slot_index < len(current_items) else None
+                if replacement in available_names:
+                    logger.info(
+                        f"[岛屿] 跨季餐品 {self._item_cn(product_name)} 替换为 "
+                        f"{self._item_cn(replacement)}（槽位{slot_index + 1}）"
+                    )
+                    normalized_products.append((replacement, target))
+                    continue
+
+                logger.info(
+                    f"[岛屿] 当前季节没有 {self._item_cn(product_name)} 对应槽位，已跳过该配置"
+                )
+                continue
+
+            if product_name in available_names:
+                normalized_products.append((product_name, target))
+            else:
+                logger.info(f"[岛屿] 当前季节不生产 {self._item_cn(product_name)}，已跳过该配置")
+
+        self.post_products = normalized_products
+
     def initialize_shop(self):
         """初始化店铺商品配置与岗位状态，子类必须在初始化时调用。"""
         self.name_to_config = {item['name']: item for item in self.shop_items}
@@ -232,7 +279,8 @@ class IslandShopBase(Island, WarehouseOCR):
             str | None: 正在生产的商品名称，未匹配到返回 None。
         """
         for item in self.shop_items:
-            if self.appear(item['post_action']):
+            # 没有岗位「生产中」图的产品无法从岗位详情识别，按未知产品处理
+            if item['post_action'] is not None and self.appear(item['post_action']):
                 return item['name']
         return None
 
@@ -246,6 +294,9 @@ class IslandShopBase(Island, WarehouseOCR):
         image = self.device.screenshot()
 
         for dish in self.shop_items:
+            # 没有仓库模板的产品（部分制造产品）不统计库存
+            if dish['template'] is None:
+                continue
             self.warehouse_counts[dish['name']] = self.ocr_item_quantity(image, dish['template'])
             if self.warehouse_counts[dish['name']]:
                 logger.info(f"{self._item_cn(dish['name'])}: {self.warehouse_counts[dish['name']]}")

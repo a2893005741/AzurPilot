@@ -31,13 +31,14 @@ MEAL_OPTIONS = {rid: options(k['task'], 'Meal1') for rid, k in sm.KITCHENS.items
 PRODUCT_OPTIONS = {rid: options(k['business'], 'Product1') for rid, k in sm.KITCHENS.items()}
 
 
-def solve(technology, grades='gold', chars=('WorkerJuu', 'WorkerJuu'), profit=50000, open_ids=None):
+def solve(technology, grades='gold', chars=('WorkerJuu', 'WorkerJuu'), profit=50000, open_ids=None, slot_limit=None):
     calculator = ProductionPlanCalculator(
         technology,
         activity_list=get_current_activity_list(NOW),
         restaurant_settings=sm.restaurant_settings(
             {rid: grades for rid in sm.KITCHENS}, {rid: chars for rid in sm.KITCHENS}, open_ids),
         daily_profit_lower_limit=profit,
+        slot_limit=slot_limit,
     )
     excluded = sm.restrict_calculator(calculator, MEAL_OPTIONS, PRODUCT_OPTIONS)
     calculator.solve_production_plan(current_time=NOW)
@@ -190,6 +191,39 @@ class ProductionLineTest(unittest.TestCase):
         self.assertEqual(values['IslandManufacture.Industrial.Positions'],
                          min(-(-workload // sm.DAILY_WORKLOAD), 2))
         self.assertEqual(values['IslandManufacture.WoodProcessing.Positions'], 0)
+        # 生产顺序：计划生产的产品按工作量降序，没有计划的产线为空（沿用固定规则）
+        self.assertEqual(values['IslandManufacture.Industrial.Products'], 'iron_nail')
+        self.assertEqual(values['IslandManufacture.WoodProcessing.Products'], '')
+
+    def test_manufacture_product_order_by_workload(self):
+        calculator = self.make()
+        recipes = {sm.recipe_product(r): r for r, g in calculator.recipe_group.items() if g == 'manufacturing_lumber'}
+        calculator.production_plan = {recipes[3048]: 1, recipes[3049]: 3}   # 纸张 1 批，记事本 3 批
+        values = sm.manufacture_settings(calculator)
+        expected = sorted(['paper', 'notebook'], key=lambda name: -DIC_ISLAND_RECIPE[
+            recipes[sm.MANUFACTURE_PRODUCTS['manufacturing_lumber']['products'][name]]]['workload']
+            * (3 if name == 'notebook' else 1))
+        self.assertEqual(values['IslandManufacture.WoodProcessing.Products'], ' > '.join(expected))
+        # 每个产线的产品名都是 AzurPilot 识别的产品
+        for data in sm.MANUFACTURE_PRODUCTS.values():
+            products = values[f'{data["line"]}.Products']
+            for name in filter(None, products.split(' > ')):
+                self.assertIn(name, data['products'])
+
+    def test_auto_position_settings(self):
+        tech = {tech_id: True for tech_id in DIC_ISLAND_TECHNOLOGY}
+        tech[310103] = tech[310104] = False     # 农田第 3、4 个岗位未解锁
+        values = sm.auto_position_settings(ProductionPlanCalculator(tech))
+        self.assertEqual(values['IslandFarm.IslandFarm.Positions'], 2)
+        self.assertEqual(values['IslandRancher.IslandFishery.Positions'], 3)
+        self.assertEqual(values['IslandRestaurant.IslandRestaurant.PostNumber'], 2)
+        # 选项范围内：岗位数配置的最大值不超过选项
+        for path, value in values.items():
+            task, group, key = path.split('.')
+            self.assertIn(value, ARGUMENT[group][key]['option'], path)
+        # 一个岗位都没解锁的区域不写入
+        none = sm.auto_position_settings(ProductionPlanCalculator({}))
+        self.assertNotIn('IslandMineForest.IslandMine.Positions', none)
 
 
 class SolveTest(unittest.TestCase):
@@ -280,16 +314,21 @@ class PlannerTaskTest(unittest.TestCase):
     def tearDown(self):
         server.server = self.previous_server
 
-    def run_planner(self, **overrides):
+    def run_planner(self, cargo_scan=None, config_data=None, **overrides):
         from unittest.mock import patch
         from module.island_planner.planner import IslandProductionPlanner
         technology = {str(tech_id): True for tech_id in DIC_ISLAND_TECHNOLOGY}
         with patch.object(IslandProductionPlanner, '__init__', lambda self: None):
             planner = IslandProductionPlanner()
         overrides.setdefault('IslandProductionPlanner_ScanSeasonTasks', False)
+        overrides.setdefault('IslandProductionPlanner_ScanCargoOrders', False)
         planner.config = FakeConfig(technology, IslandProductionPlanner_RescanTechnology=False, **overrides)
+        for path, value in (config_data or {}).items():
+            task, group, key = path.split('.')
+            planner.config.data[task][group][key] = value
         planner.get_technology_status = lambda: self.fail('saved technology must not trigger a scan')
         planner.scan_season_task_targets = lambda: {3009: 30}
+        planner.scan_cargo_targets = cargo_scan or (lambda: {2011: 33})
         return planner, planner.run()
 
     def test_preview_does_not_write(self):
@@ -327,6 +366,246 @@ class PlannerTaskTest(unittest.TestCase):
         self.assertEqual(
             planner.config.written['IslandProductionPlanner.IslandProductionPlanner.SeasonTaskTargets'].strip(),
             'Apple Pie (3009): 30')
+
+
+    def test_scan_writes_cargo_targets(self):
+        planner, result = self.run_planner(IslandProductionPlanner_ScanCargoOrders=True)
+        self.assertTrue(result)
+        self.assertEqual(
+            planner.config.written['IslandProductionPlanner.IslandProductionPlanner.CargoTargets'].strip(),
+            'Strawberries (2011): 33')
+
+    def scan_cargo(self, reads):
+        from unittest.mock import Mock, patch
+        from module.island_planner.planner import IslandProductionPlanner
+        with patch.object(IslandProductionPlanner, '__init__', lambda self: None):
+            planner = IslandProductionPlanner()
+        planner.device = Mock()
+        for name in ('ui_ensure', 'ui_goto', 'island_transport_enter', 'appear_then_click', 'ui_additional'):
+            setattr(planner, name, Mock(return_value=False))
+        planner.ui_page_appear = Mock(return_value=True)
+        planner.loop = lambda **kwargs: iter(range(len(reads)))
+        with patch('module.island_planner.planner.read_cargo_slots', Mock(side_effect=reads)):
+            return planner.scan_cargo_targets()
+
+    def test_cargo_scan_waits_for_stable_read(self):
+        # 第一张截图已提交标记还没显示（completed 全为 0），不能据此清空目标
+        loading = [{'completed': 0, 'items': [(2011, 2, 35)], 'unreadable': 0}]
+        ready = [{'completed': 2, 'items': [(2011, 2, 35)], 'unreadable': 0}]
+        self.assertEqual(self.scan_cargo([loading, ready, ready]), {2011: 33})
+        self.assertIsNone(self.scan_cargo([loading, ready]))
+
+    def test_incomplete_cargo_scan_keeps_saved_targets(self):
+        planner, result = self.run_planner(cargo_scan=lambda: None, IslandProductionPlanner_ScanCargoOrders=True)
+        self.assertTrue(result)
+        self.assertNotIn('IslandProductionPlanner.IslandProductionPlanner.CargoTargets', planner.config.written)
+
+    def test_apply_writes_default_products(self):
+        # 矿山配置 4 个岗位，计划用剩的岗位写入默认产品（银矿）
+        planner, result = self.run_planner(IslandProductionPlanner_ApplySettings=True,
+                                           config_data={'IslandMineForest.IslandMine.Positions': 4})
+        self.assertTrue(result)
+        written = planner.config.written
+        self.assertIn('IslandMineForest.IslandMine.MineSilver', written)
+        self.assertIn(written.get('IslandFarm.IslandFarm.DefaultCrop', 'wheat'), sm.CROP_ITEM_IDS['farm'])
+
+
+class PriorityTest(unittest.TestCase):
+    """目标 → 季节 PT → 岛币：第二次求解不降低 PT，岛币不少于第一次。"""
+
+    def setUp(self):
+        self.previous_server = server.server
+        server.server = 'en'
+
+    def tearDown(self):
+        server.server = self.previous_server
+
+    def test_coins_after_pt(self):
+        from module.island_planner.priorities import solve_with_priorities
+        tech = {tech_id: True for tech_id in DIC_ISLAND_TECHNOLOGY}
+        first, _ = solve(tech, profit=0)
+        calculator = ProductionPlanCalculator(
+            tech, activity_list=get_current_activity_list(NOW),
+            restaurant_settings=sm.restaurant_settings({rid: 'gold' for rid in sm.KITCHENS}, {}),
+            daily_profit_lower_limit=0)
+        sm.restrict_calculator(calculator, MEAL_OPTIONS, PRODUCT_OPTIONS)
+        self.assertTrue(solve_with_priorities(calculator, current_time=NOW))
+        self.assertGreaterEqual(calculator.total_pt, first.total_pt * (1 - 1e-4))
+        self.assertGreaterEqual(calculator.daily_profit, first.daily_profit - 1e-6)
+
+    def test_default_products(self):
+        calculator, _ = solve({tech_id: True for tech_id in DIC_ISLAND_TECHNOLOGY})
+        values, _ = sm.default_product_settings(calculator)
+        for path, value in values.items():
+            task, group, key = path.split('.')
+            self.assertIn(value, ARGUMENT[group][key]['option'], path)
+        # 有闲时作物时写入默认作物，岗位数不超过已解锁岗位
+        farm = values['IslandFarm.IslandFarm.PlantPotatoes']
+        unlocked = sum(calculator.slot_available.get(slot, False) for slot in calculator.GROUP_TO_SLOTS['field'])
+        self.assertLessEqual(farm, unlocked)
+
+    def test_position_config_limits_posts(self):
+        # 农田只配置 1 个岗位时，规划容量与默认作物岗位数都不超过 1
+        calculator, _ = solve({tech_id: True for tech_id in DIC_ISLAND_TECHNOLOGY}, slot_limit={'field': 1})
+        unlocked = sum(calculator.slot_available.get(slot, False) for slot in calculator.GROUP_TO_SLOTS['field'])
+        self.assertEqual(unlocked, 1)
+        values, _ = sm.default_product_settings(calculator)
+        self.assertLessEqual(values['IslandFarm.IslandFarm.PlantPotatoes'], 1)
+
+    def test_position_limits_read_config(self):
+        config = {'IslandFarm.IslandFarm.Positions': 3, 'IslandMineForest.IslandMine.Positions': 'bad'}
+        self.assertEqual(sm.position_limits(config.get), {'field': 3})
+
+    def test_idle_posts_counts_workload(self):
+        calculator, _ = solve({tech_id: True for tech_id in DIC_ISLAND_TECHNOLOGY})
+        calculator.idle_accumulating_items_per_day = {2705: 4 * 10}
+        calculator.place_efficiency_bonus[401] = 0
+        recipe = next(r for r, g in calculator.recipe_group.items()
+                      if g == 'mine' and 2705 in sm.DIC_ISLAND_RECIPE[r]['commission_product'])
+        per_batch = sm.DIC_ISLAND_RECIPE[recipe]['commission_product'][2705]
+        expected = -(-(40 / per_batch * sm.DIC_ISLAND_RECIPE[recipe]['workload']) // sm.DAILY_WORKLOAD)
+        self.assertEqual(sm.idle_posts(calculator, 'mine', 2705), expected)
+
+
+class PlannerOptionTest(unittest.TestCase):
+    """季节选择、优先级、已解锁的鱼与填满空余岗位。"""
+
+    def setUp(self):
+        self.previous_server = server.server
+        server.server = 'en'
+
+    def tearDown(self):
+        server.server = self.previous_server
+
+    def test_resolve_season(self):
+        from module.island_planner.data import DIC_ISLAND_SEASON
+        from module.island_planner.planner import resolve_season
+        winter_day = datetime(2026, 11, 6, 12)
+        season_id, activity, remaining = resolve_season('auto', winter_day)
+        self.assertEqual(season_id, 5)
+        self.assertEqual(activity, DIC_ISLAND_SEASON[5]['activity'])
+        self.assertAlmostEqual(remaining, (datetime(2027, 2, 1, 23, 59, 59) - winter_day).total_seconds() / 86400)
+        # 指定不在进行中的季节：用该季活动，期限为整季天数
+        season_id, activity, remaining = resolve_season('season_4', winter_day)
+        self.assertEqual((season_id, activity), (4, DIC_ISLAND_SEASON[4]['activity']))
+        self.assertAlmostEqual(
+            remaining,
+            (datetime(2026, 11, 4, 23, 59, 59) - datetime(2026, 8, 6)).total_seconds() / 86400)
+        # 未知季节按当前时间选择；台服第 5 季还没有日期，11 月 6 日仍在第 4 季
+        self.assertEqual(resolve_season('season_99', winter_day)[0], 5)
+        server.server = 'tw'
+        self.assertEqual(resolve_season('auto', winter_day)[0], 4)
+        self.assertEqual(resolve_season('season_5', winter_day), (5, DIC_ISLAND_SEASON[5]['activity'], None))
+
+    def winter_calculator(self, tech=None, unlocked_fish=None, profit=0):
+        from module.island_planner.data import DIC_ISLAND_SEASON
+        calculator = ProductionPlanCalculator(
+            tech or {tech_id: True for tech_id in DIC_ISLAND_TECHNOLOGY},
+            activity_list=DIC_ISLAND_SEASON[5]['activity'],
+            restaurant_settings=sm.restaurant_settings({rid: 'gold' for rid in sm.KITCHENS}, {}),
+            daily_profit_lower_limit=profit)
+        sm.restrict_calculator(calculator, MEAL_OPTIONS, PRODUCT_OPTIONS, unlocked_fish=unlocked_fish)
+        return calculator
+
+    def test_unlocked_fish_limits_fishery(self):
+        calculator = self.winter_calculator(unlocked_fish=['shell', 'shrimp'])
+        fishery = sm.producible_items(calculator, 'fishery')
+        self.assertEqual(set(fishery), {5001, 5005})
+        # 未勾选全部时不限制（None），黄鳍金枪鱼可用
+        self.assertIn(5107, sm.producible_items(self.winter_calculator(), 'fishery'))
+
+    def test_fill_spare_posts_uses_unlocked_products(self):
+        from module.island_planner.priorities import solve_with_priorities
+        calculator = self.winter_calculator(unlocked_fish=['shell', 'shrimp', 'crayfish'])
+        self.assertTrue(solve_with_priorities(calculator, current_time=datetime(2026, 11, 6, 12)))
+        values, _ = sm.default_product_settings(calculator, fill_spare_posts=True)
+        for group, data in sm.DEFAULT_PRODUCTS.items():
+            count_path, limit = data['count']
+            unlocked = sum(calculator.slot_available.get(slot, False) for slot in calculator.GROUP_TO_SLOTS[group])
+            # 全科技解锁时每个区域都有可生产产品：写满已解锁岗位，默认产品可生产且是合法选项
+            self.assertEqual(values[count_path], min(limit, unlocked), count_path)
+            product = values[data['product_path']]
+            self.assertIn(data['products'][product], sm.producible_items(calculator, group), data['product_path'])
+            task, group_name, key = data['product_path'].split('.')
+            self.assertIn(product, ARGUMENT[group_name][key]['option'])
+        self.assertIn(values['IslandRancher.IslandFishery.DefaultFish'], ('shell', 'shrimp', 'crayfish'))
+
+    def test_fallback_product_skips_locked_items(self):
+        calculator = self.winter_calculator()
+        calculator.idle_accumulating_items_per_day = {}
+        candidates = sm.DEFAULT_PRODUCTS['mine']['products']
+        self.assertEqual(sm.fallback_product(calculator, 'mine', candidates), 'Silver')
+        for recipe_id, group in calculator.recipe_group.items():
+            if group == 'mine' and 2705 in DIC_ISLAND_RECIPE[recipe_id]['commission_product']:
+                calculator.recipe_available[recipe_id] = False
+        self.assertNotEqual(sm.fallback_product(calculator, 'mine', candidates), 'Silver')
+        # 不填满时没有闲时产品就不写默认产品，岗位数为 0
+        values, _ = sm.default_product_settings(calculator, fill_spare_posts=False)
+        self.assertEqual(values['IslandMineForest.IslandMine.MineSilver'], 0)
+        self.assertNotIn('IslandMineForest.IslandMine.DefaultOre', values)
+
+    def test_coins_priority_earns_at_least_pt_priority(self):
+        from module.island_planner.priorities import solve_with_priorities
+        now = datetime(2026, 11, 6, 12)
+        by_pt = self.winter_calculator()
+        self.assertTrue(solve_with_priorities(by_pt, current_time=now, priority='pt'))
+        by_coins = self.winter_calculator()
+        self.assertTrue(solve_with_priorities(by_coins, current_time=now, priority='coins'))
+        self.assertGreaterEqual(by_coins.daily_profit, by_pt.daily_profit - 1e-6)
+        self.assertGreaterEqual(by_pt.total_pt, by_coins.total_pt - 1e-6)
+
+
+class CargoReaderTest(unittest.TestCase):
+    """EN 货运页截图：栏位 1 淡水鱼肉 6/16（另 2 格已提交），栏位 2 淡水鱼肉 6/26（未提交），
+    栏位 3 草莓 2/35（另 2 格已提交）。"""
+
+    def setUp(self):
+        self.previous_server = server.server
+        server.server = 'en'
+
+    def tearDown(self):
+        server.server = self.previous_server
+
+    def test_partial_orders(self):
+        from module.base.utils import load_image
+        from module.island_planner.cargo import partial_order_targets, read_cargo_slots
+        slots = read_cargo_slots(load_image(str(ROOT / 'tests/fixtures/island_planner/en_cargo_partial.png')))
+        self.assertEqual([slot['completed'] for slot in slots], [2, 0, 2])
+        self.assertEqual([slot['items'] for slot in slots],
+                         [[(2521, 6, 16)], [(2521, 6, 26)], [(2011, 2, 35)]])
+        # 未提交过货物的栏位 2 可以更换，不计入
+        self.assertEqual(partial_order_targets(slots), {2011: 33, 2521: 10})
+
+    def test_shared_stock_counts_once(self):
+        from module.island_planner.cargo import partial_order_targets
+        slots = [{'completed': 1, 'items': [(2011, 5, 10)]}, {'completed': 2, 'items': [(2011, 5, 20)]}]
+        self.assertEqual(partial_order_targets(slots), {2011: 25})
+
+    def test_item_without_number_is_unreadable(self):
+        # 数字还没渲染出来的货物格（有图标、无数字）不能被当作空格跳过
+        from module.base.utils import load_image
+        from module.island_planner.cargo import (
+            card_completed, counter_area, partial_orders_fully_read, read_cargo_slots)
+        image = load_image(str(ROOT / 'tests/fixtures/island_planner/en_cargo_partial.png')).copy()
+        card = next(card for card in range(3) if not card_completed(image, card, 0))
+        x1, y1, x2, y2 = counter_area(card, 0)
+        image[y1:y2, x1:x2] = image[y1, x1]
+        slots = read_cargo_slots(image)
+        self.assertEqual(slots[0]['items'], [])
+        self.assertEqual(slots[0]['unreadable'], 1)
+        self.assertFalse(partial_orders_fully_read(slots))
+
+    def test_unreadable_partial_order_is_incomplete(self):
+        from module.island_planner.cargo import partial_orders_fully_read
+        self.assertTrue(partial_orders_fully_read([{'completed': 1, 'items': [(2011, 5, 10)], 'unreadable': 0},
+                                                   {'completed': 0, 'items': [], 'unreadable': 2}]))
+        self.assertFalse(partial_orders_fully_read([{'completed': 1, 'items': [], 'unreadable': 1}]))
+
+    def test_with_period(self):
+        from module.island_planner.planner import with_period
+        self.assertEqual(with_period({2011: [33, {'count': 5, 'period': 3}]}, 2),
+                         {2011: [{'count': 33, 'period': 2.0}, {'count': 5, 'period': 3}]})
+        self.assertEqual(with_period({2011: [1]}, 'bad'), {2011: [{'count': 1, 'period': 1.0}]})
 
 
 class TargetParsingTest(unittest.TestCase):

@@ -252,13 +252,28 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
         # 初始化
         self.zone_init()
 
+        # 续接必须先于维护、士气恢复和特殊海域退出，否则会丢失现场舰队及 Boss 进度。
+        if self.abyssal_continue_enabled():
+            if self.is_in_abyssal():
+                self.resume_abyssal_on_init()
+            else:
+                self._clear_abyssal_resume()
+
+        # 代理任务尚未绑定侵蚀一的献祭设置，维修留到实际子任务确定后执行。
+        overflow_target_task = self._get_prevent_action_point_overflow_target_task()
+        self._initial_fleet_repair_pending = (
+            self.config.task.command == "OpsiScheduling"
+            or overflow_target_task in ("OpsiScheduling", "OpsiHazard1Leveling")
+        )
+
         # self.map_init()
         self.hp_reset()
         self.handle_after_auto_search()
         self.handle_current_fleet_resolve(revert=False)
 
-        # 从特殊海域类型退出，仅 SAFE 和 DANGEROUS 可接受。
-        if self.is_in_special_zone():
+        # 即使已回到普通海域，也要让隐秘续接入口清掉旧记录，再继续原初始化流程。
+        obscure_handled = hasattr(self, 'resume_obscure') and self.resume_obscure()
+        if not obscure_handled and self.is_in_special_zone():
             logger.warning(
                 "[大世界-地图] 大世界在特殊海域类型, 仅 SAFE 和 DANGEROUS 可接受"
             )
@@ -268,8 +283,6 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
         leveling_zone = self.config.cross_get(
             keys="OpsiHazard1Leveling.OpsiHazard1Leveling.TargetZone", default=0
         ) or 22
-        overflow_target_task = self._get_prevent_action_point_overflow_target_task()
-
         if self.config.task.command == "OpsiExploreCleanup":
             logger.info("独立事件补扫任务，跳过初始化自律寻敌")
         elif (
@@ -457,6 +470,19 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
         if revert and prev != self.zone:
             self.globe_goto(prev)
 
+    def _skip_fleet_repair(self):
+        """代理初始化等待子任务配置；侵蚀一献祭模式不自动维修。"""
+        if getattr(self, "_initial_fleet_repair_pending", False):
+            logger.info("[大世界-维修] 等待确定代理子任务后检查舰队维修")
+            return True
+        if (
+            self.config.task.command == "OpsiHazard1Leveling"
+            and self.config.OpsiHazard1Leveling_SkipHpCheck
+        ):
+            logger.info("[大世界-维修] 侵蚀一献祭模式已开启，跳过血量检查和自动维修")
+            return True
+        return False
+
     def handle_fleet_repair(self, revert=True):
         """
         Args:
@@ -465,6 +491,9 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
         Returns:
             bool: 是否进行了修理。
         """
+        if self._skip_fleet_repair():
+            return False
+
         use_repair_pack = bool(
             self.config.OpsiGeneral_UseRepairPack
         ) and self.config.SERVER in ["cn"]
@@ -658,7 +687,8 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
             self.storage_repair_cancel()
             self.storage_quit()
 
-        if repair:
+        # 侵蚀一保留维修箱修理，但扳手标记不额外触发回港。
+        if repair and self.config.task.command != "OpsiHazard1Leveling":
             success = self.fleet_repair(revert=revert)
 
         return success
@@ -686,6 +716,9 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
             in: in_map
             out: in_map
         """
+        if self._skip_fleet_repair():
+            return False
+
         if self.config.OpsiGeneral_UseRepairPack and self.config.SERVER not in ["cn"]:
             logger.warning(
                 f"[大世界-维修] 维修包功能不支持 {self.config.SERVER} 服务器"
@@ -869,7 +902,8 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
         Args:
             repair (bool): 重启后是否调用 handle_fleet_repair。
         """
-        if not self.appear(MAP_GOTO_GLOBE_FOG):
+        # 港口内按钮向左偏移，迷雾覆盖时按钮颜色也会变亮。
+        if not self.match_template_color(MAP_GOTO_GLOBE_FOG, offset=(200, 5), threshold=40):
             return False
 
         logger.warning(
@@ -1148,9 +1182,14 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
             ):
                 # 只把本次守护循环已确认开启后的奖励当作正常收尾。
                 self._os_auto_search_started = True
+            reward_appear = self.appear(AUTO_SEARCH_REWARD, offset=(50, 50))
             if self.handle_os_auto_search_map_option(drop=drop, enable=success):
                 unlock_checked = True
-                auto_search_time_limit_timer.reset()
+                # 发送点击不代表游戏已经响应，持续重试仍需受自律时限保护。
+                if reward_appear:
+                    auto_search_time_limit_timer.reset()
+                elif auto_search_time_limit_timer.reached():
+                    raise GameStuckError('自律寻敌卡死')
                 continue
             if self.handle_retirement():
                 # 退役会中断自动搜索，需要重试
@@ -1176,7 +1215,8 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
                 result = self.auto_search_combat(drop=drop)
                 if result:
                     finished_combat += 1
-                else:
+                elif self.config.task.command != "OpsiHazard1Leveling":
+                    # 侵蚀一的单船维修标记不应打断后续战斗；等搜索结束并处理完事件再维修。
                     self.hp_get()
                     if (
                         any(self.need_repair)
@@ -1547,7 +1587,7 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
         )
         return False
 
-    def clear_question_any_fleet(self, drop=None):
+    def clear_question_any_fleet(self, drop=None, rescan=True):
         """
         遍历舰队雷达，尝试用任意舰队清除近距离问号（PR #5865 思路的 fork 版）。
 
@@ -1564,6 +1604,7 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
 
         Args:
             drop: 掉落记录对象。
+            rescan (bool): 清问号后是否补全图扫描；隐秘海域仅雷达补查时关闭。
 
         Returns:
             bool: 是否解决了目标事件（明石/记录塔/信息探测装置）。
@@ -1597,6 +1638,8 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
             if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS and not cleanup:
                 logger.info("[大世界-搜索] 已解决目标事件，停止遍历舰队")
                 return True
+            if not rescan:
+                continue
             # 清问号后未命中目标事件：做一次全图扫描，把整张地图上被遮挡、
             # 清问号后才显现的事件捞出来；全图扫完仍没有，才继续切换下一支舰队。
             try:
@@ -1631,7 +1674,7 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
 
     def run_auto_search(
         self, question=True, rescan=None, after_auto_search=True, interrupt=None, exit_map=False,
-        on_search_finished=None,
+        on_search_finished=None, on_map_scanned=None,
     ):
         """
         通过运行自律寻敌清理当前海域。需要先完成大世界剧情模式才能解锁自律寻敌。
@@ -1642,11 +1685,12 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
                 这会清理塞壬扫描装置、塞壬日志塔、
                 访问自动搜索遗漏的明石商店，以及解锁需要 2 支舰队的机关。
                 也接受字符串：`current` 仅扫描当前摄像机视野，`full` 先扫描当前再重扫整个地图。
-                在 OpsiObscure、OpsiAbyssal、OpsiStronghold 等特殊任务中应禁用此选项。
+                特殊海域通常仅扫描当前视野；隐秘海域额外扫描由专属开关控制。
             after_auto_search (bool): 自动搜索后是否调用 handle_after_auto_search()。
             interrupt (callable): 中断回调函数。
             exit_map (bool): 清理后在同一掉落记录内退出特殊海域，包含退出时的奖励。
             on_search_finished (callable | None): 战斗结束后、清问号和扫描前调用，用于启动战后录像。
+            on_map_scanned (callable | None): 常规扫描后、退出海域前调用，接收同一掉落记录。
 
         Returns:
             int: 完成的战斗次数。
@@ -1699,6 +1743,9 @@ class OSMap(MapEventResumeMixin, OSFleet, Map, GlobeCamera, StorageHandler, Stra
                 self.clear_question(drop=drop)
             if rescan:
                 self.map_rescan(rescan_mode=rescan, drop=drop)
+
+            if on_map_scanned is not None:
+                on_map_scanned(drop=drop)
 
             if exit_map:
                 self.map_exit(drop=drop)

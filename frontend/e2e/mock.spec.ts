@@ -1358,7 +1358,7 @@ test('移动端放大布局无横向溢出，单栏导航可以收起', async ({
   await page.screenshot({path: 'test-results/mock-mobile.png', fullPage: true, animations: 'disabled'})
 })
 
-test('直接进入实例总览、标签状态与任务搜索收起', async ({page}) => {
+test('直接进入实例总览、标签状态与任务搜索', async ({page}) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/')
@@ -1366,12 +1366,12 @@ test('直接进入实例总览、标签状态与任务搜索收起', async ({pag
   const tab = page.getByRole('tab', {name: 'demo-main', exact: true})
   await expect(tab).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('heading', {name: 'demo-main', exact: true})).toBeVisible()
-  await expect(page.getByLabel('搜索任务', {exact: true})).toHaveCount(0)
-  await page.getByRole('button', {name: '展开任务搜索'}).click()
-  await page.getByLabel('搜索任务', {exact: true}).fill('Alas')
+  // 搜索框常驻，清空关键词即恢复完整任务目录。
+  const search = page.getByLabel('搜索任务', {exact: true})
+  await expect(search).toBeVisible()
+  await search.fill('Alas')
   await expect(page.locator('.task-group-button')).toHaveCount(1)
-  await page.getByRole('button', {name: '收起任务搜索'}).click()
-  await expect(page.getByLabel('搜索任务', {exact: true})).toHaveCount(0)
+  await search.fill('')
   expect(await page.locator('.task-group-button').count()).toBeGreaterThan(1)
   await page.getByRole('button', {name: '启动调度器'}).click()
   await expect(tab).toHaveClass(/running/)

@@ -71,7 +71,7 @@ test('four flat pages preserve per-copy edits and never start a scan on navigati
   // Fixtures are seeded through an external socket; reload the app's instance list.
   await page.goto('about:blank')
   await page.goto(`/#/i/${instance}/task/FleetAnalysis?tab=data&ship=${second.id}`)
-  await expect(page.getByRole('tab')).toHaveCount(4)
+  await expect(page.locator('main').getByRole('tab')).toHaveCount(4)
   await expect(page.locator(`#ledger-ship-${second.id}`)).toHaveClass(/ledger-highlight/)
   await expect(page.getByLabel(`等级 · 杜威 #${second.id}`, {exact: true})).toHaveValue('100')
   await expect(page.getByRole('button', {name: '保存', exact: true})).toHaveCount(1)
@@ -153,7 +153,7 @@ test('unique view and page choices persist while data only refreshes on request'
   ]})
   expect(saved.ships[0]!.full_star).toBe(true)
   await page.goto('about:blank'); await page.goto(`/#/i/${instance}/task/FleetAnalysis?tab=data`)
-  await expect(page.getByRole('tab')).toHaveText(['舰队科技', '养成计算', '扫描更新', '我的舰船'])
+  await expect(page.locator('main').getByRole('tab')).toHaveText(['舰队科技', '养成计算', '扫描更新', '我的舰船'])
   await expect(page.locator('.fleet-ledger tbody tr')).toHaveCount(3)
   await page.getByRole('button', {name: '去重后舰船', exact: true}).click()
   await expect(page.locator('.fleet-ledger tbody tr')).toHaveCount(2)

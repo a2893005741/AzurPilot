@@ -17,7 +17,7 @@ export function ErrorRecords() {
   const instance = instances.find(item => item.name === params.get('instance'))?.name ?? instances[0]?.name
   if (legacyInstance) return <Navigate to={`/errors?instance=${encodeURIComponent(legacyInstance)}`} replace/>
   if (!instancesLoaded) return <Loading/>
-  if (!instance) return <div className="error-records"><PageTitle title={ui('errors.title')}/><Empty icon={<Bug size={36}/>} title={ui('instance.createFirst')}><Link to="/configs">{ui('nav.configs')}</Link></Empty></div>
+  if (!instance) return <div className="error-records"><PageTitle title={ui('errors.title')}/><Empty icon={<Bug size={36}/>} title={ui('instance.create')}><Link to="/configs">{ui('nav.configs')}</Link></Empty></div>
   // 切换实例时销毁旧请求和选中状态，防止把上一实例的现场显示到新实例。
   return <Records key={instance} instance={instance} onInstanceChange={name => setParams({instance: name})}/>
 }

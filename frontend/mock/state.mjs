@@ -28,6 +28,51 @@ const timestamp = date => date.toISOString().slice(0, 19).replace('T', ' ')
 const translate = key => key.split('.').reduce((value, part) => value?.[part], locales['zh-CN']) ?? key
 export const fail = (code, message, details = null) => { throw Object.assign(new Error(message), { code, details }) }
 
+// 侧栏内容检索：与 module/api/search_service.py 保持同源的索引。
+// 只索引 zh-CN 与 en-US 两套文案（中文界面下用英文词也能搜到）；顶层键是任务或共享分组，
+// 第二层 dict 是配置项，配置项里除 name/help 外的字符串值是该控件的下拉标签，一并入索引。
+const SEARCH_LANGUAGES = ['zh-CN', 'en-US']
+const SEARCH_META_KEYS = new Set(['name', 'help'])
+const searchIndex = SEARCH_LANGUAGES.flatMap(language => {
+  const data = locales[language] ?? {}
+  const entries = []
+  for (const [key, meta] of Object.entries(data.Task ?? {})) {
+    if (!meta || typeof meta !== 'object' || Array.isArray(meta)) continue
+    entries.push({kind: 'task', task: key, key, label: meta.name ?? '', help: meta.help ?? '', values: '', haystack: `${key} ${meta.name ?? ''} ${meta.help ?? ''}`})
+  }
+  for (const [task, node] of Object.entries(data)) {
+    if (task === 'Task' || !node || typeof node !== 'object' || Array.isArray(node)) continue
+    const groupLabel = node._info?.name ?? ''
+    if (groupLabel) entries.push({kind: 'group', task, key: '', label: groupLabel, help: '', values: '', haystack: `${task} ${groupLabel}`})
+    for (const [option, meta] of Object.entries(node)) {
+      if (option === '_info' || !meta || typeof meta !== 'object' || Array.isArray(meta)) continue
+      const values = Object.entries(meta)
+        .filter(([name, value]) => !SEARCH_META_KEYS.has(name) && typeof value === 'string')
+        .map(([, value]) => value).join(' ')
+      entries.push({kind: 'option', task, key: option, label: meta.name ?? '', help: meta.help ?? '', values, haystack: `${task} ${option} ${meta.name ?? ''} ${meta.help ?? ''} ${values}`})
+    }
+  }
+  return entries
+})
+
+function searchContent(query) {
+  const needle = String(query).trim().toLowerCase()
+  if (!needle) return {tasks: [], groups: [], options: []}
+  const seen = new Set()
+  const tasks = [], groups = [], options = []
+  for (const entry of searchIndex) {
+    if (!entry.haystack.toLowerCase().includes(needle)) continue
+    const identity = `${entry.kind}|${entry.task}|${entry.key}`
+    if (seen.has(identity)) continue
+    seen.add(identity)
+    const item = {task: entry.task, key: entry.key, label: entry.label, help: entry.help, values: entry.values}
+    if (entry.kind === 'task') tasks.push(item)
+    else if (entry.kind === 'group') groups.push(item)
+    else options.push(item)
+  }
+  return {tasks, groups, options}
+}
+
 function validateField(path, value) {
   const parts = path.split('.')
   const field = parts.length === 3 && parts.reduce((node, key) => Object.hasOwn(node ?? {}, key) ? node[key] : undefined, args)
@@ -51,6 +96,7 @@ function validateField(path, value) {
 
 export function createMockState({ empty = false } = {}) {
   const instances = new Map()
+  const importedConfigs = new Map()
   const fleetStates = new Map()
   function fleetStatePython(action, params) {
     const output = mindPython(action, {...params, state: fleetStates.get(params.instance),
@@ -489,11 +535,31 @@ export function createMockState({ empty = false } = {}) {
       case 'updater.cancel': return { accepted: true }
       case 'system.ping': return { pong: true }
       case 'schema.get': return { args, menu, translations: locales[params.language] }
+      case 'search.content': return searchContent(params.query)
       case 'instances.list': return [...instances].map(([name, item]) => ({ name, status: item.status, currentTask: item.status === 'running' ? item.currentTask ?? 'Commission' : null, serial: item.values.Alas.Emulator.Serial, server: item.values.Alas.Emulator.ServerName, region: region(item.values.Alas.Emulator.PackageName) }))
+      case 'instances.importable': return [...importedConfigs].map(([name, {modified}]) => ({name, modified}))
+      case 'instances.importConfig': {
+        let config
+        try { config = JSON.parse(params.content) } catch { fail('INVALID_PARAMS', '不是合法的 JSON 配置文件') }
+        if (!config?.Alas || typeof config.Alas !== 'object' || Array.isArray(config.Alas)) fail('INVALID_PARAMS', '配置文件缺少 Alas 段')
+        const values = structuredClone(template)
+        for (const [task, groups] of Object.entries(values)) {
+          for (const [group, fields] of Object.entries(groups)) Object.assign(fields, config[task]?.[group])
+        }
+        importedConfigs.set(params.name, {values, modified: Date.now() / 1000})
+        return {name: params.name}
+      }
       case 'instances.create': {
         if (!/^[A-Za-z0-9\u3041-\u3096\u30a1-\u30fa\u30fc\u31f0-\u31ff\uff66-\uff9f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff][A-Za-z0-9_. \u3041-\u3096\u30a1-\u30fa\u30fc\u31f0-\u31ff\uff66-\uff9f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\-]{0,63}$/.test(params.name) || /^(template|deploy|backup|con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i.test(params.name)) fail('INVALID_PARAMS', '实例名称无效')
         if ([...instances.keys()].some(name => name.toLowerCase() === params.name.toLowerCase())) fail('ALREADY_EXISTS', '同名实例已存在')
-        add(params.name, params.source ? get(params.source).values : template)
+        const imported = params.import_file ? importedConfigs.get(params.import_file) : undefined
+        if (params.import_file && !imported) fail('NOT_FOUND', '导入文件不存在')
+        if (params.emulator && (params.source || params.import_file)) fail('INVALID_PARAMS', '复制或导入实例时不能同时指定模拟器初始设置')
+        add(params.name, imported?.values ?? (params.source ? get(params.source).values : template))
+        if (params.emulator) {
+          const {serial, package_name, server_name} = params.emulator
+          Object.assign(get(params.name).values.Alas.Emulator, {Serial: serial, PackageName: package_name, ServerName: server_name})
+        }
         if (params.source && programs.has(params.source)) {const {mode,draft,active} = program(params.source); programs.set(params.name,{mode,draft,active,generation:0})}
         return snapshot(params.name)
       }
@@ -1037,7 +1103,7 @@ export function createMockState({ empty = false } = {}) {
           url: 'https://github.com/wess09/AzurPilot'
         }
       case 'events.subscribe':
-        if (params.topics.some(topic => topic !== 'instances' && topic !== 'notifications') && !name) fail('INVALID_PARAMS', '订阅此主题需要指定实例')
+        if (params.topics.some(topic => !['instances', 'notifications', 'launcher'].includes(topic)) && !name) fail('INVALID_PARAMS', '订阅此主题需要指定实例')
         return { topics: params.topics, instance: name ?? null }
       case 'background.gallery.list': return []
       case 'background.gallery.open': return { path: 'cache/background/library' }

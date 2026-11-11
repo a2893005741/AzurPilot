@@ -132,7 +132,7 @@ Node.js >= 22.12（推荐 24），首次准备用 `npm ci --prefix frontend`。
 
 - 开发联调：`uv run python gui.py` 起后端（默认端口见 config/deploy.yaml 的 `WebuiPort`），另开 `npm run dev`，Vite 将 `/api`（含 WebSocket）与 `/healthz` 代理到后端，`AZURPILOT_BACKEND` 可换目标；代理保留 Host，浏览器来源校验仍然有效。
 - 纯前端开发：`npm run dev:mock`，模拟服务只读公开的 args.json、menu.json、翻译与 template.json，所有数据在内存，重启即重置。
-- 构建部署：`npm run build` 产出 `dist/`。gui.py 启动时检查前端源码摘要，缺产物或源码变化时自动执行 `npm ci` 与构建；Docker 多阶段构建预装静态产物。
+- 构建部署：`npm run build` 产出 `dist/`。gui.py 启动时检查前端源码摘要，缺产物或源码变化时自动执行 `npm ci` 与构建。
 - 构建使用相对 base（`base: './'`）：远程访问经 `/<peer_id>/` 前缀式反代加载，绝对路径会 404。
 
 新版浅色/深色主题在宽度大于 950px 时使用顶栏与任务右栏的合并网格，并由 `main` 滚动。宽度不超过 950px 时右栏改为固定定位抽屉、不占正文高度，长内容由页面滚动；桌面的右栏定位与外壳锁高规则不能作用到移动端。布局验收需要检查正文实际位于视口内、滚动可达，以及抽屉开关前后正文位置不变，不能只检查 DOM 中存在文字。

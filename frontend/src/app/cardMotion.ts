@@ -4,7 +4,7 @@
 
 import { motionReducedActive, motionSpeedValue } from './motionPrefs'
 
-/** 卡片选择器：涵盖各类页面（总览、配置、主页、统计、设置、更新等）的核心卡片与面板。 */
+/** 卡片选择器：涵盖总览、配置、统计、设置、更新等页面的核心卡片与面板。 */
 const CARD_SELECTORS = [
   '.panel',
   '.resource-card',
@@ -15,6 +15,10 @@ const CARD_SELECTORS = [
   '.head-card',
   '.empty',
   '.error-box',
+  /* 左列调度器是一整块玻璃面板，必须作为一个动效单元整体入场：
+     分开动的话，面板里那块 .panel（「统计」行）会自己缩放淡入，玻璃背板按新比例重采样，
+     模糊就会在动画期间跳一下；而面板本体原地不动，又跟不上页面。 */
+  '.instance-page-rail-wrap',
 ].join(', ')
 
 /** 内部属性标记：记录卡片最近一次播放动画的会话 ID，避免在同一页面内重复播放。 */
@@ -48,7 +52,7 @@ export function findTopLevelCards(root: HTMLElement): HTMLElement[] {
 /**
  * 计算卡片相对于视口根容器左上角的对角线投影得分。
  * 公式：Score = Y + X * 0.65
- * - 横向多列网格（如主页实例、总览资源）：先行后列、左侧先于右侧；
+ * - 横向多列网格（如总览资源）：先行后列、左侧先于右侧；
  * - 纵向列表（如配置组）：自上而下；
  * 呈现如同水波从左上角向右下角推开的错峰流动视觉效果。
  */

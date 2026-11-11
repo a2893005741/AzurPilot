@@ -24,12 +24,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15 为 Apple Silicon，标签来源见 GitHub runner 文档。
-        # https://docs.github.com/en/actions/reference/runners/github-hosted-runners
-        # macos-14 已停止提供，作业会以 "configuration ... is not supported" 直接取消。
-        # 不含 macos-15-intel：llvmlite（numba 依赖）无 macOS x86_64 wheel（上游 0.46 起删除），
-        # 源码编译需 LLVM 的 CMake 包，该 runner 上 uv sync 必然失败。
-        os: [ubuntu-latest, windows-latest, macos-15]
+        # 本 fork 只在 Windows 上使用，不跑 macOS：macos-15 常因 runner 容量不足
+        # 在 0 步骤时被取消，导致 run 无法判定通过。
+        # Linux 暂时固定 ubuntu-24.04：ubuntu-latest 已切到 26.04，2026-11-11 起该镜像
+        # 解析不了 Ubuntu 软件源（Temporary failure resolving 'archive.ubuntu.com'），apt 安装失败。
+        os: [ubuntu-24.04, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +46,7 @@ jobs:
 
   frontend:
     name: React 与 WebSocket 检查
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -92,7 +91,7 @@ jobs:
           npm run test:e2e:fleet
 
   ruff:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -109,7 +108,7 @@ jobs:
         run: uv run ruff check . --select E9,F63,F7,F82 --ignore F821,F722
 
   button-config-check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
       - name: Install uv
@@ -132,7 +131,7 @@ jobs:
 
   import-smoke:
     name: Import Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v3
 

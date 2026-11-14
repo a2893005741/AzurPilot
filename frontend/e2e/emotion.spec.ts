@@ -103,7 +103,14 @@ test('活动图选择共享二队后继承心情，恢复条件同步且道中�
   const select = async (task: string, label: string) => {
     await page.goto(`/#/i/testpilot/task/${task}`)
     const field = page.locator(`[id="${task}.EventRotation.SharedFleet"]`)
-    await field.scrollIntoViewIfNeeded()
+    // 上方的编辑器按需加载，加载完成后会把字段下推数百像素，菜单随触发器移出视口；
+    // 占位出现时机不确定，改为等字段位置连续两次读数一致再操作。
+    await expect.poll(async () => {
+      await field.scrollIntoViewIfNeeded()
+      const before = (await field.boundingBox())?.y
+      await page.waitForTimeout(400)
+      return before !== undefined && before === (await field.boundingBox())?.y
+    }).toBe(true)
     await field.click()
     await page.getByRole('option', {name: label, exact: true}).click()
     await expect(field).toContainText(label)

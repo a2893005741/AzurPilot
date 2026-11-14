@@ -7,6 +7,8 @@ type JsonRoute = {
   connectToServer: () => JsonRoute
   onMessage: (receive: (message: string) => void) => void
   send: (message: string | Buffer) => void
+  /** 主动断开页面侧连接，模拟服务重启等异常断线。 */
+  close: (options?: {code?: number; reason?: string}) => Promise<void>
 }
 
 // 用完整 JSON 编写测试拦截器，测试改写后的消息仍按真实协议收发。
@@ -29,6 +31,7 @@ export function routeRpc(page: Page, handler: (socket: JsonRoute) => void) {
             }
           })
         },
+        close: options => route.close(options),
         send(message) {
           const bytes = Buffer.from(message)
           if (!channel || bytes.length <= frameBytes) { route.send(bytes.toString('utf8')); return }

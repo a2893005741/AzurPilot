@@ -1719,7 +1719,8 @@ button:disabled, input:disabled, textarea:disabled, select:disabled, .select-tri
 .app-shell.legacy-shell .settings-page .config-group {
   padding: 0;
   border: 1px solid var(--rail-panel-edge);
-  border-radius: 16px;
+  /* 取主题面板圆角：经典主题即 16px，简约主题保持自己的 14px。 */
+  border-radius: var(--theme-radius-panel, 16px);
   background: var(--rail-panel-bg);
   -webkit-backdrop-filter: var(--rail-panel-filter);
   backdrop-filter: var(--rail-panel-filter);

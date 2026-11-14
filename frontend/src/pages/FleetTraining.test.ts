@@ -123,7 +123,8 @@ describe('换船调度记录分组', () => {
       ui: (key, params) => translateUi('zh-CN', key, params),
     } as AppContextValue}, createElement(TrainingRecords, {snapshot: recordsFixture()})))
     expect(html.match(/<section/g)).toHaveLength(3)
-    expect(html.match(/<tr>/g)).toHaveLength(21)
+    // 表格行来自组件库，<tr> 带 data-slot 等属性，按标签名计数而不是匹配裸标签。
+    expect(html.match(/<tr[\s>]/g)).toHaveLength(21)
     for (const text of ['培养舰船', '完成舰船', '旧记录舰船', '舰队', '舰位', '心情（最近记录）', '企业', '当前经验'])
       expect(html).toContain(text)
   })

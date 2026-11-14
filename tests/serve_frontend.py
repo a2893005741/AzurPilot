@@ -3,6 +3,7 @@ import json
 import os
 import shutil
 import tempfile
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -100,9 +101,8 @@ def main():
         runtime.statistics = lambda instance, days, resource: {
             'instance': instance, 'resource': resource, 'points': [], 'truncated': False,
         }
-        from module.api.router import Method
-        from module.api.protocol import StatisticsReportParams
-        app.state.gateway.router.methods['statistics.report'] = Method(StatisticsReportParams, lambda params: {
+        methods = app.state.gateway.router.methods
+        methods['statistics.report'] = replace(methods['statistics.report'], handler=lambda params: {
             'instance': params.instance, 'category': params.category, 'month': params.month,
             'metrics': [], 'series': [{'key': 'oil', 'label': '石油', 'points': []}], 'tables': [], 'notes': [],
         })

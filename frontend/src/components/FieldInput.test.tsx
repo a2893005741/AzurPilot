@@ -25,11 +25,11 @@ describe('配置输入控件', () => {
     const custom = render('D3_3')
     expect(custom).toContain('combo-control')
     expect(custom).toContain('value="D3_3"')
-    expect(custom).toContain('选择关卡')
-    expect(custom).toContain('<option value="&quot;SP&quot;">SP</option>')
+    // 下拉改由组件库渲染：候选列表展开后才挂载，静态渲染只能检查触发器上显示的当前项。
+    expect(custom).toMatch(/data-slot="select-value"[^>]*>选择关卡</)
 
     const picked = render('b1')
-    expect(picked).toMatch(/<option value="&quot;B1&quot;" selected="">B1<\/option>/)
+    expect(picked).toMatch(/data-slot="select-value"[^>]*>B1</)
   })
 
   it('没有候选时保持普通文本框', () => {

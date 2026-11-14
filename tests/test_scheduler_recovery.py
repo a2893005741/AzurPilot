@@ -733,17 +733,24 @@ class TestSchedulerRecovery(unittest.TestCase):
         recorder = LogRes(script.config)
         script.main = lambda: setattr(recorder, 'Oil', 456)
 
-        with patch('module.config.utils.filepath_config', return_value=profile), \
-                patch('module.statistics.resource_flow.observe') as ledger, \
-                patch.object(LogRes, '_record_all_resource_snapshot') as snapshot, \
-                self.assertLogs('alas', level='WARNING') as logs, store.database.transaction():
-            self.assertIs(script.run('main'), True)
+        from module.persistence.write_queue import write_queue
 
-        self.assertIn('实例=testpilot 资源=Oil 来源=Main 错误=SQLITE_BUSY', '\n'.join(logs.output))
+        # 观测改走排队写入（上游 555f68e58）后，主循环只入队不抢写锁，不再同步报告 SQLITE_BUSY；
+        # 任务边界的刷新拿不到锁时保留待写项，锁释放后再落库。
+        # 账本写入的目标库不在临时目录，必须打桩，避免后续刷新写进仓库的真实配置库。
+        with patch('module.config.utils.filepath_config', return_value=profile), \
+                patch('module.statistics.resource_flow.observe_async') as ledger, \
+                patch.object(LogRes, '_record_all_resource_snapshot') as snapshot:
+            with store.database.transaction():
+                self.assertIs(script.run('main'), True)
+                self.assertGreater(write_queue.pending(), 0)
+            self.assertEqual({}, store.observations('testpilot'))
+            self.assertTrue(write_queue.flush(timeout=15))
+
+        self.assertIn('Oil', store.observations('testpilot'))
         self.assertEqual(456, script.config.modified['Dashboard.Oil.Value'])
-        self.assertEqual({}, store.observations('testpilot'))
-        ledger.assert_not_called()
-        snapshot.assert_not_called()
+        ledger.assert_called_once()
+        snapshot.assert_called_once()
         script.config.task_call.assert_not_called()
         script._try_restart_emulator.assert_not_called()
         self.assertEqual({}, script.task_restart_record)

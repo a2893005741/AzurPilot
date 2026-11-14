@@ -45,7 +45,8 @@ class TestCoinTimelineRecovery(unittest.TestCase):
         self.temporary_directory.cleanup()
 
     def _insert_snapshot(self, timestamp, yellow_coin, purple_coin):
-        with resource_stats._connect() as connection:
+        # 上游删除了 _connect 包装（快照改走排队写入），直接取同一个总库连接。
+        with resource_stats._database().connect() as connection:
             # 总库的资源快照以外键引用实例表，与 record_resource_snapshot 一样先登记实例。
             register_instance(connection, "alas")
             connection.execute(

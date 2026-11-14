@@ -400,6 +400,9 @@ class ResourcePersistenceTests(unittest.TestCase):
         with resource_flow.task_session('testpilot', 'OpsiHazard1Leveling'):
             future = record_resources_background(self.config, {'YellowCoin': 51000}, observed_at=self.stamp)
         future.result(timeout=15)
+        # 库存复核改走排队写入（上游 555f68e58），读账本前先排空队列。
+        from module.persistence.write_queue import write_queue
+        self.assertTrue(write_queue.flush(timeout=15))
         with resource_flow.connect() as connection:
             balance = connection.execute('SELECT * FROM resource_balances WHERE resource=?', ('YellowCoin',)).fetchone()
         self.assertEqual(balance['ts'], str(self.stamp))

@@ -127,7 +127,8 @@ class TestRequiredRuntimeAssets(unittest.TestCase):
             image.verify()
 
     def test_readme_mac_gui_image_is_packaged(self):
-        asset = REPO_ROOT / "doc" / "macGUI.png"
+        # README 图片已统一迁到 docs/images（上游 7eaf529ed），用例跟随 README 的引用路径。
+        asset = REPO_ROOT / "docs" / "images" / "macGUI.png"
         self.assertTrue(asset.is_file(), f"缺少 README 引用的 macOS 界面图片：{asset}")
 
         with Image.open(asset) as image:

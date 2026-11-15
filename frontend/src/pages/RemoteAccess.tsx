@@ -51,7 +51,7 @@ export function RemoteAccess() {
   }
 
   return <>
-    <h1 className="legacy-sr-title">{ui('nav.remote')}</h1>
+    <h1 className="modern-sr-title">{ui('nav.remote')}</h1>
     <div className="settings-page">
       {error && <Alert variant="destructive"><AlertCircle/><AlertDescription>{error}</AlertDescription></Alert>}
       {edits.storageError && <Alert variant="destructive"><AlertCircle/><AlertDescription>{edits.storageError}</AlertDescription></Alert>}
@@ -77,7 +77,7 @@ export function RemoteAccess() {
         {!address && status === 'disabled' && <p className="panel-note">{ui('remote.disabledHint')}</p>}
         {data?.remote?.error && <p className="panel-note">{data.remote.error}</p>}
       </section>
-      <PairingPanel ready={!!address && data?.remote?.state === 'cloudflare_ready'}/>
+      <PairingPanel ready={!!address && ['cloudflare_ready', 'direct_ready', 'registered'].includes(data?.remote?.state ?? '')}/>
       {!data ? (
         <span role="status" className="remote-loading">
           <Spinner aria-hidden="true"/>{ui('common.loading')}

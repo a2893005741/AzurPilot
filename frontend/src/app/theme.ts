@@ -5,23 +5,36 @@ import { applyColorOverrides } from './colorPalette'
 import { colorModes, fixedColorModes, paletteColors, palettes, paletteTokens, readCustomPalettes, type ColorMode, type CustomPalette, type Palette, type ResolvedMode } from './palettes'
 import { applyFamilyCustom } from './themeCustom'
 
-/** 主题档位。旧版本存储的 dark / extreme 值在读取时迁移为对应的 legacy 档。 */
-export type Theme = 'legacy-light' | 'legacy-dark' | 'minimal'
+/** 主题档位。旧版本存储的 dark / extreme / legacy-* 值在读取时迁移为对应的 modern 档。 */
+export type Theme = 'modern-light' | 'modern-dark' | 'minimal'
+/** 主题表面材质。 */
 export type Material = 'glass' | 'plain'
-/** 家族标识全集；本构建的自定义外观资源只按 legacy（THEME_FAMILY）提供。 */
-export type Family = 'legacy' | 'new' | 'minimal' | 'extreme'
+/** 家族标识全集；本构建的自定义外观资源只按 modern（THEME_FAMILY）提供。 */
+export type Family = 'modern' | 'new' | 'minimal' | 'extreme'
 /** 本构建启用的主题家族：自定义外观（材质检视器等）按它读取对应资源。 */
-export const THEME_FAMILY = 'legacy'
+export const THEME_FAMILY = 'modern'
 
-type Preference = {theme: Theme; material: Material; palette: Palette; colorMode: ColorMode; customPalettes: CustomPalette[]}
-const defaults: Preference = {theme: 'legacy-light', material: 'plain', palette: 'ocean', colorMode: 'auto', customPalettes: []}
+/** localStorage 中持久化的主题偏好；字段缺失或非法时按 defaults 补齐。 */
+type Preference = {
+  /** 明暗档位，minimal 为简皮肤特例。 */
+  theme: Theme
+  /** 表面材质。 */
+  material: Material
+  /** 品牌配色 ID。 */
+  palette: Palette
+  /** 强制明暗或跟随系统。 */
+  colorMode: ColorMode
+  /** 用户自定义的品牌配色，保底为空数组。 */
+  customPalettes: CustomPalette[]
+}
+const defaults: Preference = {theme: 'modern-light', material: 'plain', palette: 'ocean', colorMode: 'auto', customPalettes: []}
 
 /** 迁移旧皮肤，保留显式选择的明暗。程序员配色是旧固定模式里唯一的深色档。 */
 function migrateTheme(theme: string | null, colorMode: string | null): Theme {
   if (theme === 'minimal') return 'minimal'
-  if (theme === 'dark' || theme === 'legacy-dark') return 'legacy-dark'
-  if (theme === 'extreme' && (colorMode === 'dark' || colorMode === 'terminal')) return 'legacy-dark'
-  return 'legacy-light'
+  if (theme === 'dark' || theme === 'legacy-dark' || theme === 'modern-dark') return 'modern-dark'
+  if (theme === 'extreme' && (colorMode === 'dark' || colorMode === 'terminal')) return 'modern-dark'
+  return 'modern-light'
 }
 
 /** 从 localStorage 读取主题偏好；键缺失或存储不可用时整体回落默认值，不抛错。 */
@@ -45,7 +58,7 @@ let systemQuery: MediaQueryList | undefined
 let themeTokens: string[] = []
 
 function resolveMode({theme, colorMode}: Preference): ResolvedMode {
-  if (theme !== 'minimal') return theme === 'legacy-dark' ? 'dark' : 'light'
+  if (theme !== 'minimal') return theme === 'modern-dark' ? 'dark' : 'light'
   return fixedColorModes[colorMode]?.mode ?? (colorMode === 'dark' || (colorMode === 'auto' && systemQuery?.matches) ? 'dark' : 'light')
 }
 
@@ -70,9 +83,14 @@ export function applyCustomLayer() {
   themeTokens = [...themeTokens, ...applyColorOverrides(root, resolvedMode)]
 }
 
-/** 当前生效的主题偏好，已附带解析后的明暗模式（resolvedMode）。 */
+/** 读取当前生效的主题偏好，其中附带解析后的明暗模式。 */
 export const getThemePreference = () => preference
-/** 订阅主题变更通知，返回退订函数。 */
+/**
+ * 订阅主题变更通知。
+ *
+ * @param listener 主题变化回调。
+ * @returns 取消订阅函数。
+ */
 export const subscribeTheme = (listener: () => void) => {
   listeners.add(listener)
   return () => { listeners.delete(listener) }
@@ -93,8 +111,10 @@ function systemModeChanged() {
 }
 
 /**
- * 应用一份主题偏好：写 documentElement 的 data 标记并持久化到 localStorage（存储失败只影响持久化）。
- * 仅 minimal + auto 挂系统明暗监听；切到其他组合时卸掉监听。
+ * 应用主题偏好。
+ *
+ * 写入 `documentElement` 的 data 标记并持久化到 localStorage，存储失败只影响持久化。
+ * @param next 要应用的主题偏好。
  */
 export function applyTheme(next: Preference) {
   const root = document.documentElement

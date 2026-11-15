@@ -74,7 +74,7 @@ test('断线后自动恢复，保留未保存草稿', async ({page}) => {
   // 明暗改为下拉选择（上游统一设置页版式）。
   await page.getByRole('combobox', {name: '明暗', exact: true}).click()
   await page.getByRole('option', {name: '深色', exact: true}).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'legacy-dark')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'modern-dark')
   await page.goto('/#/i/testpilot/task/Alas')
   await expect(serial).toBeVisible()
   await page.screenshot({path: 'test-results/config-dark.png', fullPage: true, animations: 'disabled'})

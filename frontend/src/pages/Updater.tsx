@@ -11,6 +11,7 @@ import type { UpdaterState } from '../app/updater'
 import { useApp, useConnection } from '../app/context'
 import { ActionGroup, Empty, ErrorBox, Loading, Modal } from '../components/ui'
 import { localeForLanguage, type UiKey } from '../i18n'
+import './Updater.css'
 
 /** 后端更新状态字符串 → 界面文案键；'run update' 与 apply 共用一条文案。 */
 const states: Record<string, UiKey> = {idle: 'updater.state.idle', android: 'updater.state.android', available: 'updater.state.available', fetch: 'updater.state.fetch', checking: 'updater.state.checking', apply: 'updater.state.apply', start: 'updater.state.start', wait: 'updater.state.wait', 'run update': 'updater.state.apply', reload: 'updater.state.reload', failed: 'updater.state.failed', finish: 'updater.state.finish', cancel: 'updater.state.cancel'}
@@ -62,7 +63,8 @@ export function Updater() {
     else void act('updater.apply')
   }
   const disabled = busy || connection !== 'ready' || !data || data.busy
-  const statusLabel = !local || !upstream ? ui('updater.noVersion') : data?.state === 'failed' ? ui('updater.state.failed') : data?.available && !data.busy ? ui('updater.state.available') : states[data?.state ?? ''] ? ui(states[data?.state ?? '']) : data?.state
+  const stateLabel = states[data?.state ?? '']
+  const statusLabel = !local || !upstream ? ui('updater.noVersion') : data?.state === 'failed' ? ui('updater.state.failed') : data?.available && !data.busy ? ui('updater.state.available') : stateLabel ? ui(stateLabel) : data?.state
   return <div className="settings-page">
     {!data?.managedByAndroid && <header className="updater-head">
       <h1 className="sr-only">{ui('nav.updater')}</h1>

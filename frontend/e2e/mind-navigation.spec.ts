@@ -82,7 +82,7 @@ test('舰队管理打开舰船数据与智能换船，扫描开关只运行工�
   await expect(page.getByRole('checkbox', {name: '全选当前筛选'})).toBeVisible()
   await expect(page.locator('input[type=file]')).toHaveCount(0)
   // 实例页使用居中页名，不再有面包屑。
-  await expect(page.locator('.legacy-topbar-title')).toHaveText('舰船数据')
+  await expect(page.locator('.modern-topbar-title')).toHaveText('舰船数据')
   await expect(menu.getByRole('link', {name: '舰船数据', exact: true})).toBeVisible()
   await page.screenshot({path: test.info().outputPath('fleet-management-calculator.png'), fullPage: true, animations: 'disabled'})
 })

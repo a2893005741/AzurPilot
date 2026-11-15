@@ -16,7 +16,8 @@ test('资源管理位于资源趋势旁边，旧入口跳转且刷新保持选�
   await expect(tabs.nth(0)).toHaveText('资源趋势')
   await expect(tabs.nth(1)).toHaveText('资源管理')
   await expect(page.getByRole('link', {name: '资源管理', exact: true})).toHaveCount(0)
-  await expect(page.getByRole('heading', {name: '资源管理', exact: true})).toBeVisible()
+  // 资源管理改为统计页内的页签，页面不再单独渲染同名标题。
+  await expect(page.locator('.resource-management')).toBeVisible()
   await page.reload()
   await expect(page.getByRole('tab', {name: '资源管理', exact: true})).toHaveAttribute('aria-selected', 'true')
   await page.getByRole('tab', {name: '资源趋势', exact: true}).click()
@@ -61,11 +62,12 @@ test('舰队管理打开舰船数据与智能换船，扫描开关只运行工�
   await expect(scan).not.toBeChecked()
   await scan.click()
   await expect(scan).toBeChecked()
-  await expect(scan).toHaveClass(/\bon\b/)
+  // 组件库开关以 data-state 表示视觉状态，不再挂 on 类。
+  await expect(scan).toHaveAttribute('data-state', 'checked')
   await expect(page.getByRole('heading', {name: '日志', exact: true})).toBeVisible()
   await scan.click()
   await expect(scan).not.toBeChecked()
-  await expect(scan).not.toHaveClass(/\bon\b/)
+  await expect(scan).toHaveAttribute('data-state', 'unchecked')
   await expect(page.locator('.fleet-grid')).toContainText('新扫描舰')
   expect(requests.filter(method => method === 'tasks.run')).toHaveLength(1)
   expect(requests.filter(method => method === 'scheduler.stop')).toHaveLength(1)
@@ -75,8 +77,8 @@ test('舰队管理打开舰船数据与智能换船，扫描开关只运行工�
   await expect(page).toHaveURL(url => url.hash === '#/i/demo-alt/task/FleetAnalysis')
   // 顶栏的实例标签同为 tab，只统计页面内的页签。
   await expect(page.locator('main').getByRole('tab')).toHaveCount(4)
-  await page.getByRole('tab', {name: '养成计算', exact: true}).click()
-  await expect(page).toHaveURL(url => url.hash === '#/i/demo-alt/task/FleetAnalysis?tab=mind')
+  // 页签记忆恢复上次的养成计算；组件库 Tabs 点击已选中页签不触发切换，URL 保持不带 tab。
+  await expect(page.getByRole('tab', {name: '养成计算', exact: true})).toHaveAttribute('aria-selected', 'true')
   await page.reload()
   await expect(page.getByRole('heading', {name: '养成计算', exact: true})).toBeVisible({timeout: 15000})
   await expect(page.getByRole('checkbox', {name: '全选当前筛选'})).toBeVisible()

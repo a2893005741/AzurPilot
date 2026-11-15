@@ -19,8 +19,13 @@ _original_temporary_directory_init = tempfile.TemporaryDirectory.__init__
 
 # SQLite 临时文件走 TMP/TEMP，不探测可写性；受限环境里该目录不可写会让
 # 大语句报 SQLITE_CANTOPEN。为测试进程统一指向可写目录，裸连接同样受益。
-_sqlite_temp = tempfile.TemporaryDirectory(prefix='pytest-sqlite-temp-')
-os.environ['TMP'] = os.environ['TEMP'] = _sqlite_temp.name
+# spawn 子进程导入 tests 包时会再次执行本文件；沿用父进程已建的目录，
+# 否则子进程的 gettempdir() 嵌套到新目录，父进程传入的临时路径不再位于其下。
+_SQLITE_TEMP_ENV = 'AZURPILOT_TEST_SQLITE_TEMP'
+if not os.environ.get(_SQLITE_TEMP_ENV):
+    _sqlite_temp = tempfile.TemporaryDirectory(prefix='pytest-sqlite-temp-')
+    os.environ[_SQLITE_TEMP_ENV] = _sqlite_temp.name
+os.environ['TMP'] = os.environ['TEMP'] = os.environ[_SQLITE_TEMP_ENV]
 tempfile.tempdir = None
 
 

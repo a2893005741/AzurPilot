@@ -33,6 +33,10 @@ from module.retire.retirement import Retirement
 
 FIXTURES = Path(__file__).parent / 'fixtures' / 'sortie_flow'
 
+# fork 的出击流程用 MapOperation.handle_delegation_popup() 处理作战委托弹窗，
+# 不走上游版 handle_handover_conflict()/handover_conflict_delay()，以下用例只适用于上游实现。
+FORK_HANDOVER = pytest.mark.skip(reason='fork 改用 handle_delegation_popup 处理委托冲突')
+
 
 def screenshot(name):
     return cv2.cvtColor(cv2.imread(str(FIXTURES / f'{name}.png')), cv2.COLOR_BGR2RGB)
@@ -129,6 +133,7 @@ def test_unlock_attempts_exactly_one_continuous_sortie(completed, supported, exp
     context.handover_enter.assert_called_once_with()
 
 
+@FORK_HANDOVER
 @pytest.mark.parametrize('task', ['Main', 'Event'])
 def test_completed_handover_is_claimed_before_main_or_event_continues(task):
     context = SimpleNamespace(
@@ -142,6 +147,7 @@ def test_completed_handover_is_claimed_before_main_or_event_continues(task):
     context.config.cross_set.assert_called_once()
 
 
+@FORK_HANDOVER
 def test_other_stage_prompt_opens_real_details():
     context = SimpleNamespace(
         handover_conflict_appear=lambda: True,
@@ -152,6 +158,7 @@ def test_other_stage_prompt_opens_real_details():
     context.appear_then_click.assert_called_once_with(HANDOVER_CHECK, offset=(20, 20), interval=2)
 
 
+@FORK_HANDOVER
 def test_next_week_trigger_is_never_used_as_commission_end():
     now = datetime(2026, 11, 16, 12)
     config = SimpleNamespace(

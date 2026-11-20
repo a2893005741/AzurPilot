@@ -275,11 +275,8 @@ class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement
                 if self.handle_map_detail():
                     campaign_timer.reset()
                     continue
-                # 作战委托进行中，出击会被游戏阻止
-                if self.handover_conflict_appear():
-                    self.handle_handover_conflict()
-                    continue
 
+                # 连续作战面板与中止信号只在本批请求连续作战时处理。
                 if self.__dict__.get('_multiple_sorties_requested', 0) and self.multiple_sorties_panel_appear():
                     if self.handle_multiple_sorties_preparation():
                         campaign_timer.reset()

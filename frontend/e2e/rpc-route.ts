@@ -18,6 +18,7 @@ export function routeRpc(page: Page, handler: (socket: JsonRoute) => void) {
     function wrap(route: WebSocketRoute): JsonRoute {
       return {
         channel,
+        close: options => route.close(options),
         connectToServer: () => wrap(route.connectToServer()),
         onMessage(receive) {
           let parts: Buffer[] = []
@@ -31,7 +32,6 @@ export function routeRpc(page: Page, handler: (socket: JsonRoute) => void) {
             }
           })
         },
-        close: options => route.close(options),
         send(message) {
           const bytes = Buffer.from(message)
           if (!channel || bytes.length <= frameBytes) { route.send(bytes.toString('utf8')); return }

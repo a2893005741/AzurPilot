@@ -34,6 +34,7 @@ from module.campaign.assets import (
 )
 from module.combat.assets import BATTLE_PREPARATION, GET_SHIP
 from module.config import server
+from module.campaign.multiple_sorties import MultipleSorties
 from module.config.time_source import now as current_time
 from module.config.utils import read_run_param
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
@@ -62,7 +63,7 @@ MAP_PREPARATION_FALLBACK = Button(
 # （RunParams.Handover），默认值集中在 module/base/runtime_params.py。
 
 
-class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
+class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
     """地图操作处理器。
 
     封装战役地图中的所有基础操作，包括进入关卡、舰队切换、
@@ -274,6 +275,20 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                 if self.handle_map_detail():
                     campaign_timer.reset()
                     continue
+                # 作战委托进行中，出击会被游戏阻止
+                if self.handover_conflict_appear():
+                    self.handle_handover_conflict()
+                    continue
+
+                if self.__dict__.get('_multiple_sorties_requested', 0) and self.multiple_sorties_panel_appear():
+                    if self.handle_multiple_sorties_preparation():
+                        campaign_timer.reset()
+                        fleet_timer.reset()
+                    continue
+                if (self.__dict__.get('_multiple_sorties_requested', 0)
+                        and self._multiple_sorties_abort is not None
+                        and self.appear(FLEET_PREPARATION, offset=(20, 50))):
+                    raise self._multiple_sorties_abort
 
                 # 地图准备
                 if map_timer.reached() and self.handle_map_mode_switch(mode):
@@ -312,7 +327,12 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                         if not self.appear(FLEET_PREPARATION, offset=(20, 50)):
                             logger.warning('FLEET_PREPARATION button disappeared after fleet_preparation()')
                             continue
-                    self.device.click(FLEET_PREPARATION)
+                    if self.__dict__.get('_multiple_sorties_requested', 0):
+                        if not self.appear(MULTIPLE_SORTIES_ENTER, offset=(20, 20)):
+                            raise ScriptEnd('[连续作战] 当前关卡没有连续作战入口')
+                        self.device.click(MULTIPLE_SORTIES_ENTER)
+                    else:
+                        self.device.click(FLEET_PREPARATION)
                     fleet_click += 1
                     fleet_timer.reset()
                     campaign_timer.reset()

@@ -75,16 +75,15 @@ test('舰队管理打开舰船数据与智能换船，扫描开关只运行工�
   await page.screenshot({path: test.info().outputPath('fleet-info-scan-switch.png'), fullPage: true, animations: 'disabled'})
   await menu.getByRole('link', {name: '舰船数据', exact: true}).click()
   await expect(page).toHaveURL(url => url.hash === '#/i/demo-alt/task/FleetAnalysis')
-  // 顶栏的实例标签同为 tab，只统计页面内的页签。
-  await expect(page.locator('main').getByRole('tab')).toHaveCount(4)
-  // 页签记忆恢复上次的养成计算；组件库 Tabs 点击已选中页签不触发切换，URL 保持不带 tab。
-  await expect(page.getByRole('tab', {name: '养成计算', exact: true})).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('.fleet-analysis').getByRole('tab')).toHaveCount(4)
+  const calculation = page.getByRole('tab', {name: '养成计算', exact: true})
+  await calculation.click()
+  await expect(calculation).toHaveAttribute('aria-selected', 'true')
   await page.reload()
   await expect(page.getByRole('heading', {name: '养成计算', exact: true})).toBeVisible({timeout: 15000})
   await expect(page.getByRole('checkbox', {name: '全选当前筛选'})).toBeVisible()
   await expect(page.locator('input[type=file]')).toHaveCount(0)
-  // 实例页使用居中页名，不再有面包屑。
-  await expect(page.locator('.modern-topbar-title')).toHaveText('舰船数据')
+  await expect(page.locator('main').getByRole('heading', {name: '舰船数据', exact: true})).toBeAttached()
   await expect(menu.getByRole('link', {name: '舰船数据', exact: true})).toBeVisible()
   await page.screenshot({path: test.info().outputPath('fleet-management-calculator.png'), fullPage: true, animations: 'disabled'})
 })

@@ -9,7 +9,10 @@ test.beforeEach(async ({page}) => {
 })
 
 test('简约主题跟随系统明暗并恢复已保存的配色', async ({page}) => {
-  await page.addInitScript(() => localStorage.setItem('azurpilot.material', 'glass'))
+  await page.addInitScript(() => {
+    localStorage.setItem('azurpilot.material', 'glass')
+    localStorage.setItem('azurpilot.palette', 'forest')
+  })
   // 固定无障碍偏好，避免宿主系统关闭透明效果时跳过正常材质验证。
   const session = await page.context().newCDPSession(page)
   await session.send('Emulation.setEmulatedMedia', {features: [{name: 'prefers-reduced-transparency', value: 'no-preference'}]})
@@ -28,7 +31,7 @@ test('简约主题跟随系统明暗并恢复已保存的配色', async ({page})
   // 界面设置拆成主题、调度器位置与语言三张卡片，任取第一张校验简约主题的圆角。
   await expect(page.locator('.config-group').first()).toHaveCSS('border-radius', '14px')
 
-  // 上游 5875c48c1 移除了简约主题的配色方案与自定义配色编辑器，这里只验证仍保留的主题模式。
+  await expect(root).toHaveCSS('--accent', '#286747')
   await page.emulateMedia({colorScheme: 'dark'})
   await expect(root).toHaveAttribute('data-color-mode', 'dark')
 
@@ -40,6 +43,7 @@ test('简约主题跟随系统明暗并恢复已保存的配色', async ({page})
   await expect(theme).toHaveText('简约')
   await expect(mode).toHaveText('深色')
   await expect(root).toHaveAttribute('data-color-mode', 'dark')
+  await expect(root).toHaveCSS('--accent', '#86cba3')
 
   await mode.click()
   await page.getByRole('option', {name: '程序员'}).click()

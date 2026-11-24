@@ -128,16 +128,18 @@ test('自定义背景支持 URL 与上传文件并在刷新后恢复', async ({p
 
   await source.click()
   await page.getByRole('option', {name: '上传文件'}).click()
+  const uploadResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/background/gallery' && response.request().method() === 'POST')
   await page.locator('.background-upload input[type="file"]').setInputFiles({
     name: 'local.png',
     mimeType: 'image/png',
     buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
   })
+  const {entry} = await (await uploadResponse).json() as {entry: {id: string}}
+  const uploadedSrc = `/background-library/${encodeURIComponent(entry.id)}`
   await expect(page.locator('.background-gallery-list')).toContainText('local.png')
-  const uploaded = page.locator('.wallpaper img')
-  await expect(uploaded).toHaveAttribute('src', /^\/background-library\//)
-  const uploadedSrc = await uploaded.getAttribute('src')
+  // 等待 Wallpaper 预加载解码完成并切换为本次上传的图库条目，避免在旧图尚在显示时读取 src。
+  await expect(page.locator('.wallpaper img')).toHaveAttribute('src', uploadedSrc)
   await page.reload()
-  await expect(page.locator('.wallpaper img')).toHaveAttribute('src', uploadedSrc!)
+  await expect(page.locator('.wallpaper img')).toHaveAttribute('src', uploadedSrc)
   await expect(page.getByRole('combobox', {name: '自定义背景'})).toHaveText('上传文件')
 })

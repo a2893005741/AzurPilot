@@ -2,7 +2,7 @@
 
 > 模块化组合出的「单场战斗」执行器：从出击准备、自动/手动战斗、潜艇调度到结算与掉落记录，并以纯时间模型管理情绪、以颜色识别管理血量。
 
-S 经验结算由 `Combat.handle_exp_info()` 保留确定按钮兜底点击（fork 实现点击结算页右下角的 `COMBAT_RESULT_CONFIRM`），`EXP_INFO_S` 使用 2 秒识别间隔等待自律自动跳转，不再额外固定休眠。设备层仅对点击记录名为 `EXP_INFO_S` 的按钮将单按钮连击保护阈值放宽为 15 次（fork 点击记录为 `COMBAT_RESULT_CONFIRM`，仍按 12 次计）；其他按钮仍为 12 次，双按钮各 6 次的交替点击保护不变。
+普通战役的评价和经验确认页默认每隔至少 0.5 秒重试，由 `CampaignBase.battle_result_retry_interval` 设置（`Combat` 和 `CoalitionCombat` 默认为 2 秒）。`Combat.handle_exp_info()` 保留确定按钮兜底点击（fork 实现点击结算页右下角的 `COMBAT_RESULT_CONFIRM`）作为经验结算自动跳转的补充。设备层仅对点击记录名为 `EXP_INFO_S` 的按钮将单按钮连击保护阈值放宽为 15 次（fork 点击记录为 `COMBAT_RESULT_CONFIRM`，仍按 12 次计）；其他按钮仍为 12 次，双按钮各 6 次的交替点击保护不变。
 
 ## 1. 模块概述
 

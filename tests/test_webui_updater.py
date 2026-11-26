@@ -15,6 +15,7 @@ class TestGitInstall(unittest.TestCase):
         for use_cdn, cdn_success in ((False, False), (True, True), (True, False)):
             with self.subTest(use_cdn=use_cdn, cdn_success=cdn_success):
                 manager = Mock(spec=GitManager)
+                manager.MirrorChyan = False
                 manager.GitOverCdn = use_cdn
                 manager.goc_client.update.return_value = cdn_success
                 with patch('deploy.git.requests.get') as request:
